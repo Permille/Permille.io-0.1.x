@@ -1,0 +1,17 @@
+{
+  "Meta":{
+    "ControlsName": "DebugConfigControls",
+    "ExitTo": "OptionsControls",
+    "LangIdentifier": "Debug",
+    "Location": "./Mods/Menu/DefaultMenus/BaseMenu/index.xhtml"
+  },
+  "Groups":{
+    "TeleportTitle":{
+      "FlyMode":{
+        "Type": "Switch",
+        "ID": "FlyMode",
+        "Default": false
+      }
+    }
+  }
+}

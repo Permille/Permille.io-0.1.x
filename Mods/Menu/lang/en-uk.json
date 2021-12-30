@@ -1,0 +1,101 @@
+{
+  "Main":{
+    "Paused": "Paused",
+    "PausedDesc": "Press [%KEY:Exit] to return.",
+    "BackToGame": "Back to game",
+    "Options": "Options",
+    "Restart": "Restart client",
+    "QuickAccess": "Quick Access"
+  },
+  "Options":{
+    "Options": "Options",
+    "OptionsDesc": "You can pin an option for easy access from the main menu.",
+    "Controls": "Controls",
+    "Graphics": "Graphics",
+    "World": "World",
+    "Player": "Player",
+    "Language": "Language",
+    "Settings": "Settings",
+    "Config": "Config",
+    "Debug": "Debug Settings",
+    "Exit": "Exit"
+  },
+  "Graphics":{
+    "Graphics": "Graphics Settings",
+    "General": "General settings",
+    "FOV": "Field of vision",
+    "AO": "Ambient occlusion",
+    "AlternateBlocks": "Alternate block textures",
+    "RenderSize": "Render size multiplier",
+    "CloudSize": "Cloud render size",
+    "CloudCoverage": "Cloud coverage",
+    "Shader": "Shadows",
+    "UseShader": "Draw shadows",
+    "ShadowLevels": "Shadow level count",
+    "ConfigureDistances": "Configure shadow distances...",
+    "ConfigureBiases": "Configure shadow biases...",
+    "Configure": "Configure",
+    "BiasConfigInfo": "To get the best results, configure the shadow biases with your usual aspect ratio. Otherwise, the shadows could be offset by too much.",
+    "PostProcessing": "Post-processing",
+    "DOF": "Depth of field",
+    "FogFactor": "Fog factor",
+    "Exit": "Exit"
+  },
+  "Controls":{
+    "Controls": "Controls",
+    "MouseSettings": "Mouse settings",
+    "Sensitivity": "Sensitivity",
+    "InvertY": "Invert Y-Axis",
+    "KeyboardSettings": "Keyboard settings",
+    "Forwards": "Walk forwards",
+    "Backwards": "Walk backwards",
+    "Leftwards": "Walk leftwards",
+    "Rightwards": "Walk rightwards",
+    "Downwards": "Go downwards / crouch",
+    "Upwards": "Fly upwards / jump",
+    "BreakBlock": "Break block",
+    "PlaceBlock": "Place block / interact",
+    "PickBlock": "Pick block",
+    "Chat": "Open chat menu",
+    "Exit": "Exit"
+  },
+  "World":{
+    "World": "World",
+    "Seed": "Seed",
+    "Reset": "Re-generate world",
+    "Exit": "Exit"
+  },
+  "Player":{
+    "Player": "Player",
+    "Speed": "Velocity",
+    "JumpSpeed": "Jumping velocity",
+    "Gravity": "Gravitational acceleration",
+    "AirDrag": "Air resistance",
+    "Exit": "Exit"
+  },
+  "Language":{
+    "Language": "Select Language",
+    "Exit": "Exit"
+  },
+  "Settings":{
+    "Settings": "Settings",
+    "ViewDistance": "View Distance",
+    "LoadDistance": "Maximum load distance",
+    "VirtualRegionDepths": "Virtual region depths",
+    "AvgDistance": "Approximate view distance",
+    "ApplyViewSettings": "Apply selection",
+    "Exit": "Exit"
+  },
+  "Config":{
+    "Config": "Configuration",
+    "ConfigInfo": "Will be applied after a restart.",
+    "Exit": "Exit"
+  },
+  "Debug":{
+    "Debug": "Debug Settings",
+    "TeleportTitle": "Teleportation",
+    "Teleport": "Teleport",
+    "FlyMode": "Enable flying",
+    "Exit": "Exit"
+  }
+}

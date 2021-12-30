@@ -1,0 +1,23 @@
+{
+  "Meta":{
+    "ControlsName": "WorldConfigControls",
+    "ExitTo": "OptionsControls",
+    "LangIdentifier": "World",
+    "Location": "./Mods/Menu/DefaultMenus/BaseMenu/index.xhtml"
+  },
+  "Groups":{
+    "":{
+      "Seed":{
+        "Type": "Text",
+        "ID": "Seed",
+        "DataType": "number",
+        "Default": 17
+      },
+      "Reset":{
+        "Type": "CenteredButton",
+        "ID": "Reset",
+        "TextExp": "Reset"
+      }
+    }
+  }
+}

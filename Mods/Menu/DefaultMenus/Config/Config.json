@@ -1,0 +1,13 @@
+{
+  "Meta":{
+    "ControlsName": "ConfigConfigControls",
+    "ExitTo": "OptionsControls",
+    "LangIdentifier": "Config",
+    "Location": "./Mods/Menu/DefaultMenus/BaseMenu/index.xhtml"
+  },
+  "Groups":{
+    "ConfigInfo":{
+
+    }
+  }
+}

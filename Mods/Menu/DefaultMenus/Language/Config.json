@@ -1,0 +1,18 @@
+{
+  "Meta":{
+    "ControlsName": "LanguageConfigControls",
+    "ExitTo": "OptionsControls",
+    "LangIdentifier": "Language",
+    "Location": "./Mods/Menu/DefaultMenus/BaseMenu/index.xhtml"
+  },
+  "Groups":{
+    "":{
+      "Language":{
+        "Type": "Options",
+        "ID": "Language",
+        "Items": ["English", "Deutsch", "Српски"],
+        "Default": 0
+      }
+    }
+  }
+}

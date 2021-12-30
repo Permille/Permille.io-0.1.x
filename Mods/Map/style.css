@@ -1,0 +1,382 @@
+*{
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none;
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+}
+
+*:focus {
+    outline: none;
+}
+
+body{
+    font-family: Escape;
+    /* font-size: 16px; */
+    color: #000000;
+}
+
+
+html{
+    width: 100%;
+    height: 100%;
+}
+
+#MapWrapper{
+  position: absolute;
+  overflow: hidden;
+}
+
+#MapWrapper > div{
+  position: static;
+  opacity: 100%;
+}
+
+#MapWrapper.Small{
+  pointer-events: none;
+  border: #000000af;
+  border-width: 4px;
+  border-style: solid;
+  top: 30px;
+  right: 30px;
+  width: 22%;
+  height: 22%;
+}
+
+#MapWrapper.Big{
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.PeakInfoWrapper{
+  position: relative;
+}
+
+.MouseDetector{
+  position: absolute;
+  top: -100px;
+  left: -100px;
+  min-width: 200px;
+  min-height: 200px;
+  /*background-color: #007fff7f;*/
+}
+
+#MapView{
+  position: relative;
+  z-index: 0; /*Create new stacking context for the contained peak markers*/
+}
+
+#MapOverlay{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+#Coords, #Rotation, #Seed{
+  color: #000000df;
+  text-align: center;
+  background-color: #3f3f3f3f;
+  backdrop-filter: blur(3px);
+}
+
+.Big #Coords{
+  position: absolute;
+  background-color: #3f3f3f3f;
+  backdrop-filter: blur(3px);
+  font-size: 32px;
+  position: absolute;
+  bottom: 0;
+  border-top: solid #000000af 3px;
+  padding: 20px;
+
+  width: 100%;
+}
+
+
+.Small #Coords, .Small #Rotation, .Small #Seed{
+  position: fixed;
+  top: calc(22% + 30px + 12px);
+  left: calc(100% - 30px - 11%);
+  padding: 1px 3px 1px 4px;
+  font-size: 16px;
+  color: #ffffffdf;
+  background-color: #0000007f;
+
+  /*don't ask*/
+  transform: translate(calc(1e7px + calc(min(-50%, 0px)) - 1e7px), 0);
+}
+
+.Small #Rotation{
+  top: calc(22% + 51px + 12px);
+}
+
+.Small #Seed{
+  top: calc(22% + 72px + 12px);
+}
+
+.Big #Rotation, .Big #Seed{
+  display: none;
+}
+
+
+/*.MouseDetector:hover{
+  background-color: #ff7f007f;
+}*/
+
+.PeakInfo{
+  position: absolute;
+  background-color: #0000003f;
+  padding: 3px;
+  pointer-events: none;
+
+  backdrop-filter: blur(3px);
+
+  border: #0000007f;
+  border-width: 2px;
+  border-style: solid;
+}
+
+.PeakInfo > div[data-type]{
+  margin: auto;
+  white-space: nowrap;
+  text-align: center;
+}
+
+#MeasureDistance{
+  z-index: 2;
+  position: relative;
+  pointer-events: none;
+}
+
+#MeasureDistanceInfo{
+  background-color: #0000005f;
+  color: #ffffff;
+  position: absolute;
+  bottom: 100px;
+  padding: 1px 3px 1px 4px;
+  transform: translate(calc(1e7px + calc(min(-50%, 0px)) - 1e7px), 0);
+  left: 50%;
+}
+
+#DistanceMeasured::after,
+#AreaMeasured::after{
+  content: attr(data-measured);
+}
+
+#ContextMenu{
+  z-index: 3000;
+  background-color: #0000005f;
+  backdrop-filter: blur(3px);
+  border: #0000009f;
+  border-width: 2px;
+  border-style: solid;
+  width: 250px;
+  position: absolute;
+  left: 50px;
+  top: 300px;
+  font-size: 16px;
+}
+#ContextMenu *{
+  pointer-events: all;
+  font-smooth: never;
+  -webkit-font-smoothing : none;
+  color: #ffffff;
+}
+#ContextMenu > div{
+  padding: 3px 5px;
+}
+#ContextMenu > div:hover{
+  background-color: #0000003f;
+}
+#ContextMenu > div:active{
+  background-color: #0000007f;
+}
+
+#Waypoints{
+  mix-blend-mode: color-dodge;
+  position: relative;
+  white-space: nowrap;
+}
+
+.Waypoint{
+  position: relative;
+  height: 0px;
+}
+
+.WaypointInfo{
+  position: absolute;
+  transform: translate(calc(1e7px + calc(min(-50%, 0px)) - 1e7px + 16px), 0);
+  /*background-color: #007fff5f;*/
+  padding: 1px 3px 1px 4px;
+  color: inherit;
+}
+
+.WaypointInfo::after{
+  content: " (" attr(data-distance) ")";
+}
+
+[data-type="Height"] {
+  color: #ffffff;
+}
+
+[data-type="Prominence"] {
+  color: #00af2f;
+}
+
+[data-type="Isolation"] {
+  color: orange;
+}
+
+::-webkit-scrollbar-corner {
+    background: #0000007f;
+}
+
+/* Track */
+::-webkit-scrollbar
+{
+  width: 16px;
+  height: 16px;
+  background-color: #0000007f; /*!!!!!*/
+}
+
+::-webkit-scrollbar-track
+{
+  background: #afafaf5f;
+  border: solid 2px #afafaf7f;
+}
+
+
+/* Thumb */
+::-webkit-scrollbar-thumb
+{
+  background: #7f7f7faf;
+}
+
+::-webkit-scrollbar-thumb:hover
+{
+  background: #6f6f6faf;
+}
+
+::-webkit-scrollbar-thumb:active
+{
+  background: #4f4f4faf;
+}
+/*
+::-webkit-scrollbar-thumb:vertical
+{
+  border-top: solid 2px rgba(33,33,33,0.5);
+  border-bottom: solid 2px rgba(33,33,33,0.5);
+}
+
+::-webkit-scrollbar-thumb:horizontal
+{
+  border-right: solid 2px rgba(33,33,33,0.5);
+  border-left: solid 2px rgba(33,33,33,0.5);
+}
+*/
+
+/* Buttons */
+::-webkit-scrollbar-button
+{
+  border-style: solid;
+  height: 16px;
+  width: 16px;
+}
+
+
+/* Up */
+::-webkit-scrollbar-button:vertical:decrement
+{
+  background-color: #afafaf5f;
+  border-width: 0;
+  background-position: center 4px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='10,2 6,6 14,6'/></svg>");
+
+}
+
+::-webkit-scrollbar-button:vertical:decrement:hover
+{
+  background-color: #8f8f8f5f;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='10,2 6,6 14,6'/></svg>");
+}
+
+::-webkit-scrollbar-button:vertical:decrement:active
+{
+  background-color: #2f2f2f9f;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(240, 240, 240, 192)'><polygon points='10,2 6,6 14,6'/></svg>");
+}
+
+
+/* Down */
+::-webkit-scrollbar-button:vertical:increment
+{
+  background-color: #afafaf5f;
+  border-width: 0;
+  background-position: center 4px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='10,6 6,2 14,2'/></svg>");
+
+}
+
+::-webkit-scrollbar-button:vertical:increment:hover
+{
+  background-color: #8f8f8f5f;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='10,6 6,2 14,2'/></svg>");
+}
+
+::-webkit-scrollbar-button:vertical:increment:active
+{
+  background-color: #2f2f2f9f;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(240, 240, 240, 192)'><polygon points='10,6 6,2 14,2'/></svg>");
+}
+
+
+/* Left */
+::-webkit-scrollbar-button:horizontal:decrement
+{
+  background-color: #afafaf5f;
+  border-width: 0;
+  background-position: center 4px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='8,4 12,0 12,8'/></svg>");
+}
+
+::-webkit-scrollbar-button:horizontal:decrement:hover
+{
+  background-color: #8f8f8f5f;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='8,4 12,0 12,8'/></svg>");
+}
+
+::-webkit-scrollbar-button:horizontal:decrement:active
+{
+  background-color: #2f2f2f9f;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(240, 240, 240, 192)'><polygon points='8,4 12,0 12,8'/></svg>");
+}
+
+
+/* Right */
+::-webkit-scrollbar-button:horizontal:increment
+{
+  background-color: #afafaf5f;
+  border-width: 0;
+  background-position: center 4px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='12,4 8,0 8,8'/></svg>");
+}
+
+::-webkit-scrollbar-button:horizontal:increment:hover
+{
+  background-color: #8f8f8f5f;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='12,4 8,0 8,8'/></svg>");
+}
+
+::-webkit-scrollbar-button:horizontal:increment:active
+{
+  background-color: #2f2f2f9f;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(240, 240, 240, 192)'><polygon points='12,4 8,0 8,8'/></svg>");
+}

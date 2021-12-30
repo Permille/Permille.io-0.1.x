@@ -1,0 +1,33 @@
+{
+  "Meta":{
+    "ControlsName": "SettingsConfigControls",
+    "ExitTo": "OptionsControls",
+    "LangIdentifier": "Settings",
+    "Location": "./Mods/Menu/DefaultMenus/BaseMenu/index.xhtml"
+  },
+  "Groups":{
+    "ViewDistance":{
+      "LoadDistance":{
+        "Type": "Range",
+        "ID": "LoadDistance",
+        "Min": 0,
+        "Max": 8,
+        "Default": 4,
+        "Step": 1
+      },
+      "VirtualRegionDepths":{
+        "Type": "Range",
+        "ID": "VirtualRegionDepths",
+        "Min": 0,
+        "Max": 12,
+        "Default": 7,
+        "Step": 1
+      },
+      "ApplyViewSettings":{
+        "Type": "CenteredButton",
+        "ID": "ApplyViewSettings",
+        "TextExp": "ApplyViewSettings"
+      }
+    }
+  }
+}

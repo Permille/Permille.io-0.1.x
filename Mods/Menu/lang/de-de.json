@@ -1,0 +1,101 @@
+{
+  "Main":{
+    "Paused": "Pausiert",
+    "PausedDesc": "Drücken Sie [%KEY:Exit] um zurückzukehren.",
+    "BackToGame": "Zurück zum Spiel",
+    "Options": "Einstellungen",
+    "Restart": "Client neustarten",
+    "QuickAccess": "Schnellzugriff"
+  },
+  "Options":{
+    "Options": "Einstellungen",
+    "OptionsDesc": "Sie können die Referenz zu einer Einstellung speichern, um sie leichter vom Pausenmenü zu finden.",
+    "Controls": "Steuerung",
+    "Graphics": "Grafik",
+    "World": "Welt",
+    "Player": "Spieler",
+    "Language": "Sprache",
+    "Settings": "Einstellungen",
+    "Config": "Konfiguration",
+    "Debug": "Debug-Einstellungen",
+    "Exit": "Zurück"
+  },
+  "Graphics":{
+    "Graphics": "Grafikeinstellungen",
+    "General": "Allgemeine Grafikeinstellungen",
+    "FOV": "Blickfeld",
+    "AO": "Umgebungsverdeckung",
+    "AlternateBlocks": "Block-Textur wechseln",
+    "RenderSize": "Bildgröße",
+    "CloudSize": "Wolkendetail",
+    "CloudCoverage": "Wolkigkeit",
+    "Shader": "Schatten",
+    "UseShader": "Schatten anzeigen",
+    "ShadowLevels": "Schatten-Stufen",
+    "ConfigureDistances": "Schatten-Distanzen einstellen...",
+    "ConfigureBiases": "Shatten-bias einstellen...",
+    "Configure": "Einstellen",
+    "BiasConfigInfo": "Tipp: Um das beste Resultat zu bekommen, stellen Sie die Shatten-biases mit ihrem normalen Seitenverhältnis ein. Andernfalls, könnten Shatten zu weit versetzt werden.",
+    "PostProcessing": "Nachbearbeitung",
+    "DOF": "Tiefenschärfe",
+    "FogFactor": "Nebel-Faktor",
+    "Exit": "Zurück"
+  },
+  "Controls":{
+    "Controls": "Steuerung",
+    "MouseSettings": "Mauseinstellungen",
+    "Sensitivity": "Mausempfindlichkeit",
+    "InvertY": "Y-Achse umkehren",
+    "KeyboardSettings": "Tastatureinstellungen",
+    "Forwards": "Vorwärts gehen",
+    "Backwards": "Rückwärts gehen",
+    "Leftwards": "Nach links gehen",
+    "Rightwards": "Nach rechts gehen",
+    "Downwards": "Nach unten gehen / schleichen",
+    "Upwards": "Nach oben fliegen / springen",
+    "BreakBlock": "Block zerstören",
+    "PlaceBlock": "Block platzieren / interagieren",
+    "PickBlock": "Block wählen",
+    "Chat": "Chat-Menü öffnen",
+    "Exit": "Zurück"
+  },
+  "World":{
+    "World": "Welt",
+    "Seed": "Seed",
+    "Reset": "Welt neu-generieren",
+    "Exit": "Zurück"
+  },
+  "Player":{
+    "Player": "Spieler",
+    "Speed": "Geschwindigkeit",
+    "JumpSpeed": "Sprunggeschwindigkeit",
+    "Gravity": "Gravitationsbeschleunigung",
+    "AirDrag": "Luftwiderstand",
+    "Exit": "Zurück"
+  },
+  "Language":{
+    "Language": "Sprache auswählen",
+    "Exit": "Zurück"
+  },
+  "Settings":{
+    "Settings": "Einstellungen",
+    "ViewDistance": "Sichtweite",
+    "LoadDistance": "Maximale Ladeentfernung",
+    "VirtualRegionDepths": "Anzahl von virtuellen Regionen",
+    "AvgDistance": "Durchschnittliche Sichtweite",
+    "ApplyViewSettings": "Auswahl anwenden",
+    "Exit": "Zurück"
+  },
+  "Config":{
+    "Config": "Konfiguration",
+    "ConfigInfo": "Wird nach einem Neustart wirksam.",
+    "Exit": "Zurück"
+  },
+  "Debug":{
+    "Debug": "Debug-Einstellungen",
+    "TeleportTitle": "Teleportation",
+    "Teleport": "Teleportieren",
+    "FlyMode": "Flugmodus",
+    "Exit": "Zurück"
+  }
+}

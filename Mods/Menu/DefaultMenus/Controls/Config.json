@@ -1,0 +1,78 @@
+{
+  "Meta":{
+    "ControlsName": "ControlConfigControls",
+    "ExitTo": "OptionsControls",
+    "LangIdentifier": "Controls",
+    "Location": "./Mods/Menu/DefaultMenus/BaseMenu/index.xhtml"
+  },
+  "Groups":{
+    "MouseSettings":{
+      "Sensitivity":{
+        "Type": "Range",
+        "ID": "Sensitivity",
+        "Weighting": "Linear",
+        "Min": 0,
+        "Max": 0.01,
+        "Default": 0.002,
+        "Step": 0.0001
+      },
+      "InvertY":{
+        "Type": "Switch",
+        "ID": "InvertY",
+        "Default": true
+      }
+    },
+    "KeyboardSettings":{
+      "Forwards":{
+        "Type": "Key",
+        "ID": "Forwards",
+        "Default": "KeyW"
+      },
+      "Backwards":{
+        "Type": "Key",
+        "ID": "Backwards",
+        "Default": "KeyS"
+      },
+      "Leftwards":{
+        "Type": "Key",
+        "ID": "Leftwards",
+        "Default": "KeyA"
+      },
+      "Rightwards":{
+        "Type": "Key",
+        "ID": "Rightwards",
+        "Default": "KeyD"
+      },
+      "Downwards":{
+        "Type": "Key",
+        "ID": "Downwards",
+        "Default": "ShiftLeft"
+      },
+      "Upwards":{
+        "Type": "Key",
+        "ID": "Upwards",
+        "Default": "Space"
+      },
+      "BreakBlock":{
+        "Type": "Key",
+        "ID": "BreakBlock",
+        "Default": "Mouse1"
+      },
+      "PlaceBlock":{
+        "Type": "Key",
+        "ID": "PlaceBlock",
+        "Default": "Mouse2"
+      },
+      "PickBlock":{
+        "Type": "Key",
+        "ID": "PickBlock",
+        "Default": "Mouse4"
+      },
+      "Chat":{
+        "Type": "Key",
+        "ID": "Chat",
+        "Default": "KeyT"
+      }
+    }
+  }
+}

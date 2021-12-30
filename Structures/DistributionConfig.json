@@ -1,0 +1,30 @@
+{
+  "Types": {
+    "Oak": {
+      "Height": {
+        "Mean": 300,
+        "Distribution": 600
+      },
+      "Temperature": {
+        "Mean": 0.6,
+        "Distribution": 0.2
+      },
+      "Humidity": {
+        "Mean": 0.5,
+        "Distribution": 0.3
+      }
+    }
+  },
+  "Structures": [
+    {
+      "FilePath": "./Structures/bo3/Oak03.bo3",
+      "Offset": {
+        "X": -2,
+        "Y": 0,
+        "Z": -2
+      },
+      "Type": "Oak",
+      "Frequency": 20
+    }
+  ]
+}

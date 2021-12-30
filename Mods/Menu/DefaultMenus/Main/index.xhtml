@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-us">
+  <head>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="../../../../Default.css" />
+    <link rel="stylesheet" href="../../../../IncludeEscape.css" />
+    <link rel="stylesheet" href="../../MenuStyle.css" />
+    <link rel="stylesheet" href="style.css" />
+    <title>Main</title>
+  </head>
+  <body class="PleaseDontShowAnyTransitionsOrAnimationsOnPageLoadIBegYou" onload="setTimeout(function(){document.body.classList.remove('PleaseDontShowAnyTransitionsOrAnimationsOnPageLoadIBegYou');}, 1500);">
+    <h1 id="Title" data-exp="Paused">Pause menu</h1>
+    <h3 id="SubTitle" data-exp="PausedDesc">Press Escape to return.</h3>
+    <div id="Container">
+      <div id="Back" class="Button" data-exp="BackToGame">Back to game</div>
+      <div id="Options" class="Button" data-exp="Options">Options</div>
+      <div id="Restart" class="Button" data-exp="Restart">Restart client</div>
+    </div>
+
+
+    <div id="QuickAccessContainer">
+      <span>^</span><span data-exp="QuickAccess">Quick Access</span>
+      <div id="QuickAccessItemsContainer">
+        <!--<div><span>Property1 ee wq w w wwwwww ww w wwwww w w w w w</span><span><div class="ComboBox">
+          <span tabindex="-1">wejbwqebiuwqbie</span><span>v</span><div>
+            <div>Option 1</div>
+            <div>Option 2</div>
+            <div>Option 3</div>
+            <div>Option 4</div>
+          </div>
+        </div></span></div>
+        <div><span>Property2</span><span>
+          <form>
+            <input class="Slider" type="range" name="Range" min="0" max="20" value="0" oninput="this.form.Input.value = this.value || 0;" />
+            <input class="TextInput" type="number" name="Input" value="0" oninput="this.form.Range.value = this.value || 0;" />
+		  </form>
+        </span></div>
+        <div><span>Propert qweoih ewhqew oiewqhoiwehq</span><span>
+          <input class="TextInput" type="text" name="Input" />
+        </span></div>
+        <div><span>VeryLongPropertyNameThatWillRuinMyDay</span><span>
+          <label class="Switch">
+            <input type="checkbox">
+            <span class="SwitchSlider"></span>
+          </label>
+        </span></div>-->
+      </div>
+    </div>
+
+    <template id="OptionComboBox">
+      <div>
+        <span>OptionComboBox</span><span><div class="ComboBox">
+          <span tabindex="-1">Default</span><span>v</span><div onclick="this.parentElement.firstElementChild.innerText = event.target.innerText">
+            <div>Option 1</div>
+            <div>Option 2</div>
+            <div>Option 3</div>
+            <div>Option 4</div>
+          </div>
+        </div></span>
+      </div>
+    </template>
+
+    <template id="OptionSlider">
+      <div><span>OptionSlider</span><span>
+        <form>
+          <input class="Slider" type="range" name="Range" min="0" max="20" value="0" oninput="this.form.Input.value = this.value || 0;" />
+          <input class="TextInput" type="number" name="Input" value="0" oninput="this.form.Range.value = this.value || 0;" />
+        </form>
+      </span></div>
+    </template>
+
+    <template id="OptionTextInput">
+      <div><span>OptionTextInput</span><span>
+        <input class="TextInput" type="text" />
+      </span></div>
+    </template>
+
+    <template id="OptionSwitch">
+      <div><span>OptionSwitch</span><span>
+        <label class="Switch">
+          <input type="checkbox" />
+          <span class="SwitchSlider"></span>
+        </label>
+      </span></div>
+    </template>
+
+    <template id="OptionKeyInput">
+      <div><span>OptionKeyInput</span><span>
+        <input class="KeyInput" type="text" spellcheck="false" onkeydown="event.preventDefault();this.value = event.code || event.key;" oncontextmenu="event.preventDefault();" onmousedown="const Active = this.dataset.Active === '1'; if(this === document.activeElement) this.dataset.Active = '1'; if(Active) this.value = 'Mouse' + event.buttons;" onblur="this.dataset.Active = '0'" />
+      </span></div>
+    </template>
+  </body>
+</html>

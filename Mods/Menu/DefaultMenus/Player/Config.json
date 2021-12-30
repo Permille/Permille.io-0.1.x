@@ -1,0 +1,44 @@
+{
+  "Meta":{
+    "ControlsName": "PlayerConfigControls",
+    "ExitTo": "OptionsControls",
+    "LangIdentifier": "Player",
+    "Location": "./Mods/Menu/DefaultMenus/BaseMenu/index.xhtml"
+  },
+  "Groups":{
+    "":{
+      "Speed":{
+        "Type": "Range",
+        "ID": "Speed",
+        "Min": 0,
+        "Max": 50,
+        "Step": 0.5,
+        "Default": 1
+      },
+      "JumpSpeed":{
+        "Type": "Range",
+        "ID": "JumpSpeed",
+        "Min": 0,
+        "Max": 3,
+        "Step": 0.01,
+        "Default": 0.12
+      },
+      "Gravity":{
+        "Type": "Range",
+        "ID": "Gravity",
+        "Min": -4,
+        "Max": 0,
+        "Step": 0.025,
+        "Default": -0.98107
+      },
+      "AirDrag":{
+        "Type": "Range",
+        "ID": "AirDrag",
+        "Min": 0,
+        "Max": 10000,
+        "Step": 1,
+        "Default": 2500
+      }
+    }
+  }
+}

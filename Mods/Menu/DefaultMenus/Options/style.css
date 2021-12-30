@@ -1,0 +1,88 @@
+@font-face {
+  font-family: Escape1509;
+  src: url("../../../../Escape1509.ttf");
+}
+
+.PleaseDontShowAnyTransitionsOrAnimationsOnPageLoadIBegYou *{
+  transition: none !important;
+  animation-play-state: paused;
+  animation-duration: 0.00s !important;
+  animation-delay: -1s;
+}
+
+*{
+  user-select: none;
+}
+
+html{
+  backdrop-filter: blur(3px);
+  background-color: #000f0f5f;
+}
+
+html {
+    height: 100%;
+    margin: 0;
+}
+
+#Title, #SubTitle{
+  text-align: center;
+  font-weight: normal;
+}
+
+#Title{
+  margin-top: 10vh;
+  font-size: 80px;
+}
+
+#SubTitle{
+  font-size: 32px;
+  margin-top: -20px;
+}
+
+
+#Container{
+  max-width: calc(min(800px, 80%));
+  margin: auto;
+  margin-top: 5vh;
+}
+
+#Container {
+  display: flex;
+  /*align-items: center;*/ /*Fits width and centers vertically.*/
+  flex-wrap: wrap;
+}
+
+#Container > .Button {
+  flex: 48%;
+}
+
+.Button{
+  font-size: 32px;
+  text-align: center;
+  background-color: #007faf7f;
+  padding: 10px;
+  margin: 6px;
+
+  width: calc(30% - 20px);
+  box-sizing: border-box;
+
+  display: flex;
+  justify-content: center; /*Just text alignment*/
+  align-items: center;
+
+  border: #007faf7f;
+  border-width: 4px;
+  border-style: solid;
+}
+.Button:hover{
+  background-color: #0087c77f;
+}
+.Button:active{
+  background-color: #00afdf7f;
+}
+
+#Exit{
+  margin-left: auto;
+  margin-right: auto;
+  width: calc(min(400px, 40%));
+}

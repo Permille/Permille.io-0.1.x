@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-us">
+  <head>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="../../../../Default.css" />
+    <link rel="stylesheet" href="../../../../IncludeEscape.css" />
+    <link rel="stylesheet" href="../../MenuStyle.css" />
+    <link rel="stylesheet" href="style.css" />
+    <title>Menu</title>
+  </head>
+  <body class="PleaseDontShowAnyTransitionsOrAnimationsOnPageLoadIBegYou" onload="setTimeout(function(){document.body.classList.remove('PleaseDontShowAnyTransitionsOrAnimationsOnPageLoadIBegYou');}, 1500);">
+    <h1 id="Title" data-exp="">Title</h1>
+    <div id="Container"></div>
+    <div id="Exit" data-exp="Exit" class="Button">Exit</div>
+
+    <template id="Options">
+      <div>
+        <span>OptionComboBox</span><span><div class="ComboBox">
+          <span tabindex="-1">Default</span><span>v</span><div onclick="this.parentElement.firstElementChild.innerText = event.target.innerText">
+          </div>
+        </div></span>
+      </div>
+    </template>
+    <template id="Range">
+      <div><span>OptionSlider</span><span>
+        <form>
+          <input class="Slider" type="range" name="Range" min="0" max="20" value="0" oninput="this.form.Input.value = this.value || 0;" />
+          <input class="TextInput" type="number" name="Input" value="0" oninput="this.form.Range.value = this.value || 0;" />
+        </form>
+      </span></div>
+    </template>
+    <template id="Text">
+      <div><span>OptionTextInput</span><span>
+        <input class="TextInput" type="text" />
+      </span></div>
+    </template>
+    <template id="Switch">
+      <div><span>OptionSwitch</span><span>
+        <label class="Switch">
+          <input type="checkbox" />
+          <span class="SwitchSlider"></span>
+        </label>
+      </span></div>
+    </template>
+    <template id="Key">
+      <div><span>OptionKeyInput</span><span>
+        <input class="KeyInput" type="text" spellcheck="false" onkeydown="event.preventDefault();this.value = event.code || event.key;" oncontextmenu="event.preventDefault();" onmousedown="const Active = this.dataset.Active === '1'; if(this === document.activeElement) this.dataset.Active = '1'; if(Active) this.value = 'Mouse' + event.buttons;" onblur="this.dataset.Active = '0'" />
+      </span></div>
+    </template>
+    <template id="Button">
+      <div>
+        <span>OptionButton</span><span><div class="ButtonOption">Click this</div></span>
+      </div>
+    </template>
+    <template id="CenteredButton">
+      <div>
+        <div class="ButtonOption CenteredButton">Click this too</div>
+      </div>
+    </template>
+  </body>
+</html>

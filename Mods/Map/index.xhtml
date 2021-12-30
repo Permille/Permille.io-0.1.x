@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-us">
+  <head>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="../../Default.css" />
+    <link rel="stylesheet" href="../../IncludeEscape.css" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="MapOverlayStyles.css" />
+    <title>Map</title>
+  </head>
+  <body>
+    <div id="MapWrapper" class="Small">
+      <div>
+        <div id="MapView"></div>
+        <div id="Waypoints"></div>
+        <div id="MapOverlay">
+          <div id="Coords"></div>
+          <div id="Rotation"></div>
+          <div id="Seed">Seed: 17</div>
+          <div id="Player" style="position: absolute;">
+            <img src="./Arrow.svg" style="width: 50px; height: 50px;"></img>
+          </div>
+        </div>
+        <div id="MeasureDistance">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+            <defs>
+              <marker id="PointMarker" viewBox="-10 -10 20 20" markerWidth="10" markerHeight="10" refX="0" refY="0">
+                <circle r="5" cx="0" cy="0" style="stroke:black; fill:white; stroke-width:2.5" />
+              </marker>
+            </defs>
+            <polyline id="MeasureDistanceLine" points="" style="fill: none; stroke: black; stroke-width: 2;" marker-start="url(#PointMarker)" marker-mid="url(#PointMarker)"  marker-end="url(#PointMarker)" />
+          </svg>
+          <div id="MeasureDistanceInfo" style="display: none;">
+            <div id="DistanceMeasured" data-measured="">Distance measured: </div>
+            <div id="AreaMeasured" data-measured="" style="display: none;">Contained area: </div>
+          </div>
+        </div>
+        <div id="ContextMenu" style="display: none;">
+          <div data-function="Waypoint">Add Waypoint</div>
+          <div data-function="Teleport">Teleport here</div>
+          <div data-function="Distance">Measure distance</div>
+        </div>
+      </div>
+    </div>
+
+    <template id="PeakInfoTemplate">
+      <div class="PeakInfoWrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" class="MouseDetector"></svg>
+        <div class="PeakInfo">
+          <div data-type="Height"></div>
+          <div data-type="Prominence"></div>
+          <div data-type="Isolation"></div>
+        </div>
+      </div>
+    </template>
+    <template id="WaypointTemplate">
+      <div class="Waypoint" style="left: 100px; top: 100px; --waypoint-colour: hsl(0, 60%, 75%); stroke: var(--waypoint-colour); color: var(--waypoint-colour);">
+        <svg xmlns="http://www.w3.org/2000/svg" height="32" width="32" version="1.1">
+          <line x1="6" y1="6" x2="26" y2="26" style="stroke-width: 6;fill: transparent;stroke: inherit;"/>
+          <line x1="26" y1="6" x2="6" y2="26" style="stroke-width: 6;fill: transparent;stroke: inherit;"/>
+        </svg>
+        <div class="WaypointInfo" data-distance="0m" contenteditable="true">New Waypoint</div>
+      </div>
+    </template>
+  </body>
+</html>

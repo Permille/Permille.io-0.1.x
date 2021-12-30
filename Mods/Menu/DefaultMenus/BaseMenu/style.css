@@ -1,0 +1,364 @@
+@font-face {
+  font-family: Escape1509;
+  src: url("../../../../Escape1509.ttf");
+}
+
+.PleaseDontShowAnyTransitionsOrAnimationsOnPageLoadIBegYou *{
+  transition: none !important;
+  animation-play-state: paused;
+  animation-duration: 0.00s !important;
+  animation-delay: -1s;
+}
+
+*{
+  user-select: none;
+}
+
+html{
+  backdrop-filter: blur(3px);
+  background-color: #000f0f5f;
+}
+
+html {
+    height: 100%;
+    margin: 0;
+}
+
+#Title, #SubTitle{
+  text-align: center;
+  font-weight: normal;
+}
+
+#Title{
+  margin-top: 10vh;
+  font-size: 80px;
+}
+
+#SubTitle{
+  font-size: 32px;
+  margin-top: -20px;
+}
+
+
+#Container{
+  max-width: 70%;
+  max-height: calc(max(72vh - 132px, 150px));
+  margin: auto;
+  margin-top: 10vh;
+  overflow-y: auto;
+}
+
+.SectionTitle{
+  font-size: 48px;
+  font-weight: normal;
+}
+
+
+/*#Container {
+  display: flex;
+
+  flex-wrap: wrap;
+}
+
+#Container > .Button {
+  flex: 48%;
+}*/
+
+.Button{
+  font-size: 32px;
+  text-align: center;
+  background-color: #007faf7f;
+  padding: 10px;
+  margin: 6px;
+
+  width: calc(30% - 20px);
+  box-sizing: border-box;
+
+  display: flex;
+  justify-content: center; /*Just text alignment*/
+  align-items: center;
+
+  border: #007faf7f;
+  border-width: 4px;
+  border-style: solid;
+}
+.Button:hover{
+  background-color: #0087c77f;
+}
+.Button:active{
+  background-color: #00afdf7f;
+}
+
+#Exit{
+  position: absolute;
+  width: calc(min(400px, 40%));
+
+  left: 50%;
+  transform: translate(-50%, 0);
+}
+
+span{
+  font-size: 32px;
+}
+
+.PropertyContainer > div{
+  padding: 10px;
+  position: relative;
+}
+
+.PropertyContainer > div:hover{
+  background-color: #0000002f;
+}
+.PropertyContainer > div > span{
+  display: inline-block;
+  width: 75%;
+
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow-x: hidden;
+  text-overflow: ellipsis;
+  vertical-align:top;
+}
+.PropertyContainer > div > span + span{
+  width: 25%;
+}
+
+.ComboBox{
+  padding: 0px;
+  margin: 0px;
+  background-color: #007faf9f;
+  border: #007faf7f;
+  border-width: 3px;
+  border-style: solid;
+  position: absolute;
+  right: 5px;
+  margin-top: -5px;
+  padding: 2px;
+  width: 25%;
+  box-sizing: border-box;
+
+  font-size: 32px;
+  font-family: Escape;
+}
+
+.ComboBox > span:first-child{
+  display: inline-block;
+  width: calc(100% - 29px);
+  margin-left: 5px;
+  overflow-x: hidden;
+  text-overflow: ellipsis;
+  vertical-align:top;
+}
+
+.ComboBox > span + span{
+  float: right;
+  padding: 0 5px 0 5px;
+}
+
+.ComboBox > div{
+  display: none;
+
+  font-family: Escape;
+  font-size: 32px;
+  position: absolute;
+  background-color: #007faf3f;
+  backdrop-filter: blur(3px);
+  right: -3px;
+  width: calc(min(450px, 40vw));
+  max-height: 200px;
+  overflow-y: auto;
+
+
+  border: #007faf7f;
+  border-width: 3px;
+  border-style: solid;
+
+
+  z-index: 1; /*!!*/
+}
+
+.ComboBox > div > div{
+  padding: 2px 5px 2px 5px;
+  text-align: left;
+}
+
+.ComboBox > span + span:hover + div,
+.ComboBox > span:first-child:focus + span + div,
+.ComboBox > div:hover{
+  display: block;
+}
+
+.ComboBox > div > div:hover{
+  background-color: #0087c73f;
+}
+
+.ComboBox > div > div:active{
+  background-color: #00afdf3f;
+}
+
+input{
+  border: 0;
+}
+
+.TextInput, .KeyInput{
+  font-size: 32px;
+  font-family: Escape;
+  background-color: #007faf9f;
+  color: #ffffff;
+  border: #007faf7f;
+  border-width: 3px;
+  border-style: solid;
+  margin-top: -5px;
+  padding: 2px;
+  position: absolute;
+  max-width: calc(25% - 10px);
+  min-width: calc(25% - 10px);
+}
+
+.KeyInput{
+  text-align: center;
+  caret-color: #00000000;
+  cursor: pointer;
+  user-select: none;
+}
+
+.SliderAndTextWrapper{
+  position: static;
+}
+
+.Slider + .TextInput{
+  max-width: 7%;
+  min-width: 7%;
+  right: 5px;
+}
+
+.TextInput::-webkit-outer-spin-button,
+.TextInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.Slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: calc(18% - 16px);/*calc(100% - 2px);*/
+  height: 12px;
+  background: #cfcfcf7f;
+  outline: none;
+  position: absolute;
+  margin-top: 11px;
+  margin-left: 0px;
+}
+.Slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 40px;
+  background: #007fcfff;
+  cursor: e-resize;
+}
+
+.Slider:hover + .TextInput,
+.TextInput:hover,
+.KeyInput:hover{
+  background-color: #0087c79f;
+}
+
+.Slider:active + .TextInput,
+.TextInput:active,
+.TextInput:focus,
+.KeyInput:active,
+.KeyInput:focus{
+  background-color: #00afdf9f;
+}
+
+
+
+/* The switch - the box around the slider */
+.Switch {
+  position: relative;
+  display: inline-block;
+  width: 66px;
+  height: 34px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Hide default HTML checkbox */
+.Switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The slider */
+.SwitchSlider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cfcfcf9f;
+  transition: .1s;
+}
+
+.SwitchSlider:before {
+  position: absolute;
+  content: "";
+  height: 24px;
+  width: 24px;
+  left: 5px;
+  bottom: 5px;
+  background-color: #ffffffff;
+  transition: .1s;
+}
+
+input:checked + .SwitchSlider {
+  background-color: #0087c7af;
+}
+
+input:focus + .SwitchSlider {
+  box-shadow: 0 0 1px #0087c7af;
+}
+
+input:checked + .SwitchSlider:before {
+  transform: translateX(32px);
+}
+
+.ButtonOption{
+  text-align: center;
+  overflow-x: hidden;
+  text-overflow: ellipsis;
+  vertical-align:top;
+  
+  font-size: 32px;
+  font-family: Escape;
+  background-color: #007faf9f;
+  color: #ffffff;
+  border: #007faf7f;
+  border-width: 3px;
+  border-style: solid;
+  margin-top: -5px;
+  padding: 2px;
+  position: absolute;
+  max-width: calc(25% - 10px);
+  min-width: calc(25% - 10px);
+}
+
+.ButtonOption:hover{
+  background-color: #0087c79f;
+}
+
+.ButtonOption:active{
+  background-color: #00afdf9f;
+}
+
+.CenteredButton{
+  height: auto;
+  position: static;
+  margin: -5px auto;
+
+  max-width: calc(50% - 10px);
+  min-width: calc(50% - 10px);
+}

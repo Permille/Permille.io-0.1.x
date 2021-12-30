@@ -1,0 +1,101 @@
+{
+  "Main":{
+    "Paused": "Паузирано",
+    "PausedDesc": "Притисните [%KEY:Exit] да би се вратили.",
+    "BackToGame": "Настави са игром",
+    "Options": "Опције",
+    "Restart": "Рестартуј игрицу",
+    "QuickAccess": "Запамћене опције"
+  },
+  "Options":{
+    "Options": "Опције",
+    "OptionsDesc": "Можете да запамтите опције: видећете их у главној страници.",
+    "Controls": "Управљање",
+    "Graphics": "Графика",
+    "World": "Свет",
+    "Player": "Играч",
+    "Language": "Језик",
+    "Settings": "Подешавања",
+    "Config": "Конфигурација",
+    "Debug": "Интерна подешавања",
+    "Exit": "Назад"
+  },
+  "Graphics":{
+    "Graphics": "Графичка подешавања",
+    "General": "Генерална графичка подешавања",
+    "FOV": "Видно поље",
+    "AO": "Оклузија околине",
+    "AlternateBlocks": "Мењајуће текстуре",
+    "RenderSize": "Величина слике",
+    "CloudSize": "Резолуција облака",
+    "CloudCoverage": "Облачност",
+    "Shader": "Сенке",
+    "UseShader": "Цртати сенке",
+    "ShadowLevels": "Број нивоа сенки",
+    "ConfigureDistances": "Подешавање даљина сенки...",
+    "ConfigureBiases": "Подешавање нагиба сенки...",
+    "Configure": "Подеси",
+    "BiasConfigInfo": "Да би добили најбољи резилтат, подешавајте ово са вашим нормалним односом ширине и висине слике.",
+    "PostProcessing": "Коначна обрада",
+    "DOF": "Дубина поља",
+    "FogFactor": "Фактор магле",
+    "Exit": "Назад"
+  },
+  "Controls":{
+    "Controls": "Управљање",
+    "MouseSettings": "Управљање мишем",
+    "Sensitivity": "Осетљивост миша",
+    "InvertY": "Обрнута Y-оса",
+    "KeyboardSettings": "Управљање тастатуром",
+    "Forwards": "Ходај право",
+    "Backwards": "Ходај назад",
+    "Leftwards": "Ходај лево",
+    "Rightwards": "Ходај десно",
+    "Downwards": "Иди доле / шуњај",
+    "Upwards": "Лети горе / скочи",
+    "BreakBlock": "Копај",
+    "PlaceBlock": "Смести / интерактуј",
+    "PickBlock": "Одабери",
+    "Chat": "Отвори разговор",
+    "Exit": "Назад"
+  },
+  "World":{
+    "World": "Свет",
+    "Seed": "Seed",
+    "Reset": "Регенериши свет",
+    "Exit": "Назад"
+  },
+  "Player":{
+    "Player": "Играч",
+    "Speed": "Брзина",
+    "JumpSpeed": "Брзина скока",
+    "Gravity": "Гравитационално убрзање",
+    "AirDrag": "Отпор ваздуха",
+    "Exit": "Назад"
+  },
+  "Language":{
+    "Language": "Изабери језик",
+    "Exit": "Назад"
+  },
+  "Settings":{
+    "Settings": "Подешавања",
+    "ViewDistance": "Видљивост",
+    "LoadDistance": "Максимална даљина учитавања",
+    "VirtualRegionDepths": "Број виртуалних региона",
+    "AvgDistance": "Просечна видљивост",
+    "ApplyViewSettings": "Примени",
+    "Exit": "Назад"
+  },
+  "Config":{
+    "Config": "Конфигурација",
+    "ConfigInfo": "Биће примењено после рестарта.",
+    "Exit": "Назад"
+  },
+  "Debug":{
+    "Debug": "Интерна подешавања",
+    "TeleportTitle": "Телепортација",
+    "Teleport": "Телепортуј се",
+    "FlyMode": "Летење",
+    "Exit": "Назад"
+  }
+}

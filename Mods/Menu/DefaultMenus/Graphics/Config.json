@@ -1,0 +1,104 @@
+{
+  "Meta":{
+    "ControlsName": "GraphicsControls",
+    "ExitTo": "OptionsControls",
+    "LangIdentifier": "Graphics",
+    "Location": "./Mods/Menu/DefaultMenus/BaseMenu/index.xhtml"
+  },
+  "Groups":{
+    "General":{
+      "FOV":{
+        "Type": "Range",
+        "ID": "FOV",
+        "Weighting": "Linear",
+        "Min": 55,
+        "Max": 120,
+        "Default": 110,
+        "Step": 1
+      },
+      "AO":{
+        "Type": "Switch",
+        "ID": "AO",
+        "Default": true
+      },
+      "AlternateBlocks":{
+        "Type": "Switch",
+        "ID": "AlternateBlocks",
+        "Default": true
+      },
+      "RenderSize":{
+        "Type": "Range",
+        "ID": "RenderSize",
+        "Weighting": "Linear",
+        "Min": 0.5,
+        "Max": 2,
+        "Default": 1,
+        "Step": 0.1
+      },
+      "CloudSize":{
+        "Type": "Range",
+        "ID": "CloudSize",
+        "Weighting": "Linear",
+        "Min": 0.25,
+        "Max": 1.0,
+        "Default": 0.5,
+        "Step": 0.05
+      },
+      "CloudCoverage":{
+        "Type": "Range",
+        "ID": "CloudCoverage",
+        "Weighting": "Linear",
+        "Min": 0,
+        "Max": 1,
+        "Default": 0.75,
+        "Step": 0.01
+      }
+    },
+    "Shader":{
+      "UseShader":{
+        "Type": "Switch",
+        "ID": "UseShader",
+        "Default": true
+      },
+      "ShadowLevels":{
+        "Type": "Range",
+        "ID": "ShadowLevels",
+        "Weighting": "Linear",
+        "Min": 1,
+        "Max": 8,
+        "Default": 5,
+        "Step": 1
+      },
+      "ConfigureDistances":{
+        "Type": "Button",
+        "ID": "ConfigureDistances",
+        "TextExp": "Configure"
+      },
+      "ConfigureBiases":{
+        "Type": "Button",
+        "ID": "ConfigureBiases",
+        "TextExp": "Configure"
+      }
+    },
+    "PostProcessing":{
+      "DOF":{
+        "Type": "Switch",
+        "ID": "DOF",
+        "Default": false
+      },
+      "FogFactor":{
+        "Type": "Range",
+        "ID": "FogFactor",
+        "Weighting": "Exponential",
+        "Min": 0,
+        "Max": 0.01,
+        "Default": 0.00013,
+        "Step": 0.00001
+      }
+    }
+  },
+  "OtherDefaults":{
+    "Distances": [0.008, 0.02, 0.06, 0.18, 0.6],
+    "Biases": [-0.0000099, -0.000017, -0.000049, -0.000145, -0.00048]
+  }
+}

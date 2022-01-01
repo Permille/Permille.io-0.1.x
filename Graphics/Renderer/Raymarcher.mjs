@@ -10,14 +10,26 @@ export default class Raymarcher{
       "VD": 0
     };
 
-    this.Data1 = new Uint16Array(1024*2048*64); //256 MB
+    this.Data1 = new Uint16Array(64*2048*256); //64 MB
+    // (it's actually supposed to be 1024*2048*64 to be full-size, but that including types would probably start wasting storage).
+    // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
 
-    this.Tex1 = new THREE.DataTexture3D(this.Data1, 64, 2048, 1024);
+    this.Tex1 = new THREE.DataTexture3D(this.Data1, 64, 2048, 256);
     this.Tex1.internalFormat = "R16UI";
     this.Tex1.format = THREE.RedIntegerFormat;
     this.Tex1.type = THREE.UnsignedShortType;
     this.Tex1.minFilter = this.Tex1.magFilter = THREE.NearestFilter;
     this.Tex1.unpackAlignment = 1;
+
+
+    this.VoxelTypes = new Uint16Array(512*2048*256); //512 MB
+
+    this.VoxelTypesTex = new THREE.DataTexture3D(this.VoxelTypes, 512, 2048, 256);
+    this.VoxelTypesTex.internalFormat = "R16UI";
+    this.VoxelTypesTex.format = THREE.RedIntegerFormat;
+    this.VoxelTypesTex.type = THREE.UnsignedShortType;
+    this.VoxelTypesTex.minFilter = this.VoxelTypesTex.magFilter = THREE.NearestFilter;
+    this.VoxelTypesTex.unpackAlignment = 1;
 
 
     this.Data8 = new Uint32Array(512 * 512); //1 MB
@@ -60,9 +72,11 @@ export default class Raymarcher{
             for(let x1 = 0; x1 < 8; x1++) for(let y1 = 0; y1 < 8; y1++){
               const Index1 = (Counter8 << 6) | (x1 << 3) | y1;
               for(let z1 = 0; z1 < 8; z1++){
+                const FullIndex1 = (Index1 << 3) | z1;
                 //Finally
                 if(SeededRandom() < .5){
                   this.Data1[Index1] |= 0b10 << (z1 * 2); //Set solid block
+                  this.VoxelTypes[FullIndex1] = (SeededRandom() * 65536) | 0;
                 }
               }
             }
@@ -92,6 +106,7 @@ export default class Raymarcher{
         iTex1: {value: this.Tex1},
         iTex8: {value: this.Tex8},
         iTex64: {value: this.Tex64},
+        iVoxelTypesTex: {value: this.VoxelTypesTex},
         FOV: {value: 110}
       },
       "transparent": true,
@@ -126,6 +141,8 @@ export default class Raymarcher{
         uniform mediump usampler3D iTex1;
         uniform highp usampler3D iTex8;
         uniform mediump usampler3D iTex64;
+        uniform mediump usampler3D iVoxelTypesTex;
+        
         
         const float InDegrees = .01745329;
         
@@ -173,11 +190,14 @@ export default class Raymarcher{
           int Pos8XYZ = (mRayPosFloor.x << 6) | (mRayPosFloor.y << 3) | mRayPosFloor.z;
           return texelFetch(iTex8, ivec3(0, Pos8XYZ, Location64), 0).r;
         }
-        int GetType1(int Location8, vec3 RayPosFloor){
+        int GetType1(int Location8, vec3 RayPosFloor, out int Colour){
           //return 2;//int(Random(vec4(RayPosFloor, 0.)) * 3.);
           ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
           int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
           uint Pos1Z = 3u << mRayPosFloor.z;
+          
+          //First set colour (it is passed by reference)
+          Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
           return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
         }
         
@@ -205,6 +225,8 @@ export default class Raymarcher{
           int Location64 = 0;
           int Location8 = 0;
           
+          vec3 Colour = vec3(0.);
+          
           for(int i = 0; i < 400 && Distance < MAX_DISTANCE && !HitVoxel; ++i){
             while(ExitLevel){
               Level--;
@@ -231,7 +253,9 @@ export default class Raymarcher{
                 break;
               }
               case 2:{
-                VoxelState = GetType1(Location8, TrueRayPosFloor);
+                int VoxelColour;
+                VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelColour);
+                Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + 1.);
                 break;
               }
             }
@@ -270,7 +294,7 @@ export default class Raymarcher{
           }
           
           float fLevel = float(Level) + 4.;
-          vec3 Colour = normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
+          //vec3 Colour = normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
           fragColor = vec4(Colour * length(Mask * vec3(.9, 1., .8)), 1.);
         }
         

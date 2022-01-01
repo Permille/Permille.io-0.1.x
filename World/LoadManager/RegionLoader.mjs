@@ -251,7 +251,7 @@ export default class RegionLoader{
 
     //GD init
 
-    for(const GDWorker of [this.WorkerPriorityGeometryDataGenerator, this.WorkerGeometryDataGenerator]){ //Do this for both workers.
+    /*for(const GDWorker of [this.WorkerPriorityGeometryDataGenerator, this.WorkerGeometryDataGenerator]){ //Do this for both workers.
       GDWorker.postMessage({
         "Request": "SaveStuff",
         "MergedUVMapping": this.LoadManager.AtlasRanges,
@@ -274,7 +274,7 @@ export default class RegionLoader{
           }
         }
       }.bind(this));
-    }
+    }*/
   }
 
   //Generate heightmap

@@ -10,7 +10,7 @@
       "FlyMode":{
         "Type": "Switch",
         "ID": "FlyMode",
-        "Default": false
+        "Default": true
       }
     }
   }

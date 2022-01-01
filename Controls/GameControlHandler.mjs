@@ -25,7 +25,7 @@ export default class GameControlHandler{
     this.LastAnimationFrame = window.performance.now();
     this.FrameTime = 16;
 
-    this.MovementPreset = GameControlHandler.MOVEMENT_PRESET_CUSTOM;
+    this.MovementPreset = GameControlHandler.MOVEMENT_PRESET_FLYING;
     this.CustomMovementSettings = {
       "Speed": 1.,
       "JumpSpeed": 0.12,

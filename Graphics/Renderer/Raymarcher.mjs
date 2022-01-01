@@ -1,7 +1,7 @@
+
 import * as THREE from "../../Libraries/Three/Three.js";
 export default class Raymarcher{
   constructor(World, Renderer){
-    return;
     this.World = World;
     this.Renderer = Renderer;
     this.Scene = this.Renderer.Scene;
@@ -10,29 +10,29 @@ export default class Raymarcher{
       "VD": 0
     };
 
-    this.Data1 = new Uint8Array(32*2048*2048); //128 MB
+    this.Data1 = new Uint16Array(1024*2048*64); //256 MB
 
-    this.Tex1 = new THREE.DataTexture3D(this.Data1, 32, 2048, 2048);
-    this.Tex1.internalFormat = "R8UI";
+    this.Tex1 = new THREE.DataTexture3D(this.Data1, 64, 2048, 1024);
+    this.Tex1.internalFormat = "R16UI";
     this.Tex1.format = THREE.RedIntegerFormat;
-    this.Tex1.type = THREE.UnsignedByteType;
+    this.Tex1.type = THREE.UnsignedShortType;
     this.Tex1.minFilter = this.Tex1.magFilter = THREE.NearestFilter;
     this.Tex1.unpackAlignment = 1;
 
 
-    this.Data8 = new Uint8Array(262144); //512 kB
+    this.Data8 = new Uint32Array(512 * 512); //1 MB
 
-    this.Tex8 = new THREE.DataTexture(this.Data8, 128, 2048);
-    this.Tex8.internalFormat = "R8UI";
+    this.Tex8 = new THREE.DataTexture3D(this.Data8, 1, 512, 512);
+    this.Tex8.internalFormat = "R32UI";
     this.Tex8.format = THREE.RedIntegerFormat;
-    this.Tex8.type = THREE.UnsignedByteType;
+    this.Tex8.type = THREE.UnsignedIntType;
     this.Tex8.minFilter = this.Tex8.magFilter = THREE.NearestFilter;
     this.Tex8.unpackAlignment = 1;
 
 
     this.Data64 = new Uint16Array(8*8*8*8); //8 kB (8*8*8, and 8 LODs)
 
-    this.Tex64 = new THREE.DataTexture3D(this.Data64, 8, 8, 8 * 8);
+    this.Tex64 = new THREE.DataTexture3D(this.Data64, 8, 8, 8*8);
     this.Tex64.internalFormat = "R16UI";
     this.Tex64.format = THREE.RedIntegerFormat;
     this.Tex64.type = THREE.UnsignedShortType;
@@ -49,27 +49,26 @@ export default class Raymarcher{
       };
     }();
 
-    for(let x64 = 0, Counter64 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
+    for(let x64 = 0, Counter64 = 0, Counter8 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
       const Index64 = x64 * 64 + y64 * 8 + z64;
       if(SeededRandom() < .1) { //64 exists
-        this.Data64[Index64] = 0b0000000000000000 | (Counter64 & 0x1ff);
-        for(let x8 = 0; x8 < 8; x8++) for(let y8 = 0; y8 < 8; y8++){
-          const Index8 = Counter64 * 64 + x8 * 8 + y8;
-          for(let z8 = 0; z8 < 8; z8++){ //All 8s are defined
-            if(SeededRandom() < .5){ //8 exists
-              this.Data8[Index8] |= 0 << z8; //Basically a no-op, this is just to show that 0s mark existence
-              for(let x1 = 0; x1 < 8; x1++) for(let y1 = 0; y1 < 8; y1++){
-                const Index1 = (Index8 * 8 + z8) * 64 + (x1 * 8 + y1);
-                for(let z1 = 0; z1 < 8; z1++){
-                  //Finally
-                  if(SeededRandom() < .5){
-                    this.Data1[Index1] |= 1 << z1; //Set solid block
-                  }
+        this.Data64[Index64] = Counter64;
+        for(let x8 = 0; x8 < 8; x8++) for(let y8 = 0; y8 < 8; y8++) for(let z8 = 0; z8 < 8; z8++){ //All 8s are defined
+          const Index8 = (Counter64 << 9) | (x8 << 6) | (y8 << 3) | z8;
+          if(SeededRandom() < .5){ //8 exists
+            this.Data8[Index8] = Counter8;
+            for(let x1 = 0; x1 < 8; x1++) for(let y1 = 0; y1 < 8; y1++){
+              const Index1 = (Counter8 << 6) | (x1 << 3) | y1;
+              for(let z1 = 0; z1 < 8; z1++){
+                //Finally
+                if(SeededRandom() < .5){
+                  this.Data1[Index1] |= 0b10 << (z1 * 2); //Set solid block
                 }
               }
-            } else{ //8 doesn't exist
-              this.Data8[Index8] |= 1 << z8;
             }
+            Counter8++;
+          } else{ //8 doesn't exist
+            this.Data8[Index8] |= 1 << 31;
           }
         }
         Counter64++; //Increment only if data in 8 was written to save space.
@@ -82,7 +81,6 @@ export default class Raymarcher{
     console.log(this.Data8);
     console.log(this.Data1);
 
-
     this.Material = new THREE.ShaderMaterial({
       "uniforms": {
         iResolution: {value: new THREE.Vector2(1920, 1080)},
@@ -94,7 +92,7 @@ export default class Raymarcher{
         iTex1: {value: this.Tex1},
         iTex8: {value: this.Tex8},
         iTex64: {value: this.Tex64},
-        FOV: 110
+        FOV: {value: 110}
       },
       "transparent": true,
       "alphaTest": 0.5,
@@ -125,8 +123,8 @@ export default class Raymarcher{
         uniform vec3 iPosition;
         uniform vec3 iRotation;
         uniform float FOV;
-        uniform lowp usampler3D iTex1;
-        uniform lowp usampler2D iTex8;
+        uniform mediump usampler3D iTex1;
+        uniform highp usampler3D iTex8;
         uniform mediump usampler3D iTex64;
         
         const float InDegrees = .01745329;
@@ -153,135 +151,130 @@ export default class Raymarcher{
                      0.,0.,1.);
         }
         
-        /*ivec3 LastWorldSpaceLocation8 = ivec3(-2147483648);
-        ivec3 LastDataSpaceLocation8 = ivec3(-2147483648);
-        ivec3 LastWorldSpaceLocation64 = ivec3(-2147483648);
-        ivec3 LastDataSpaceLocation64 = ivec3(-2147483648);*/
+        //Voxel grid hierarchy implementation
+        //Based on abje's octree tracer: https://www.shadertoy.com/view/4sVfWw
+        const float MAX_DISTANCE = 1250.;
+        const int MAX_DETAIL = 2;
+        const int MIN_DETAIL = 0;
         
-        float Expression(vec3 pos){
-          float x = float(pos.x);
-          float y = float(pos.y);
-          float z = float(pos.z);
-          
-          return float(int(x) ^ int(y * z)) - 5.;
+        const float SCALE = 8.; //Only works for powers of 2
+        const int POWER = int(log2(SCALE));
+        
+        float Random(vec4 v){
+          return fract(1223.34 * tan(dot(v,vec4(181.11, 132.52, 171.29, 188.42)))); 
         }
         
-        bool map(ivec3 pos){
-          //pos >>= 1;
-          //return length(mod(pos,18.0)-9.0) - 9.5 > 0.;
-          
-          //For when I implement chunk logic:
-          //return (texelFetch(iMarchingTexture, ivec3(0, pos.y & 0x07, pos.z & 0x07), 0).r & (1u << (pos.x & 0x07))) != 0u;
-          
-          /*ivec3 pos64 = pos;
-          uint location64 = texelFetch(iTex64, pos64, 0).r;
-          ivec3 pos8 = location64 * 64u;
-          return location64 != 32768u;*/
-          
-          
-          return (texelFetch(iTex1, ivec3(pos.x >> 3, pos.y, pos.z), 0).r & (1u << (pos.x & 0x07))) != 0u;
-          
-          /*float x = float(pos.x);
-          float y = float(pos.y);
-          float z = float(pos.z);
-          float CurrentSign = sign(Expression(vec3(x, y, z)));
-          
-          return sign(Expression(vec3(x + 1., y, z))) != CurrentSign ||
-                 sign(Expression(vec3(x, y + 1., z))) != CurrentSign ||
-                 sign(Expression(vec3(x, y, z + 1.))) != CurrentSign;*/
-          /*if(pos.z < 0) return false;
-          int x = int(pos.x);
-          int y = int(pos.y);
-          int z = int(pos.z);
-          int r = (x+y)^(y+z)^(z+x);
-          bool b = (abs(r*r*r/(y+x+int(iTime/50.))) & 16383) < 1000;
-          return b;*/
+        int GetLocation64(vec3 RayPosFloor){
+          ivec3 mRayPosFloor = ivec3(RayPosFloor) >> 6; //Divides by 64. (gets location within 64, don't need to mod because this is the texture size)
+          return int(texelFetch(iTex64, mRayPosFloor, 0).r);
         }
-        
-        /*void mainImage(out vec4 fragColor, in vec2 fragCoord){
-          vec2 screenPos = (fragCoord.xy / iResolution.xy) * 2. - 1.;
-          vec3 rayPos = iPosition;
-          vec3 cameraDir = vec3(0., 0., 0.6);
-          vec3 planeU = vec3(1., 0., 0.);
-          vec3 planeV = vec3(0., 1., 0.) * iResolution.y / iResolution.x;
-          vec3 rayDir = cameraDir + screenPos.x * planeU + screenPos.y * planeV;
-          mat3 rot = RotateX(iRotation.x) * RotateY(iRotation.y);
-          rayDir *= rot;
-          
-          ivec3 mapPos = ivec3(floor(rayPos));
-          ivec3 startPos = mapPos;
-          vec3 deltaDist = abs(vec3(length(rayDir)) / rayDir);
-          ivec3 rayStep = ivec3(sign(rayDir));
-          vec3 sideDist = (sign(rayDir) * (vec3(mapPos) - rayPos) + (sign(rayDir) * .5) + .5) * deltaDist;
-          bvec3 mask;
-          for(int i = 0; i < 200; ++i){
-            if(map(mapPos)) break;
-            mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
-            sideDist += vec3(mask) * deltaDist;
-            mapPos += ivec3(vec3(mask)) * rayStep;
-          }
-          vec3 color = sin(float(mapPos.z)+vec3(0,2,4)) * 0.5 + 0.5;
-          if(mask.x) color *= .9;
-          if(mask.y) color *= 1.;
-          if(mask.z) color *= .8;
-          fragColor = vec4(color, 1.);
-        }*/
+        uint GetLocation8(int Location64, vec3 RayPosFloor){
+          ivec3 mRayPosFloor = (ivec3(RayPosFloor) >> 3) & 7; //Gets location within 8
+          int Pos8XYZ = (mRayPosFloor.x << 6) | (mRayPosFloor.y << 3) | mRayPosFloor.z;
+          return texelFetch(iTex8, ivec3(0, Pos8XYZ, Location64), 0).r;
+        }
+        int GetType1(int Location8, vec3 RayPosFloor){
+          //return 2;//int(Random(vec4(RayPosFloor, 0.)) * 3.);
+          ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
+          int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
+          uint Pos1Z = 3u << mRayPosFloor.z;
+          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
+        }
         
         void mainImage(out vec4 fragColor, in vec2 fragCoord){
-          vec2 ScreenCoords = vPosition.xy;
-          ScreenCoords.x *= iResolution.x / iResolution.y;
-          ScreenCoords /= vPosition.w;
-          //ScreenCoords.xy *= iScalingFactor;
+          vec2 uv = (fragCoord.xy * 2. - iResolution.xy) / iResolution.y;
+          vec3 RayOrigin = iPosition;
+          vec3 RayDirection = normalize(vec3(uv, .8)) * RotateX(iRotation.x) * RotateY(iRotation.y);
+          vec3 RayDirectionSign = sign(RayDirection);
           
-          vec3 EyeProjection = vec3(ScreenCoords, 1.);
+          vec3 Mask = vec3(0.);
+          bool ExitLevel = false;
+          int Level = MIN_DETAIL;
+          float Size = pow(SCALE, float(MAX_DETAIL));
+          float Distance = 0.;
+          bool HitVoxel = false;
           
-          vec3 RayDirection = normalize(EyeProjection * RotateX(iRotation.x) * RotateY(iRotation.y));
+          vec3 RayOriginOffset = floor(RayOrigin / Size) * Size;
+          RayOrigin -= RayOriginOffset;
           
-          vec2 res = iResolution.xy;
+          vec3 RayPosFloor = floor(RayOrigin / Size) * Size; //Voxel coordinate
+          vec3 RayPosFract = RayOrigin - RayPosFloor; //Sub-voxel coordinate                   
+          vec3 LastRayPosFloor = RayPosFloor;
+          vec3 Correction = 1./max(abs(RayDirection), 1e-4);
           
-          vec3 cam = iPosition;
-          vec3 FractPos = fract(cam);
-          vec3 FloorPos = floor(cam);
-          vec3 ray = normalize(vec3(fragCoord*2.0 - res, res.y));
-          ray = normalize(ray * RotateX(iRotation.x) * RotateY(iRotation.y));
-          ivec3 cell = ivec3(0);
+          int Location64 = 0;
+          int Location8 = 0;
           
-          bvec3 NearSide = bvec3(false);
-          vec3 leng;
-          
-          for(int i = 0; i < 800; i++){
-            vec3 dist = fract(-FractPos * sign(ray)) + 2.5e-7;
-            leng = dist / abs(ray);
-            //vec3 near = min(leng.xxx, min(leng.yyy, leng.zzz));
-            vec3 near = min(leng.xyz, min(leng.yzx, leng.zxy));
+          for(int i = 0; i < 400 && Distance < MAX_DISTANCE && !HitVoxel; ++i){
+            while(ExitLevel){
+              Level--;
+              Size *= SCALE;
+              vec3 NewRayPosFloor = floor(RayPosFloor/Size) * Size;
+              RayPosFract += RayPosFloor - NewRayPosFloor;
+              RayPosFloor = NewRayPosFloor;
+              ExitLevel = Level > MIN_DETAIL && floor(RayPosFloor/Size/SCALE) != floor(LastRayPosFloor/Size/SCALE); //This is for when we go up by multiple levels at once (e.g. 2->0)
+            }
             
-            FractPos += ray * near;
-            cell = ivec3((ceil(FractPos) + FloorPos));
-            if(map(cell)) break;
+            vec3 TrueRayPosFloor = RayPosFloor + RayOriginOffset;
             
-            //Correct FractPos:
-            vec3 Floor = floor(FractPos * 2.) / 2.;
-            FloorPos += Floor;
-            FractPos -= Floor;
+            int VoxelState;
+            switch(Level){
+              case 0:{ //64
+                Location64 = GetLocation64(TrueRayPosFloor);
+                VoxelState = Location64 >> 15; //Get whether it exists
+                break;
+              }
+              case 1:{
+                uint Result = GetLocation8(Location64, TrueRayPosFloor);
+                VoxelState = int(Result >> 31);
+                Location8 = int(Result & 0x7fffffffu);
+                break;
+              }
+              case 2:{
+                VoxelState = GetType1(Location8, TrueRayPosFloor);
+                break;
+              }
+            }
+            
+            switch(VoxelState){ //Get random voxel at proper scale (Size)
+              case 0:{ //Subdivide
+                if(Level < MAX_DETAIL){
+                  Level++;
+                  for(int j = 0; j < POWER; ++j){ //Not sure how to unroll this loop without weird artefacts...
+                    Size /= 2.;
+                    vec3 Step = step(vec3(Size), RayPosFract) * Size;
+                    RayPosFloor += Step;
+                    RayPosFract -= Step;
+                  }
+                  break; //Only break switch if the level was less than the max detail. Otherwise, pretend as if the same level is kept.
+                }
+              }
+              case 1:{ //Empty
+                float HalfSize = Size / 2.;
+                vec3 Hit = -Correction * (RayDirectionSign * (RayPosFract - HalfSize) - HalfSize); //Trace ray to next voxel
+                Mask = vec3(lessThanEqual(Hit.xyz, min(Hit.yzx, Hit.zxy))); //Determine which side was hit
+                float NearestVoxelDistance = dot(Hit, Mask);
+                Distance += NearestVoxelDistance;
+                vec3 Step = Mask * RayDirectionSign * Size;
+                
+                RayPosFract += RayDirection * NearestVoxelDistance - Step;
+                
+                LastRayPosFloor = RayPosFloor;
+                RayPosFloor += Step;
+                
+                ExitLevel = Level > MIN_DETAIL && floor(RayPosFloor/Size/SCALE) != floor(LastRayPosFloor/Size/SCALE); //Check if the edge of the level has been reached
+                break;
+              }
+              case 2: HitVoxel = true;
+            }
           }
-          NearSide = lessThan(leng.xyz, min(leng.yzx, leng.zxy));
-      
-          //Rainbow color based off the voxel cell position.
-          vec3 color = sin(float(cell.z)+vec3(0,2,4)) * 0.5 + 0.5;
-          //Square for gamma encoding.
-          color *= color;
           
-          //Compute cheap ambient occlusion from the SDF.
-          //Fade out to black using the distance.
-          float fog = 1.;//min(1.0, exp(1.0 - length(FloorPos + FractPos - cam)/15.0));
-          
-          //Output final color with ao and fog (sqrt for gamma correction).
-          if(NearSide.x) fragColor = vec4(sqrt(color * fog) * 0.9, 1.);
-          else if(NearSide.y) fragColor = vec4(sqrt(color * fog) * 1.0, 1.);
-          else if(NearSide.z) fragColor = vec4(sqrt(color * fog) * 0.8, 1.);
+          float fLevel = float(Level) + 4.;
+          vec3 Colour = normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
+          fragColor = vec4(Colour * length(Mask * vec3(.9, 1., .8)), 1.);
         }
+        
         void main(){
-          //if(vmvPosition.y > 6.) gl_FragColor = vec4(0., 0., 1., 1.);
           mainImage(gl_FragColor, vUv * iResolution.xy);
         }
       `
@@ -289,7 +282,7 @@ export default class Raymarcher{
 
     const Mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2, 1, 1), this.Material);
     Mesh.frustumCulled = false;
-    //this.Scene.add(Mesh);
+    this.Scene.add(Mesh);
 
     void function AnimationFrame(){
       window.requestAnimationFrame(AnimationFrame.bind(this));

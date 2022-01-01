@@ -11,8 +11,8 @@ export default class RRSLoader{
     void function Load(){
       self.setTimeout(Load.bind(this), 25);
       this.UpdateRRS();
-      this.LoadRegions();
-      this.LoadVirtualRegions();
+      //this.LoadRegions();
+      //this.LoadVirtualRegions();
     }.bind(this)();
   }
 

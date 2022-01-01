@@ -543,7 +543,7 @@ export default class Renderer{
       this.BackgroundMaterial.uniforms.iSunPosition.value = LightDirection;
     }
     this.BackgroundRenderer.clear();
-    this.BackgroundRenderer.render(this.BackgroundScene, this.BackgroundCamera);
+    //this.BackgroundRenderer.render(this.BackgroundScene, this.BackgroundCamera);
     this.Renderer.clear();
     this.Renderer.render(this.Scene, this.Camera);
   }

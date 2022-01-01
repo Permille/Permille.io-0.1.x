@@ -96,6 +96,7 @@ let Weighting100 = WeightTowardsSharp(100, 25);
 let Things = WeightTowardsRepeatingSharp(0, 0.1);
 
 export function GetHeight(X, Z){
+  return 0.;
   X *= .5;
   Z *= .5;
 

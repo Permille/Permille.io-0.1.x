@@ -63,21 +63,21 @@ export default class Raymarcher{
 
     for(let x64 = 0, Counter64 = 0, Counter8 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
       const Index64 = x64 * 64 + y64 * 8 + z64;
-      if(SeededRandom() < .1) { //64 exists
+      if(SeededRandom() < .25) { //64 exists
         this.Data64[Index64] = Counter64;
-        for(let x8 = 0; x8 < 8; x8++) for(let y8 = 0; y8 < 8; y8++) for(let z8 = 0; z8 < 8; z8++){ //All 8s are defined
+        for(let x8 = 0; x8 < 8; x8++) for(let y8 = 0; y8 < 8; y8++) for(let z8 = 0; z8 < 8; z8++){
           const Index8 = (Counter64 << 9) | (x8 << 6) | (y8 << 3) | z8;
-          if(SeededRandom() < .5){ //8 exists
+          if(SeededRandom() < .6){ //8 exists
             this.Data8[Index8] = Counter8;
             for(let x1 = 0; x1 < 8; x1++) for(let y1 = 0; y1 < 8; y1++){
               const Index1 = (Counter8 << 6) | (x1 << 3) | y1;
               for(let z1 = 0; z1 < 8; z1++){
                 const FullIndex1 = (Index1 << 3) | z1;
                 //Finally
-                if(SeededRandom() < .5){
-                  this.Data1[Index1] |= 0b10 << (z1 * 2); //Set solid block
+                if(SeededRandom() < .5){ //1 exists
+                  this.Data1[Index1] |= 0b00 << (z1 * 2); //Subdivide (for roughness thing)
                   this.VoxelTypes[FullIndex1] = (SeededRandom() * 65536) | 0;
-                }
+                } else this.Data1[Index1] |= 0b01 << (z1 * 2); //Set empty
               }
             }
             Counter8++;
@@ -172,7 +172,7 @@ export default class Raymarcher{
         //Based on abje's octree tracer: https://www.shadertoy.com/view/4sVfWw
         const float MAX_DISTANCE = 1250.;
         const int MAX_DETAIL = 2;
-        const int MIN_DETAIL = 0;
+        const int MIN_DETAIL = -1;
         
         const float SCALE = 8.; //Only works for powers of 2
         const int POWER = int(log2(SCALE));
@@ -194,11 +194,13 @@ export default class Raymarcher{
           //return 2;//int(Random(vec4(RayPosFloor, 0.)) * 3.);
           ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
           int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
-          uint Pos1Z = 3u << mRayPosFloor.z;
           
           //First set colour (it is passed by reference)
           Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
           return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
+        }
+        int GetRoughnessMap(vec3 RayPosFloor){
+          return Random(vec4(RayPosFloor, 0.)) > .75 ? 0 : 2;
         }
         
         void mainImage(out vec4 fragColor, in vec2 fragCoord){
@@ -209,7 +211,7 @@ export default class Raymarcher{
           
           vec3 Mask = vec3(0.);
           bool ExitLevel = false;
-          int Level = MIN_DETAIL;
+          int Level = MAX_DETAIL;
           float Size = pow(SCALE, float(MAX_DETAIL));
           float Distance = 0.;
           bool HitVoxel = false;
@@ -229,19 +231,19 @@ export default class Raymarcher{
           
           for(int i = 0; i < 400 && Distance < MAX_DISTANCE && !HitVoxel; ++i){
             while(ExitLevel){
-              Level--;
+              Level++;
               Size *= SCALE;
               vec3 NewRayPosFloor = floor(RayPosFloor/Size) * Size;
               RayPosFract += RayPosFloor - NewRayPosFloor;
               RayPosFloor = NewRayPosFloor;
-              ExitLevel = Level > MIN_DETAIL && floor(RayPosFloor/Size/SCALE) != floor(LastRayPosFloor/Size/SCALE); //This is for when we go up by multiple levels at once (e.g. 2->0)
+              ExitLevel = Level < MAX_DETAIL && floor(RayPosFloor/Size/SCALE) != floor(LastRayPosFloor/Size/SCALE); //This is for when we go up by multiple levels at once (e.g. 2->0)
             }
             
             vec3 TrueRayPosFloor = RayPosFloor + RayOriginOffset;
             
             int VoxelState;
             switch(Level){
-              case 0:{ //64
+              case 2:{ //64
                 Location64 = GetLocation64(TrueRayPosFloor);
                 VoxelState = Location64 >> 15; //Get whether it exists
                 break;
@@ -252,18 +254,22 @@ export default class Raymarcher{
                 Location8 = int(Result & 0x7fffffffu);
                 break;
               }
-              case 2:{
+              case 0:{
                 int VoxelColour;
                 VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelColour);
                 Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + 1.);
+                break;
+              }
+              case -1:{
+                VoxelState = GetRoughnessMap(TrueRayPosFloor);
                 break;
               }
             }
             
             switch(VoxelState){ //Get random voxel at proper scale (Size)
               case 0:{ //Subdivide
-                if(Level < MAX_DETAIL){
-                  Level++;
+                if(Level > MIN_DETAIL){
+                  Level--;
                   for(int j = 0; j < POWER; ++j){ //Not sure how to unroll this loop without weird artefacts...
                     Size /= 2.;
                     vec3 Step = step(vec3(Size), RayPosFract) * Size;
@@ -286,7 +292,7 @@ export default class Raymarcher{
                 LastRayPosFloor = RayPosFloor;
                 RayPosFloor += Step;
                 
-                ExitLevel = Level > MIN_DETAIL && floor(RayPosFloor/Size/SCALE) != floor(LastRayPosFloor/Size/SCALE); //Check if the edge of the level has been reached
+                ExitLevel = Level < MAX_DETAIL && floor(RayPosFloor/Size/SCALE) != floor(LastRayPosFloor/Size/SCALE); //Check if the edge of the level has been reached
                 break;
               }
               case 2: HitVoxel = true;

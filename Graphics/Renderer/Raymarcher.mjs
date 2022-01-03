@@ -230,7 +230,10 @@ export default class Raymarcher{
           
           vec3 Colour = vec3(0.);
           
+          vec3 s = vec3(0.);
+          
           for(int i = 0; i < 400 && Distance < MAX_DISTANCE && !HitVoxel; ++i){
+            s.g++;
             while(ExitLevel){
               Level++;
               Size *= SCALE;
@@ -302,7 +305,7 @@ export default class Raymarcher{
           
           float fLevel = float(Level) + 4.;
           //vec3 Colour = normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
-          fragColor = vec4(Colour * length(Mask * vec3(.75, 1., .5)), 1.);
+          fragColor = vec4(s / 200. + Colour * length(Mask * vec3(.75, 1., .5)), 1.);
         }
         
         void main(){

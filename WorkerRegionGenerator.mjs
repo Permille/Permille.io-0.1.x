@@ -58,20 +58,25 @@ let AllocationIndex64, AllocationArray64;
 let Data8Length = 262144;
 let Data8Mod = 262143;
 
-function AllocateData8For(StartIndex8, x8, y8, z8) {
+function AllocateData8(StartIndex8, x8, y8, z8) {
   const Index = Atomics.add(AllocationIndex, 0, 1) & Data8Mod;
   const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
   Data8[(StartIndex8 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location;
   return Location;
 }
 
-function AllocateData64For(x64, y64, z64){
+function AllocateData64(x64, y64, z64){
   //Need to set coordinates within boundaries
   const Index = Atomics.add(AllocationIndex64, 0, 1) & 511;
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
   Data64[(x64 << 6) | (y64 << 3) | z64] = Location64; //This is the StartIndex8 used in the other function.
-  debugger;
   return Location64;
+}
+
+function DeallocateData64(Location64, x64, y64, z64){
+  const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 511; //Indexing 1 for deallocation.
+  Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
+  Data64[(x64 << 6) | (y64 << 3) | z64] = 0x8000; //Mark data slot empty.
 }
 
 EventHandler.InitialiseBlockRegistry = function(Data){
@@ -163,14 +168,16 @@ EventHandler.GenerateRegionData = function(Data){
   let UniformType = undefined;
   let IsEntirelySolid = true;
 
-  const StartIndex8 = AllocateData64For(RegionX, RegionY, RegionZ);
+  const StartIndex8 = AllocateData64(RegionX, RegionY, RegionZ);
   const x1Offset = RegionX * 64;
   const y1Offset = RegionY * 64;
   const z1Offset = RegionZ * 64;
+
+  let WrittenTo64 = false;
   for(let x8 = 0; x8 < 8; ++x8) for(let y8 = 0; y8 < 8; ++y8) for(let z8 = 0; z8 < 8; ++z8){
     TempDataBuffer.set(EmptyDataBuffer, 0);
     TempTypeBuffer.set(EmptyTypeBuffer, 0);
-    let WrittenTo = false;
+    let WrittenTo8 = false;
     for(let x1 = 0; x1 < 8; ++x1) for(let z1 = 0; z1 < 8; ++z1){
       const XPos64 = (x8 << 3) | x1;
       const ZPos64 = (z8 << 3) | z1;
@@ -193,19 +200,23 @@ EventHandler.GenerateRegionData = function(Data){
           }
         }
 
-        if(Type !== 0) WrittenTo = true;
+        if(Type !== 0) WrittenTo8 = true;
         TempDataBuffer[(x1 << 6) | (y1 << 3) | z1] = Type;
         if(Type !== 0){ //For now, this just checks against air, but it will be more complicated than that...
           TempTypeBuffer[(x1 << 3) | y1] |= 0b00 << (z1 * 2);
         } else TempTypeBuffer[(x1 << 3) | y1] |= 0b01 << (z1 * 2);
       }
     }
-    if(!WrittenTo) continue;
-    debugger;
+    if(!WrittenTo8) continue;
+    WrittenTo64 = true;
     //Now, since something was actually written to the temp buffer, write it to the Data1 buffer:
-    const Location8 = AllocateData8For(StartIndex8, x8, y8, z8); //This automatically registers the Data8
+    const Location8 = AllocateData8(StartIndex8, x8, y8, z8); //This automatically registers the Data8
     VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
     Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
+  }
+
+  if(!WrittenTo64){
+    DeallocateData64(StartIndex8, RegionX, RegionY, RegionZ);
   }
 
   let CommonBlock = -1;

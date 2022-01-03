@@ -19,11 +19,15 @@ export default class WorkerLoadingPipelineHandler{
       "AtlasWidth": Application.Main.Renderer.MergedTexture.canvas.width,
       "AtlasHeight": Application.Main.Renderer.MergedTexture.canvas.height,
       "SharedPlayerPosition": this.SharedPlayerPosition,
-      "Structures": Application.Main.Structures
-    });
-
-    Application.Main.WorkerLoadingPipeline.postMessage({
-      "Request": "Initialise"
+      "Structures": Application.Main.Structures,
+      "VoxelTypes": Application.Main.World.VoxelTypes,
+      "Data1": Application.Main.World.Data1,
+      "Data8": Application.Main.World.Data8,
+      "Data64": Application.Main.World.Data64,
+      "AllocationIndex": Application.Main.World.AllocationIndex,
+      "AllocationArray": Application.Main.World.AllocationArray,
+      "AllocationIndex64": Application.Main.World.AllocationIndex64,
+      "AllocationArray64": Application.Main.World.AllocationArray64
     });
 
     Application.Main.WorkerLoadingPipeline.addEventListener("message", function(Event){

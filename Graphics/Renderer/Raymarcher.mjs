@@ -1,5 +1,5 @@
-
 import * as THREE from "../../Libraries/Three/Three.js";
+
 export default class Raymarcher{
   constructor(World, Renderer){
     this.World = World;
@@ -10,7 +10,7 @@ export default class Raymarcher{
       "VD": 0
     };
 
-    this.Data1 = new Uint16Array(64*2048*256); //64 MB
+    this.Data1 = this.World.Data1;//new Uint16Array(64*2048*256); //64 MB
     // (it's actually supposed to be 1024*2048*64 to be full-size, but that including types would probably start wasting storage).
     // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
 
@@ -20,9 +20,10 @@ export default class Raymarcher{
     this.Tex1.type = THREE.UnsignedShortType;
     this.Tex1.minFilter = this.Tex1.magFilter = THREE.NearestFilter;
     this.Tex1.unpackAlignment = 1;
+    this.Tex1.needsUpdate = true;
 
 
-    this.VoxelTypes = new Uint16Array(512*2048*256); //512 MB
+    this.VoxelTypes = this.World.VoxelTypes;//new Uint16Array(512*2048*256); //512 MB
 
     this.VoxelTypesTex = new THREE.DataTexture3D(this.VoxelTypes, 512, 2048, 256);
     this.VoxelTypesTex.internalFormat = "R16UI";
@@ -30,9 +31,10 @@ export default class Raymarcher{
     this.VoxelTypesTex.type = THREE.UnsignedShortType;
     this.VoxelTypesTex.minFilter = this.VoxelTypesTex.magFilter = THREE.NearestFilter;
     this.VoxelTypesTex.unpackAlignment = 1;
+    this.VoxelTypesTex.needsUpdate = true;
 
 
-    this.Data8 = new Uint32Array(512 * 512); //1 MB
+    this.Data8 = this.World.Data8;//new Uint32Array(512 * 512); //1 MB
 
     this.Tex8 = new THREE.DataTexture3D(this.Data8, 1, 512, 512);
     this.Tex8.internalFormat = "R32UI";
@@ -40,9 +42,10 @@ export default class Raymarcher{
     this.Tex8.type = THREE.UnsignedIntType;
     this.Tex8.minFilter = this.Tex8.magFilter = THREE.NearestFilter;
     this.Tex8.unpackAlignment = 1;
+    this.Tex8.needsUpdate = true;
 
 
-    this.Data64 = new Uint16Array(8*8*8*8); //8 kB (8*8*8, and 8 LODs)
+    this.Data64 = this.World.Data64;//new Uint16Array(8*8*8*8); //8 kB (8*8*8, and 8 LODs)
 
     this.Tex64 = new THREE.DataTexture3D(this.Data64, 8, 8, 8*8);
     this.Tex64.internalFormat = "R16UI";
@@ -50,8 +53,9 @@ export default class Raymarcher{
     this.Tex64.type = THREE.UnsignedShortType;
     this.Tex64.minFilter = this.Tex64.magFilter = THREE.NearestFilter;
     this.Tex64.unpackAlignment = 1;
+    this.Tex64.needsUpdate = true;
 
-    const SeededRandom = function(){
+    /*const SeededRandom = function(){
       let Seed = 0x1511426a;
       return function(){
         Seed = ((Seed >>> 16) ^ Seed) * 0x045d9f3b;
@@ -75,7 +79,7 @@ export default class Raymarcher{
                 const FullIndex1 = (Index1 << 3) | z1;
                 //Finally
                 if(SeededRandom() < .5){ //1 exists
-                  this.Data1[Index1] |= 0b00 << (z1 * 2); //Subdivide (for roughness thing)
+                  this.Data1[Index1] |= 0b00 << (z1 * 2); //Set subdivide (for roughness thing)
                   this.VoxelTypes[FullIndex1] = (SeededRandom() * 65536) | 0;
                 } else this.Data1[Index1] |= 0b01 << (z1 * 2); //Set empty
               }
@@ -89,11 +93,7 @@ export default class Raymarcher{
       } else{ //64 doesn't exist
         this.Data64[Index64] = 0b1000000000000000; //Doesn't exist.
       }
-    }
-
-    console.log(this.Data64);
-    console.log(this.Data8);
-    console.log(this.Data1);
+    }*/
 
     this.Material = new THREE.ShaderMaterial({
       "uniforms": {
@@ -187,19 +187,20 @@ export default class Raymarcher{
         }
         uint GetLocation8(int Location64, vec3 RayPosFloor){
           ivec3 mRayPosFloor = (ivec3(RayPosFloor) >> 3) & 7; //Gets location within 8
-          int Pos8XYZ = (mRayPosFloor.x << 6) | (mRayPosFloor.y << 3) | mRayPosFloor.z;
+          int Pos8XYZ = (mRayPosFloor.z << 6) | (mRayPosFloor.y << 3) | mRayPosFloor.x;
           return texelFetch(iTex8, ivec3(0, Pos8XYZ, Location64), 0).r;
         }
         int GetType1(int Location8, vec3 RayPosFloor, out int Colour){
           //return 2;//int(Random(vec4(RayPosFloor, 0.)) * 3.);
           ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
-          int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
+          int Pos1XY = (mRayPosFloor.z << 3) | mRayPosFloor.y;
           
           //First set colour (it is passed by reference)
-          Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
-          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
+          Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.x, Location8 & 2047, Location8 >> 11), 0).r);
+          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.x * 2)) & 3u);
         }
         int GetRoughnessMap(vec3 RayPosFloor){
+          return 2;
           return Random(vec4(RayPosFloor, 0.)) > .75 ? 0 : 2;
         }
         
@@ -257,7 +258,7 @@ export default class Raymarcher{
               case 0:{
                 int VoxelColour;
                 VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelColour);
-                Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + 1.);
+                Colour = vec3(0.45, 0., 0.95);//normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + 1.);
                 break;
               }
               case -1:{
@@ -301,7 +302,7 @@ export default class Raymarcher{
           
           float fLevel = float(Level) + 4.;
           //vec3 Colour = normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
-          fragColor = vec4(Colour * length(Mask * vec3(.9, 1., .8)), 1.);
+          fragColor = vec4(Colour * length(Mask * vec3(.75, 1., .5)), 1.);
         }
         
         void main(){
@@ -317,6 +318,14 @@ export default class Raymarcher{
     void function AnimationFrame(){
       window.requestAnimationFrame(AnimationFrame.bind(this));
       this.UpdateUniforms();
+    }.bind(this)();
+
+    void function UpdateUniforms(){
+      if(window.performance.now() < 5000) window.setTimeout(UpdateUniforms.bind(this), 1000);
+      this.Tex1.needsUpdate = true;
+      this.Tex8.needsUpdate = true;
+      this.Tex64.needsUpdate = true;
+      this.VoxelTypesTex.needsUpdate = true;
     }.bind(this)();
 
     this.World.Events.AddEventListener("SetVirtualRegion", function(Event){

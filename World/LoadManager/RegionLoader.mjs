@@ -2,19 +2,8 @@ import {Region, VirtualRegion} from "../Region.mjs";
 import Listenable from "../../Libraries/Listenable/Listenable.mjs";
 import REGION_SD from "../RegionSD.mjs";
 import RRS_SD from "./RequiredRegionsSelectionSD.mjs";
-const LoadedVRs = 0;
-
-let Calls = 0;
-
-void function Load(){
-  self.setTimeout(Load, 1000);
-  if(Calls) console.log(Calls);
-}();
 
 export default class RegionLoader{
-  static Version = "Alpha 0.1.7.3";
-  static Build = 36;
-
   static GetDistancedPointMap(){
     function* RandomPointGenerator(Seed){
       while(true) yield (Seed = Seed * 0x41a7 % 0x7fffffff) / 0x7fffffff;
@@ -109,8 +98,15 @@ export default class RegionLoader{
     this.HeightMaps = {};
     this.DistancedPointMap = RegionLoader.GetDistancedPointMap();
 
-    this.Regions = LoadManager.Regions;
-    this.VirtualRegions = LoadManager.VirtualRegions;
+    this.VoxelTypes = LoadManager.VoxelTypes;
+    this.Data1 = LoadManager.Data1;
+    this.Data8 = LoadManager.Data8;
+    this.Data64 = LoadManager.Data64;
+
+    this.AllocationIndex = LoadManager.AllocationIndex;
+    this.AllocationArray = LoadManager.AllocationArray;
+    this.AllocationIndex64 = LoadManager.AllocationIndex64;
+    this.AllocationArray64 = LoadManager.AllocationArray64;
 
     this.WorkerHeightMapGenerator = new Worker("../MultiWorkerHeightMapGeneratorManager.mjs", {"type": "module", "name": "Heightmap Generator Manager"});
     this.WorkerRegionGenerator = new Worker("../MultiWorkerRegionGeneratorManager.mjs", {"type": "module", "name": "Region Generator Manager"});
@@ -188,6 +184,18 @@ export default class RegionLoader{
       "DistancedPointMap": this.DistancedPointMap
     });
 
+    this.WorkerRegionGenerator.postMessage({
+      "Request": "ShareDataBuffers",
+      "VoxelTypes": this.VoxelTypes,
+      "Data1": this.Data1,
+      "Data8": this.Data8,
+      "Data64": this.Data64,
+      "AllocationIndex": this.AllocationIndex,
+      "AllocationArray": this.AllocationArray,
+      "AllocationIndex64": this.AllocationIndex64,
+      "AllocationArray64": this.AllocationArray64
+    });
+
     this.WorkerRegionGenerator.addEventListener("message", function(Event){
       switch(Event.data.Request){
         case "SaveRegionData":{
@@ -245,36 +253,8 @@ export default class RegionLoader{
       void function Load(){
         self.setTimeout(Load.bind(this), 20);
         this.CheckStage3_5Eligibility();
-        this.CheckStage4Eligibility(); //This is still useful for when regions are modified and need new geometry data.
       }.bind(this)();
     }.bind(this), 20);
-
-    //GD init
-
-    /*for(const GDWorker of [this.WorkerPriorityGeometryDataGenerator, this.WorkerGeometryDataGenerator]){ //Do this for both workers.
-      GDWorker.postMessage({
-        "Request": "SaveStuff",
-        "MergedUVMapping": this.LoadManager.AtlasRanges,
-        "AtlasWidth": this.LoadManager.AtlasWidth,
-        "AtlasHeight": this.LoadManager.AtlasHeight,
-        "BlockIDMapping": this.LoadManager.MainBlockRegistry.BlockIDMapping,
-        "Workers": 3
-      });
-
-      GDWorker.addEventListener("message", function(Event){
-        switch(Event.data.Request){
-          case "SaveGeometryData":{
-            //this.Events.FireEventListeners("SaveGeometryData", Event);
-            this.Stage5(Event.data);
-            break;
-          }
-          case "SaveVirtualGeometryData":{
-            this.VirtualStage5(Event.data);
-            break;
-          }
-        }
-      }.bind(this));
-    }*/
   }
 
   //Generate heightmap
@@ -293,8 +273,8 @@ export default class RegionLoader{
           "Request": "GenerateHeightMap",
           "RegionX": RegionX,
           "RegionZ": RegionZ,
-          "XLength": Region.X_LENGTH,
-          "ZLength": Region.Z_LENGTH,
+          "XLength": 64,
+          "ZLength": 64,
           "GenerateSlopeMap": true,
           "Depth": -1
         });
@@ -314,15 +294,6 @@ export default class RegionLoader{
 
     if(!HeightMap) return; //The heightmap has been unloaded, which means that the region is also not needed anymore.
 
-    const RegionData = new Uint16Array(this.LoadManager.GetSharedArrayBuffer(Region.X_LENGTH * Region.Y_LENGTH * Region.Z_LENGTH * 2));
-    const SharedData = new Float64Array(this.LoadManager.GetSharedArrayBuffer(REGION_SD.BUFFER_SIZE));
-
-    if(this.Regions[Identifier]) debugger; //The region is being overwritten; unload it first and then proceed. Anyways, this would be pretty strange...
-
-    this.Regions[Identifier] = new Region(SharedData, RegionData, RegionX, RegionY, RegionZ);
-
-    SharedData[REGION_SD.LOADING_STAGE] = 2;
-
     //Progression to Stage 3 is managed in the constructor.
 
     this.WorkerRegionGenerator.postMessage({
@@ -330,18 +301,17 @@ export default class RegionLoader{
       "RegionX": RegionX,
       "RegionY": RegionY,
       "RegionZ": RegionZ,
-      "RegionData": RegionData,
       "HeightMap": HeightMap.HeightMap,
       "SlopeMap": HeightMap.SlopeMap,
       "TemperatureMap": HeightMap.TemperatureMap,
       "MaxHeight": HeightMap.MaxHeight,
-      "MinHeight": HeightMap.MinHeight,
-      "SharedData": SharedData
+      "MinHeight": HeightMap.MinHeight
     });
   }
 
   //Share region with main thread
   Stage3(Data){
+    return;
     const RegionX = Data.RegionX;
     const RegionY = Data.RegionY;
     const RegionZ = Data.RegionZ;
@@ -357,14 +327,6 @@ export default class RegionLoader{
     CurrentRegion.SharedData[REGION_SD.COMMON_BLOCK] = CommonBlock;
     CurrentRegion.SharedData[REGION_SD.IS_ENTIRELY_SOLID] = IsEntirelySolid;
 
-    //This would be much harder to track with stage 3.5, so I've disabled it for now.
-
-    /*if(CommonBlock !== -1){
-      this.LoadManager.RecycleSharedArrayBuffer(CurrentRegion.RegionData.buffer);
-      CurrentRegion.RegionData = null;
-      CurrentRegion.SharedData[REGION_SD.DATA_ATTACHED] = 0;
-    }*/
-
     CurrentRegion.SharedData[REGION_SD.LOADING_STAGE] = 3;
 
 
@@ -375,6 +337,7 @@ export default class RegionLoader{
   }
 
   CheckStage3_5Eligibility(){
+    return;
     const RRS = this.LoadManager.RRSLoader.RequiredRegionsSelection;
 
     const ThisMinRegionX = RRS[RRS_SD.IN_X1] - 1, ThisMaxRegionX = RRS[RRS_SD.IN_X2] + 1;
@@ -430,95 +393,6 @@ export default class RegionLoader{
       }
     }
   }
-
-  //Check which regions are ready to get geometry data, and generate their geometry data.
-  CheckStage4Eligibility(){
-    const RRS = this.LoadManager.RRSLoader.RequiredRegionsSelection;
-
-    const ThisMinRegionX = RRS[RRS_SD.IN_X1], ThisMaxRegionX = RRS[RRS_SD.IN_X2];
-    const ThisMinRegionY = RRS[RRS_SD.IN_Y1], ThisMaxRegionY = RRS[RRS_SD.IN_Y2];
-    const ThisMinRegionZ = RRS[RRS_SD.IN_Z1], ThisMaxRegionZ = RRS[RRS_SD.IN_Z2];
-
-    for(let RegionX = ThisMinRegionX; RegionX < ThisMaxRegionX; RegionX++){
-      for(let RegionY = ThisMinRegionY; RegionY < ThisMaxRegionY; RegionY++){
-        for(let RegionZ = ThisMinRegionZ; RegionZ < ThisMaxRegionZ; RegionZ++){
-          this.Stage4({RegionX, RegionY, RegionZ});
-        }
-      }
-    }
-  }
-
-  Stage4(Data){
-    const RRS = this.LoadManager.RRSLoader.RequiredRegionsSelection;
-    const BlockIDMapping = this.LoadManager.MainBlockRegistry.BlockIDMapping;
-
-    const RegionX = Data.RegionX;
-    const RegionY = Data.RegionY;
-    const RegionZ = Data.RegionZ;
-
-    const Regions = {};
-
-    const Region000 = this.Regions[RegionX + "," + RegionY + "," + RegionZ];
-    if(!Region000 || Region000.SharedData[REGION_SD.UNLOAD_TIME] >= 0 || (Region000.SharedData[REGION_SD.LOADING_STAGE] !== 3.5 && !Region000.SharedData[REGION_SD.GD_REQUIRED])) return;
-
-    const CommonBlock = Region000.SharedData[REGION_SD.COMMON_BLOCK];
-    if(CommonBlock !== -1 && BlockIDMapping[CommonBlock].Properties.Invisible) return;
-
-    let IsEntirelySolid = true;
-
-    for(const Identifier of [
-      (RegionX - 1) + "," + RegionY + "," + RegionZ,
-      (RegionX + 1) + "," + RegionY + "," + RegionZ,
-      RegionX + "," + (RegionY - 1) + "," + RegionZ,
-      RegionX + "," + (RegionY + 1) + "," + RegionZ,
-      RegionX + "," + RegionY + "," + (RegionZ - 1),
-      RegionX + "," + RegionY + "," + (RegionZ + 1),
-      RegionX + "," + RegionY + "," + RegionZ
-    ]){
-      const RegionXYZ = this.Regions[Identifier];
-      if(!RegionXYZ || RegionXYZ.SharedData[REGION_SD.UNLOAD_TIME] >= 0 || RegionXYZ.SharedData[REGION_SD.LOADING_STAGE] < 3.5) return;
-      Regions[Identifier] = RegionXYZ;
-      if(!RegionXYZ.SharedData[REGION_SD.IS_ENTIRELY_SOLID]) IsEntirelySolid = false;
-    }
-
-    Region000.SharedData[REGION_SD.LOADING_STAGE] = 4;
-
-    if(IsEntirelySolid) return;
-
-    const Priority = Region000.SharedData[REGION_SD.GD_UPDATE_REQUIRED] === 1;
-
-    Region000.SharedData[REGION_SD.GD_UPDATE_REQUIRED] = 0;
-    Region000.SharedData[REGION_SD.GD_REQUIRED] = 0;
-    (Priority ? this.WorkerPriorityGeometryDataGenerator : this.WorkerGeometryDataGenerator).postMessage({
-      "Request": "GenerateGeometryData",
-      "RegionX": RegionX,
-      "RegionY": RegionY,
-      "RegionZ": RegionZ,
-      "Regions": Regions
-    });
-  }
-
-  //Transfer geometry data to main thread.
-  Stage5(Data){
-    if(Data.SharedData[REGION_SD.UNLOAD_TIME] >= 0) return;
-
-    const RegionSD = Data.SharedData;
-    RegionSD[REGION_SD.LOADING_STAGE] = 5;
-
-    const Opaque = Data.Opaque;
-    const Transparent = Data.Transparent;
-    self.postMessage(Data, [ //Request: "SaveGeometryData"
-      Opaque.Positions.buffer,
-      Transparent.Positions.buffer,
-      Opaque.Normals.buffer,
-      Transparent.Normals.buffer,
-      Opaque.UVs.buffer,
-      Transparent.UVs.buffer,
-      Opaque.VertexAOs.buffer,
-      Transparent.VertexAOs.buffer
-    ]); //Need to transfer all of the contained buffers!
-  }
-
 
 
 

@@ -13,12 +13,13 @@ import REGION_SD from "./World/RegionSD.mjs";
 import MainThreadUnloader from "./World/MainThreadUnloader.mjs";
 import Raymarcher from "./Graphics/Renderer/Raymarcher.mjs";
 import Debug from "./Debug.mjs";
+import DeferredPromise from "./Libraries/DeferredPromise.mjs";
 
 setTimeout(function(){Application.Initialise();});
 
 class Application{
-  static Version = "0.1.9.3";
-  static Build = 55;
+  static Version = "0.1.10";
+  static Build = 56;
   static Variation = 0;
   static Revision = 0;
 
@@ -71,50 +72,42 @@ class Main{
     }];
     (Debug.DEBUG_LEVEL <= Debug.DEBUG_LEVELS.INFO) && console.time("Initialisation");
   }
-  RegisterDependencies(){
+  async RegisterDependencies(){
     this.BlockRegistry = new BlockRegistry();
 
     this.Renderer = new Renderer;
+    this.World = new World;
     this.Game = new Game(this);
 
-    ModLoadingEngine.Events.AddEventListener("PrepareInit", function(){
 
-    }.bind(this));
-    ModLoadingEngine.Events.AddEventListener("Finished", function(){
-      this.Renderer.InitialiseTextures(this.BlockRegistry);
+    const MLEPromise = new DeferredPromise;
+    const RendererPromise = new DeferredPromise;
 
-      this.Renderer.Events.AddEventListener("TextureLoad", function(){
-        /*
-          While this does mean that the regions won't even generate until the textures are loaded,
-          it is unlikely that this will matter in the future, since there will be a loading GUI and
-          the world won't be generated immediately after startup, but only when the user wants to.
-        */
+    ModLoadingEngine.Events.AddEventListener("Finished", function(){MLEPromise.resolve();});
+    this.Renderer.Events.AddEventListener("TextureLoad", function(){RendererPromise.resolve();});
 
-        this.GeometryDataAdder = new GeometryDataAdder(this.Game.World.Regions, this.Game.World.VirtualRegions, this.Renderer.Scene, this.Renderer.CSM);
-        this.Raymarcher = new Raymarcher(this.Game.World, this.Renderer);
-        this.MainThreadUnloader = new MainThreadUnloader;
+    ModLoadingEngine.PreInit();
+    await MLEPromise;
 
-        this.WorkerLoadingPipeline = new Worker(__ScriptPath__ + "/BackgroundTasks/WorkerLoadingPipeline.mjs", {"type": "module"});
-        this.WorkerLoadingPipelineHandler = new WorkerLoadingPipelineHandler;
+    this.Renderer.InitialiseTextures(this.BlockRegistry);
+    await RendererPromise;
 
-        (Debug.DEBUG_LEVEL <= Debug.DEBUG_LEVELS.INFO) && console.timeEnd("Initialisation");
-      }.bind(this));
-    }.bind(this));
+    this.Raymarcher = new Raymarcher(this.World, this.Renderer);
 
-    ModLoadingEngine.PreInit(); //Starts the entire loading process, in theory
+    this.WorkerLoadingPipeline = new Worker(__ScriptPath__ + "/BackgroundTasks/WorkerLoadingPipeline.mjs", {"type": "module"});
+    this.WorkerLoadingPipelineHandler = new WorkerLoadingPipelineHandler;
+
+    (Debug.DEBUG_LEVEL <= Debug.DEBUG_LEVELS.INFO) && console.timeEnd("Initialisation");
   }
 }
 
 class Game{
-  constructor(Main){
-    this.Main = Main;
-    this.World = new World;
-
+  constructor(){
     this.ControlManager = new ControlManager;
     this.ControlManager.Controls["GameControls"] = new GameControls;
     this.ControlManager.FocusControl("GameControls");
 
-    this.GamePointerLockHandler = new GamePointerLockHandler(this.Main.Renderer.Renderer.domElement, this.Main.Renderer.Camera);
-    this.GameControlHandler = new GameControlHandler(this.ControlManager.Controls["GameControls"], this.Main.Renderer.Camera, this.World, this.Main.BlockRegistry);
+    this.GamePointerLockHandler = new GamePointerLockHandler(Application.Main.Renderer.Renderer.domElement, Application.Main.Renderer.Camera);
+    this.GameControlHandler = new GameControlHandler(this.ControlManager.Controls["GameControls"], Application.Main.Renderer.Camera, Application.Main.World, Application.Main.BlockRegistry);
   }
 }

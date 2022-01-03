@@ -6,16 +6,34 @@ import REGION_SD from "./RegionSD.mjs";
 ReSeed(17);
 
 export default class World{
-  static Version = "Alpha 0.1.7";
-  static Build = 33;
-
   constructor(){
     this.Events = new Listenable;
-    this.Regions = {};
-    this.VirtualRegions = new Array(20).fill().map(function(){return {};});
-    this.PrematureUnloads = 0;
-    this.PrematureVirtualUnloads = 0;
-    this.TransparentBlocks = [0, 4];
+    //this.Regions = {};
+    //this.VirtualRegions = new Array(20).fill().map(function(){return {};});
+    //this.PrematureUnloads = 0;
+    //this.PrematureVirtualUnloads = 0;
+    //this.TransparentBlocks = [0, 4];
+
+    this.VoxelTypes = new Uint16Array(new SharedArrayBuffer(2 * 512*2048*256)); //512 MB
+    this.Data1 = new Uint16Array(new SharedArrayBuffer(2 * 64*2048*256)); //64 MB
+    // (it's actually supposed to be 256*2048*256 to be full-size, but that including types would probably start wasting storage).
+    // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
+
+    this.Data8 = new Uint32Array(new SharedArrayBuffer(4 * 512*512)); //1 MB
+    this.Data64 = new Uint16Array(new SharedArrayBuffer(2 * 8*8*8*8)); //8 kB (8*8*8, and 8 LODs)
+
+    this.Data64.fill(0x8000);
+    this.Data8.fill(0x80000000);
+
+    this.AllocationIndex = new Uint32Array(new SharedArrayBuffer(8)); //First slot is for allocation, second is for deallocation
+    this.AllocationArray = new Uint32Array(new SharedArrayBuffer(4 * this.Data8.length)); //Stores available Data8 slots
+    for(let i = 0, Length = this.Data8.length; i < Length; ++i) this.AllocationArray[i] = i; //Initialise allocation array
+
+    //Same thing but for allocation of 64s
+    this.AllocationIndex64 = new Uint16Array(new SharedArrayBuffer(4));
+    this.AllocationArray64 = new Uint16Array(new SharedArrayBuffer(2 * this.Data64.length));
+    for(let i = 0, Length = this.Data64.length; i < Length; ++i) this.AllocationArray64[i] = i;
+
 
     this.GetHeight = GetHeight;
 
@@ -24,6 +42,7 @@ export default class World{
     this.Seed = 17;
   }
   SetRegion(Identifier, Region){
+    throw new Error("Setting virtual regions is not supported");
     this.Regions[Identifier] = Region;
     this.Events.FireEventListeners("SetVirtualRegion", {
       "Identifier": Identifier,
@@ -31,6 +50,7 @@ export default class World{
     });
   }
   SetVirtualRegion(Depth, Identifier, Region){
+    throw new Error("Setting virtual regions is not supported");
     this.VirtualRegions[Depth][Identifier] = Region;
     this.Events.FireEventListeners("SetVirtualRegion", {
       "Identifier": Identifier,
@@ -50,6 +70,7 @@ export default class World{
   }
 
   GetBlock(X, Y, Z){
+    return 0;
     const RegionX = Math.floor(X / Region.X_LENGTH);
     const RegionY = Math.floor(Y / Region.Y_LENGTH);
     const RegionZ = Math.floor(Z / Region.Z_LENGTH);
@@ -67,6 +88,7 @@ export default class World{
   }
 
   SetBlock(X, Y, Z, BlockType){
+    return false;
     const RegionX = X >> 5;
     const RegionY = Y >> 6;
     const RegionZ = Z >> 5;
@@ -108,6 +130,7 @@ export default class World{
   }
 
   Raycast(MaxDistance = 512, Origin = null, Direction = null, TransparentBlocks = [0, 4]){
+    return 0;
     let Camera = Application.Main.Renderer.Camera;
     let SinX = Math.sin(Camera.rotation.x);
     let SinY = Math.sin(Camera.rotation.y);

@@ -51,12 +51,46 @@ let RequiredRegions;
 let OwnQueueSize;
 let ScaledDistancedPointMap = [];
 
+let VoxelTypes, Data1, Data8, Data64;
+let AllocationIndex, AllocationArray;
+let AllocationIndex64, AllocationArray64;
+
+let Data8Length = 262144;
+let Data8Mod = 262143;
+
+function AllocateData8For(StartIndex8, x8, y8, z8) {
+  const Index = Atomics.add(AllocationIndex, 0, 1) & Data8Mod;
+  const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
+  Data8[(StartIndex8 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location;
+  return Location;
+}
+
+function AllocateData64For(x64, y64, z64){
+  //Need to set coordinates within boundaries
+  const Index = Atomics.add(AllocationIndex64, 0, 1) & 511;
+  const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
+  Data64[(x64 << 6) | (y64 << 3) | z64] = Location64; //This is the StartIndex8 used in the other function.
+  debugger;
+  return Location64;
+}
+
 EventHandler.InitialiseBlockRegistry = function(Data){
   MainBlockRegistry = BlockRegistry.Initialise(Data.BlockIDMapping, Data.BlockIdentifierMapping);
 };
 
 EventHandler.TransferRequiredRegionsArray = function(Data){
   RequiredRegions = Data.RequiredRegions;
+};
+
+EventHandler.ShareDataBuffers = function(Data){
+  VoxelTypes = Data.VoxelTypes;
+  Data1 = Data.Data1;
+  Data8 = Data.Data8;
+  Data64 = Data.Data64;
+  AllocationIndex = Data.AllocationIndex;
+  AllocationArray = Data.AllocationArray;
+  AllocationIndex64 = Data.AllocationIndex64;
+  AllocationArray64 = Data.AllocationArray64;
 };
 
 EventHandler.ShareQueueSize = function(Data){
@@ -103,19 +137,18 @@ EventHandler.ShareStructures = function(Data){
   }
 };
 
+const TempDataBuffer = new Uint16Array(8 * 8 * 8);
+const TempTypeBuffer = new Uint16Array(8 * 8);
+
+const EmptyDataBuffer = new Uint16Array(8 * 8 * 8);
+const EmptyTypeBuffer = new Uint16Array(8 * 8); //Somehow, TypedArray.set(Empty, 0) is 5x faster than TypedArray.fill(0)... so enjoy.
+
 EventHandler.GenerateRegionData = function(Data){
   const RegionX = Data.RegionX;
   const RegionY = Data.RegionY;
   const RegionZ = Data.RegionZ;
 
-  if(Data.SharedData[REGION_SD.UNLOAD_TIME] >= 0){
-    if(OwnQueueSize) OwnQueueSize[0]--;
-    return;
-  }
   Requests++;
-
-  const SIDE_LENGTH_SQUARED = Region.X_LENGTH * Region.Z_LENGTH;
-  const RegionData = Data.RegionData;
 
   const AirID = MainBlockRegistry.GetBlockByIdentifier("primary:air").ID;
   const GrassID = MainBlockRegistry.GetBlockByIdentifier("default:grass").ID;
@@ -129,15 +162,27 @@ EventHandler.GenerateRegionData = function(Data){
 
   let UniformType = undefined;
   let IsEntirelySolid = true;
-  for(let X = RegionX * Region.X_LENGTH, rX = 0, Stride = 0; rX < Region.X_LENGTH; X++, rX++){
-    for(let Z = RegionZ * Region.Z_LENGTH, rZ = 0; rZ < Region.Z_LENGTH; Z++, rZ++){
-      const Height = Math.floor(HeightMap[Stride]);
-      const Slope = SlopeMap[Stride++];
-      for(let Y = RegionY * Region.Y_LENGTH, rY = 0; rY < Region.Y_LENGTH; Y++, rY++){
+
+  const StartIndex8 = AllocateData64For(RegionX, RegionY, RegionZ);
+  const x1Offset = RegionX * 64;
+  const y1Offset = RegionY * 64;
+  const z1Offset = RegionZ * 64;
+  for(let x8 = 0; x8 < 8; ++x8) for(let y8 = 0; y8 < 8; ++y8) for(let z8 = 0; z8 < 8; ++z8){
+    TempDataBuffer.set(EmptyDataBuffer, 0);
+    TempTypeBuffer.set(EmptyTypeBuffer, 0);
+    let WrittenTo = false;
+    for(let x1 = 0; x1 < 8; ++x1) for(let z1 = 0; z1 < 8; ++z1){
+      const XPos64 = (x8 << 3) | x1;
+      const ZPos64 = (z8 << 3) | z1;
+      const MapIndex = (XPos64 << 6) | ZPos64;
+      const Height = HeightMap[MapIndex] / 2 - 200;
+      const Slope = SlopeMap[MapIndex];
+      for(let y1 = 0; y1 < 8; ++y1){
         let Type;
+        const Y = y1Offset + y8 * 8 + y1;
         if(Height > Y){
           if(Slope < 4 - Height / 350) Type = GrassID;
-          else if(Slope < 5.5570110493301 - Height / 350) Type = RockID;
+          else if(Slope < 5.5570110493302 - Height / 350) Type = RockID;
           else Type = Rock1ID;
         }
         else{
@@ -147,19 +192,24 @@ EventHandler.GenerateRegionData = function(Data){
             Type = AirID;
           }
         }
-        //TODO: Add a mesh that's specific for uniform region data when it's filled with water.
-        if(UniformType !== false){
-          if(UniformType === undefined) UniformType = Type;
-          else if(Type !== UniformType) UniformType = false;
-        }
-        RegionData[rX * Region.Z_LENGTH * Region.Y_LENGTH + rY * Region.Z_LENGTH + rZ] = Type;
-        if(IsEntirelySolid && (Type === 0 || Type === 4)) IsEntirelySolid = false;
+
+        if(Type !== 0) WrittenTo = true;
+        TempDataBuffer[(x1 << 6) | (y1 << 3) | z1] = Type;
+        if(Type !== 0){ //For now, this just checks against air, but it will be more complicated than that...
+          TempTypeBuffer[(x1 << 3) | y1] |= 0b00 << (z1 * 2);
+        } else TempTypeBuffer[(x1 << 3) | y1] |= 0b01 << (z1 * 2);
       }
     }
+    if(!WrittenTo) continue;
+    debugger;
+    //Now, since something was actually written to the temp buffer, write it to the Data1 buffer:
+    const Location8 = AllocateData8For(StartIndex8, x8, y8, z8); //This automatically registers the Data8
+    VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
+    Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
   }
 
   let CommonBlock = -1;
-  if(UniformType !== false) CommonBlock = UniformType;
+  //if(UniformType !== false) CommonBlock = UniformType;
 
   if(OwnQueueSize) OwnQueueSize[0]--;
   self.postMessage({
@@ -167,7 +217,6 @@ EventHandler.GenerateRegionData = function(Data){
     "RegionX": Data.RegionX,
     "RegionY": Data.RegionY,
     "RegionZ": Data.RegionZ,
-    "RegionData": RegionData,
     "CommonBlock": CommonBlock,
     "IsEntirelySolid": IsEntirelySolid
   });

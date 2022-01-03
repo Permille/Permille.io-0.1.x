@@ -66,6 +66,7 @@ EventHandler.ShareQueueSize = function(Data){
 
 EventHandler.SaveDistancedPointMap = function(Data){
   DistancedPointMap = Data.DistancedPointMap;
+  console.log(DistancedPointMap);
 };
 
 EventHandler.ShareStructures = function(Data){

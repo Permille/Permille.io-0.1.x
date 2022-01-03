@@ -88,10 +88,6 @@ export class Main{
     Main.MLE.PostInit.Done(Main.Identifier);
   }
   static AnimationFrame(){
-    let RaycastValue = Main.Renderer.RaycastValue;
-    Main.Renderer.BokehPass.uniforms.focus.value = (Main.Renderer.BokehPass.uniforms.focus.value + 0.07 * RaycastValue) / 1.07;
-    Main.Renderer.BokehPass.uniforms.aperture.value = 0.003 / RaycastValue;
-
     let PreferredZoomLevel = Main.States.PreferredZoomLevel;
     Main.Renderer.Camera.zoom = (Main.Renderer.Camera.zoom + 0.1 * PreferredZoomLevel) / 1.1;
 

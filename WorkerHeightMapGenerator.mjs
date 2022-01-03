@@ -69,11 +69,10 @@ EventHandler.GenerateHeightMap = function(Data){
   Requests++;
   const RegionX = Data.RegionX;
   const RegionZ = Data.RegionZ;
-  const FACTOR = 2 ** (1 + Data.Depth);
-  const SIDE_LENGTH_SQUARED = Region.X_LENGTH * Region.Z_LENGTH;
 
-  const FloatHeightMap = new Float32Array(SIDE_LENGTH_SQUARED);
-  const FloatTemperatureMap = new Float32Array(SIDE_LENGTH_SQUARED);
+  const FloatHeightMap = new Float32Array(64 * 64);
+  const FloatTemperatureMap = new Float32Array(64 * 64);
+  const FloatSlopeMap = new Float32Array(64 * 64);
 
   const XLength = Data.XLength;
   const ZLength = Data.ZLength;
@@ -81,33 +80,31 @@ EventHandler.GenerateHeightMap = function(Data){
   let MinHeight = Infinity;
   let MaxHeight = -Infinity;
 
-  for(let X = RegionX * Region.X_LENGTH, rX = 0, Stride = 0; rX < XLength; X++, rX++){
-    for(let Z = RegionZ * Region.Z_LENGTH, rZ = 0; rZ < ZLength; Z++, rZ++){
-      const Height = GetHeight(X * FACTOR, Z * FACTOR);
+  for(let X = RegionX * 64, rX = 0, Stride = 0; rX < XLength; X++, rX++){
+    for(let Z = RegionZ * 64, rZ = 0; rZ < ZLength; Z++, rZ++){
+      const Height = GetHeight(X, Z);
       FloatHeightMap[Stride] = Height;
-      FloatTemperatureMap[Stride++] = (Simplex.simplex2(FACTOR * X / 1000, FACTOR * Z / 1000) / 2 + .5);
+      FloatTemperatureMap[Stride++] = (Simplex.simplex2(64 * X / 1000, 64 * Z / 1000) / 2 + .5);
       if(MinHeight > Height) MinHeight = Height;
       if(MaxHeight < Height) MaxHeight = Height;
     }
   }
-  const FloatSlopeMap = new Float32Array(SIDE_LENGTH_SQUARED);
   if(Data.GenerateSlopeMap){
     const AverageLength = 3;
-    const XRatio = AverageLength / Region.X_LENGTH;
-    const ZRatio = AverageLength / Region.Z_LENGTH;
-    for(let X = RegionX * Region.X_LENGTH, rX = 0, Stride = 0; rX < Region.X_LENGTH; X++, rX++){
+    const XRatio = AverageLength / 64;
+    const ZRatio = AverageLength / 64;
+    for(let X = RegionX * 64, rX = 0, Stride = 0; rX < 64; X++, rX++){
       const CurrentX = Math.ceil(rX - rX * XRatio);
-      for(let Z = RegionZ * Region.Z_LENGTH, rZ = 0; rZ < Region.Z_LENGTH; Z++, rZ++){
+      for(let Z = RegionZ * 64, rZ = 0; rZ < 64; Z++, rZ++){
         const CurrentZ = Math.ceil(rZ - rZ * ZRatio);
-        const Height = FloatHeightMap[CurrentX * Region.Z_LENGTH + CurrentZ];
-        const SlopeX = Math.abs(FloatHeightMap[(CurrentX + AverageLength - 1) * Region.Z_LENGTH + CurrentZ] - Height);
-        const SlopeZ = Math.abs(FloatHeightMap[CurrentX * Region.Z_LENGTH + AverageLength + CurrentZ - 1] - Height);
+        const Height = FloatHeightMap[CurrentX * 64 + CurrentZ];
+        const SlopeX = Math.abs(FloatHeightMap[(CurrentX + AverageLength - 1) * 64 + CurrentZ] - Height);
+        const SlopeZ = Math.abs(FloatHeightMap[CurrentX * 64 + AverageLength + CurrentZ - 1] - Height);
         const Slope = (SlopeX > SlopeZ) ? SlopeX : SlopeZ; //TODO: Make a better slope calculation.
-        FloatSlopeMap[Stride++] = Slope / FACTOR;
+        FloatSlopeMap[Stride++] = Slope / 64;
       }
     }
   }
-
   if(OwnQueueSize) OwnQueueSize[0]--;
   self.postMessage({
     "Request": "SaveHeightMap",

@@ -1,6 +1,5 @@
 import * as THREE from "../../Libraries/Three/Three.js";
 import CSM from "../../Libraries/ThreeCSM/src/CSM.js";
-import { BokehPass } from '../../Libraries/Three/examples/jsm/postprocessing/BokehPass.js';
 import Raycast from "../../Libraries/Raycast/Raycast.mjs";
 import TextureMerger from "../../Libraries/TextureMerger/TextureMerger.mjs";
 import Simplex from "../../Simplex.js";
@@ -420,12 +419,6 @@ export default class Renderer{
     //Mesh.rotation.x = Math.PI / 2;
 
     this.BackgroundScene.add(Mesh);
-
-    this.BokehPass = new BokehPass(this.Scene, this.Camera, {
-      "focus": 10,
-      "maxblur": 0.004,
-      "aperture": 0.00003
-    });
 
     this.UsingShader = true;
 

@@ -8,10 +8,10 @@ export default class RRSLoader{
     this.PlayerPosition = LoadManager.PlayerPosition;
     this.RequiredRegionsSelection = LoadManager.RequiredRegionsSelection;
 
-    void function Load(){
-      self.setTimeout(Load.bind(this), 25);
+    void function Load(){ //THIS WILL ONLY RUN ONCE!!!!
+      //self.setTimeout(Load.bind(this), 25);
       this.UpdateRRS();
-      //this.LoadRegions();
+      this.LoadRegions();
       //this.LoadVirtualRegions();
     }.bind(this)();
   }
@@ -53,7 +53,7 @@ export default class RRSLoader{
   }
 
   LoadRegions(){
-    const RRS = this.RequiredRegionsSelection;
+    /*const RRS = this.RequiredRegionsSelection;
 
     const ThisMinRegionX = RRS[RRS_SD.IN_X1] - 2, ThisMaxRegionX = RRS[RRS_SD.IN_X2] + 2;
     const ThisMinRegionY = RRS[RRS_SD.IN_Y1] - 2, ThisMaxRegionY = RRS[RRS_SD.IN_Y2] + 2;
@@ -65,8 +65,15 @@ export default class RRSLoader{
         const IdentifierXY = IdentifierX + RegionY + ",";
         for(let RegionZ = ThisMinRegionZ; RegionZ < ThisMaxRegionZ; RegionZ++){
           const Identifier = IdentifierXY + RegionZ;
-          if(this.Regions[Identifier] !== undefined) continue;
-          this.Regions[Identifier] = null;
+          //if(this.Regions[Identifier] !== undefined) continue;
+          //this.Regions[Identifier] = null;
+          this.LoadManager.RegionLoader.Stage1(RegionX, RegionY, RegionZ);
+        }
+      }
+    }*/
+    for(let RegionX = 0; RegionX < 8; RegionX++){
+      for(let RegionY = 0; RegionY < 8; RegionY++){
+        for(let RegionZ = 0; RegionZ < 8; RegionZ++){
           this.LoadManager.RegionLoader.Stage1(RegionX, RegionY, RegionZ);
         }
       }

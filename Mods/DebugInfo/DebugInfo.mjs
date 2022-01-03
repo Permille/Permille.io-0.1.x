@@ -69,7 +69,7 @@ export class Main{
         return "";
       },
       function(){
-        return Math.round(1000 / Main.Renderer.RenderTime) + " fps (" + Application.Main.GeometryDataAdder.PendingAddGeometryDataRequests + " PADRs, " + Application.Main.GeometryDataAdder.PendingAddVirtualGeometryDataRequests + " PAVDRs)";
+        return Math.round(1000 / Main.Renderer.RenderTime) + " fps";
       }.bind(this),
       function(){
         const PerformanceInfo = Main.Renderer.Renderer.info;
@@ -78,11 +78,11 @@ export class Main{
       function(){
         const PerformanceInfo = Main.Renderer.Renderer.info;
         return "Triangles: " + PerformanceInfo.render.triangles;
-      }.bind(this),
+      }.bind(this)/*,
       function(){
         const Max = Math.round(Math.max(Application.Main.GeometryDataAdder.TimeLastRegion, Application.Main.GeometryDataAdder.TimeLastVirtualRegion));
         return "Last Update: " + Max + "; RG: " + Math.round(Application.Main.GeometryDataAdder.TimeLastRegion) + ", VG: " + Math.round(Application.Main.GeometryDataAdder.TimeLastVirtualRegion);
-      }.bind(this)
+      }.bind(this)*/
     ]);
     Main.MLE.Init.Done(Main.Identifier);
   }

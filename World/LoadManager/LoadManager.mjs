@@ -21,6 +21,8 @@ export default class LoadManager{
     this.Data8 = Data.Data8;
     this.Data64 = Data.Data64;
 
+    this.Data64Offset = Data.Data64Offset;
+
     this.AllocationIndex = Data.AllocationIndex;
     this.AllocationArray = Data.AllocationArray;
     this.AllocationIndex64 = Data.AllocationIndex64;
@@ -29,17 +31,5 @@ export default class LoadManager{
     this.RegionLoader = new RegionLoader(this);
     this.RegionUnloader = new RegionUnloader(this);
     this.RRSLoader = new RRSLoader(this);
-
-    //Handler for when the main thread shares regions to this thread (e.g. when a block is broken and region data is created.)
-    self.EventHandler.ShareRegionData = function(Data){
-      throw new Error("Region data sharing has not been implemented!!");
-      /*
-      const CurrentRegion = this.Regions[Data.Identifier];
-      if(CurrentRegion && !CurrentRegion.RegionData && CurrentRegion.SharedData[REGION_SD.UNLOAD_TIME] < 0){
-        CurrentRegion.RegionData = Data.RegionData;
-        CurrentRegion.SharedData[REGION_SD.IS_ENTIRELY_SOLID] = 0;
-        CurrentRegion.SharedData[REGION_SD.COMMON_BLOCK] = -1;
-      }*/
-    }.bind(this);
   }
 };

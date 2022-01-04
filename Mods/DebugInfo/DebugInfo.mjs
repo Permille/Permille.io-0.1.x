@@ -78,7 +78,16 @@ export class Main{
       function(){
         const PerformanceInfo = Main.Renderer.Renderer.info;
         return "Triangles: " + PerformanceInfo.render.triangles;
-      }.bind(this)/*,
+      }.bind(this),
+      function(){
+        const AllocationIndex = Application.Main.World.AllocationIndex;
+        const AllocationIndex64 = Application.Main.World.AllocationIndex64;
+        const Size8 = Application.Main.World.Data8.length;
+        const Size64 = 512;
+        const Utilisation = ((AllocationIndex[0] - AllocationIndex[1]) & (Size8 - 1)) / Size8;
+        const Utilisation64 = ((AllocationIndex64[0] - AllocationIndex64[1]) & (Size64 - 1)) / Size64;
+        return `Buffer utilisation: 8: ${Math.round(Utilisation * 1e5) / 1e3}%, 64: ${Math.round(Utilisation64 * 1e5) / 1e3}%`;
+      }/*,
       function(){
         const Max = Math.round(Math.max(Application.Main.GeometryDataAdder.TimeLastRegion, Application.Main.GeometryDataAdder.TimeLastVirtualRegion));
         return "Last Update: " + Max + "; RG: " + Math.round(Application.Main.GeometryDataAdder.TimeLastRegion) + ", VG: " + Math.round(Application.Main.GeometryDataAdder.TimeLastVirtualRegion);

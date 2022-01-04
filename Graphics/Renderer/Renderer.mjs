@@ -1,5 +1,4 @@
 import * as THREE from "../../Libraries/Three/Three.js";
-import CSM from "../../Libraries/ThreeCSM/src/CSM.js";
 import Raycast from "../../Libraries/Raycast/Raycast.mjs";
 import TextureMerger from "../../Libraries/TextureMerger/TextureMerger.mjs";
 import Simplex from "../../Simplex.js";
@@ -18,14 +17,6 @@ export default class Renderer{
 
 #endif
 `;
-    this.UseAnimationFrame = true;
-    this.Events.AddEventListener("TextureLoad", function(){
-      void function Load(){
-        if(this.UseAnimationFrame) window.requestAnimationFrame(Load.bind(this));
-        else window.setTimeout(Load.bind(this), 0);
-        this.Render();
-      }.bind(this)();
-    }.bind(this));
     this.MergedTexture = undefined;
 
     this.RenderTime = 10;
@@ -425,45 +416,24 @@ export default class Renderer{
     this.Renderer.shadowMap.enabled = true;
     this.Renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    this.CSM = new CSM({
-      maxFar: 1000,
-      cascades: 5,
-      shadowMapSize: 2048,
-      lightDirection: new THREE.Vector3(-0.7, -1, -1).normalize(),
-      camera: this.Camera,
-      parent: this.Scene,
-      mode: "custom",
-      lightIntensity: 0.5,
-      customSplitsCallback: function(amount, near, far, target) {
-        //target.push(0.10, 0.21, 0.33, 0.52, 1.0, 3.5); //[-0.000035, -0.00007, -0.00011, -0.00017, -0.00025, -0.001][i];
-        //target.push(0.10 / 3, 0.33 / 2.3, 1.0 / 1.8, 3.5 / 1.0);
-        target.push(0.008, 0.02, 0.06, 0.18, 0.6);
-      },
-      lightMargin: 1700,
-      lightFar: 5000,
-      lightNear: 0.1,
-      ShadowBiases: [-0.0000099, -0.000017, -0.000049, -0.000145, -0.00048]
-    });
 
-    this.RaycastValue = 0;
-
-    void function Update(){
-      window.requestAnimationFrame(Update.bind(this));
-      let WHRatio = window.innerWidth / window.innerHeight;
-      for(let i = 0, Length = this.CSM.lights.length; i < Length; i++){
-        this.CSM.lights[i].shadow.bias = this.CSM.ShadowBiases[i] * WHRatio;
-      }
-    }.bind(this)();
-
-    this.CSM.fade = true;
-
-    this.Scene.add(new THREE.AmbientLight(0x7f7f7f));
-
+    this.UseAnimationFrame = true;
+    this.Events.AddEventListener("TextureLoad", function(){
+      void function Load(){
+        if(this.UseAnimationFrame) window.requestAnimationFrame(Load.bind(this));
+        else window.setTimeout(Load.bind(this), 0);
+        this.Render();
+      }.bind(this)();
+    }.bind(this));
 
     window.addEventListener("resize", function(){
       this.UpdateSize();
     }.bind(this));
     this.UpdateSize();
+
+    /*Application.Main.WorkerLoadingPipelineHandler.Events.AddEventListener("UpdatedData64Offset", function(){
+
+    }.bind(this));*/
 
     this.Events.FireEventListeners("InitEnd");
   }
@@ -482,66 +452,17 @@ export default class Renderer{
     this.Camera.updateProjectionMatrix();
     this.Camera.rotation.order = "YXZ"; //?
   }
-  EnableShader(){
-    this.UsingShader = true;
-    for(const Mesh of Application.Main.GeometryDataAdder.UsedMeshes["Opaque"]){
-      Mesh.material.dispose();
-      Mesh.material = Application.Main.GeometryDataAdder.GetAOMaterial();
-
-      Mesh.castShadow = true;
-      Mesh.receiveShadow = true;
-    }
-    for(const Mesh of Application.Main.GeometryDataAdder.UsedMeshes["Transparent"]){
-      Mesh.material.dispose();
-      Mesh.material = Application.Main.GeometryDataAdder.GetPhysicalMaterial();
-
-      Mesh.castShadow = true;
-      Mesh.receiveShadow = true;
-    }
-    for(let i = 1, Length = this.CSM.lights.length; i < Length; i++){
-      this.CSM.lights[i].visible = true;
-    }
-  }
-  DisableShader(){
-    this.UsingShader = false;
-    for(const Mesh of Application.Main.GeometryDataAdder.UsedMeshes["Opaque"]){
-      Mesh.material.dispose();
-      Mesh.material = Application.Main.GeometryDataAdder.GetAOMaterial();
-
-      Mesh.castShadow = false;
-      Mesh.receiveShadow = false;
-    }
-    for(const Mesh of Application.Main.GeometryDataAdder.UsedMeshes["Transparent"]){
-      Mesh.material.dispose();
-      Mesh.material = Application.Main.GeometryDataAdder.GetTransparentMaterial();
-
-      Mesh.castShadow = false;
-      Mesh.receiveShadow = false;
-    }
-    for(let i = 1, Length = this.CSM.lights.length; i < Length; i++){
-      this.CSM.lights[i].visible = false;
-    }
-    console.log(this.CSM);
-    //TODO: Could do further optimisations, like culled region rendering (and loading for virtual regions), etc.
-  }
   Render(){
     this.RenderTime = window.performance.now() - this.LastRender;
     this.LastRender = window.performance.now();
 
-    if(this.UsingShader){
-      this.CSM.update(this.Camera.matrix);
-      const LightDirection = new THREE.Vector3(Math.sin(window.performance.now() / 100000 + Math.PI / 1.1), -0.75, Math.cos(window.performance.now() / 100000 + Math.PI / 1.1)).normalize();
-      this.CSM.lightDirection = LightDirection;
-      this.CSM.updateFrustums();
-      this.BackgroundMaterial.uniforms.iSunPosition.value = LightDirection;
-    }
     this.BackgroundRenderer.clear();
     //this.BackgroundRenderer.render(this.BackgroundScene, this.BackgroundCamera);
     this.Renderer.clear();
     this.Renderer.render(this.Scene, this.Camera);
   }
 
-  Raycast(World = Application.Main.Game.World){
+  Raycast(World = Application.Main.World){
     let SinX = Math.sin(this.Camera.rotation.x);
     let SinY = Math.sin(this.Camera.rotation.y);
     let CosX = Math.cos(this.Camera.rotation.x);

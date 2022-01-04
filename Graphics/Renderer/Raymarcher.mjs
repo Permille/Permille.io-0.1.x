@@ -248,20 +248,21 @@ export default class Raymarcher{
             int VoxelState;
             switch(Level){
               case 2:{ //64
-                Location64 = GetLocation64(TrueRayPosFloor);
-                VoxelState = Location64 >> 15; //Get whether it exists
+                int Result = GetLocation64(TrueRayPosFloor);
+                Location64 = Result & 0x01ff;
+                VoxelState = Result >> 15; //Get whether it exists
                 break;
               }
               case 1:{
                 uint Result = GetLocation8(Location64, TrueRayPosFloor);
                 VoxelState = int(Result >> 31);
-                Location8 = int(Result & 0x7fffffffu);
+                Location8 = int(Result & 0x3fffffffu);
                 break;
               }
               case 0:{
                 int VoxelColour;
                 VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelColour);
-                Colour = vec3(0.45, 0., 0.95);//normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + 1.);
+                Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + vec3(0.45, 0., 0.95));
                 break;
               }
               case -1:{
@@ -340,21 +341,5 @@ export default class Raymarcher{
     this.Material.uniforms["iTime"].value = window.performance.now();
     this.Material.uniforms["iRotation"].value = new THREE.Vector3(-this.Renderer.Camera.rotation.x, -this.Renderer.Camera.rotation.y, this.Renderer.Camera.rotation.z);
     this.Material.uniforms["iPosition"].value = new THREE.Vector3(this.Renderer.Camera.position.x, this.Renderer.Camera.position.y, -this.Renderer.Camera.position.z);
-  }
-  AddRegion(Region){
-    this.Statistics.RD = window.performance.now();
-    /*const RegionX = Region.RegionX;
-    const RegionY = Region.RegionY;
-    const RegionZ = Region.RegionZ;
-    const RegionData = Region.RegionData;
-
-    const Geometry = new THREE.BoxGeometry(32, 64, 32);
-
-    const Cube = new THREE.Mesh(Geometry, this.Material);
-    Cube.position.x = RegionX * 32;
-    Cube.position.y = RegionY * 64;
-    Cube.position.z = RegionZ * 32;
-
-    this.Scene.add(Cube);*/
   }
 };

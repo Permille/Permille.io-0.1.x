@@ -8,11 +8,6 @@ ReSeed(17);
 export default class World{
   constructor(){
     this.Events = new Listenable;
-    //this.Regions = {};
-    //this.VirtualRegions = new Array(20).fill().map(function(){return {};});
-    //this.PrematureUnloads = 0;
-    //this.PrematureVirtualUnloads = 0;
-    //this.TransparentBlocks = [0, 4];
 
     this.VoxelTypes = new Uint16Array(new SharedArrayBuffer(2 * 512*2048*256)); //512 MB
     this.Data1 = new Uint16Array(new SharedArrayBuffer(2 * 64*2048*256)); //64 MB
@@ -34,29 +29,13 @@ export default class World{
     this.AllocationArray64 = new Uint16Array(new SharedArrayBuffer(2 * this.Data64.length));
     for(let i = 0, Length = this.Data64.length; i < Length; ++i) this.AllocationArray64[i] = i;
 
+    this.Data64Offset = new Int32Array(new SharedArrayBuffer(96));
 
     this.GetHeight = GetHeight;
 
     this.NotLoadedID = Application.Main.BlockRegistry.GetBlockByIdentifier("primary:not_loaded").ID;
 
     this.Seed = 17;
-  }
-  SetRegion(Identifier, Region){
-    throw new Error("Setting virtual regions is not supported");
-    this.Regions[Identifier] = Region;
-    this.Events.FireEventListeners("SetVirtualRegion", {
-      "Identifier": Identifier,
-      "Region": Region
-    });
-  }
-  SetVirtualRegion(Depth, Identifier, Region){
-    throw new Error("Setting virtual regions is not supported");
-    this.VirtualRegions[Depth][Identifier] = Region;
-    this.Events.FireEventListeners("SetVirtualRegion", {
-      "Identifier": Identifier,
-      "Depth": Depth,
-      "Region": Region
-    });
   }
   SetSeed(Seed){
     Application.Main.WorkerLoadingPipeline.postMessage({"Request": "SetSeed", "Seed": Seed});

@@ -69,14 +69,17 @@ function AllocateData64(x64, y64, z64){
   //Need to set coordinates within boundaries
   const Index = Atomics.add(AllocationIndex64, 0, 1) & 511;
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
-  Data64[(x64 << 6) | (y64 << 3) | z64] = Location64; //This is the StartIndex8 used in the other function.
+
+  Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset any previous location, and set first bit to 0 to mark existence.
+  Data64[(x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
   return Location64;
 }
 
 function DeallocateData64(Location64, x64, y64, z64){
   const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 511; //Indexing 1 for deallocation.
   Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
-  Data64[(x64 << 6) | (y64 << 3) | z64] = 0x8000; //Mark data slot empty.
+  Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset previous location and existence marker.
+  Data64[(x64 << 6) | (y64 << 3) | z64] |= 0b1000000000000000; //Set existence marker to indicate that it's empty.
 }
 
 EventHandler.InitialiseBlockRegistry = function(Data){
@@ -219,8 +222,8 @@ EventHandler.GenerateRegionData = function(Data){
     DeallocateData64(StartIndex8, RegionX, RegionY, RegionZ);
   }
 
-  let CommonBlock = -1;
-  //if(UniformType !== false) CommonBlock = UniformType;
+  const Index64 = (RegionX << 6) | (RegionY << 3) | RegionZ;
+  Data64[Index64] = (Data64[Index64] & ~(0b0111 << 12)) | (0b0010 << 12); //Set state to 0bX010 (finished terrain loading)
 
   if(OwnQueueSize) OwnQueueSize[0]--;
   self.postMessage({
@@ -228,8 +231,6 @@ EventHandler.GenerateRegionData = function(Data){
     "RegionX": Data.RegionX,
     "RegionY": Data.RegionY,
     "RegionZ": Data.RegionZ,
-    "CommonBlock": CommonBlock,
-    "IsEntirelySolid": IsEntirelySolid
   });
 };
 

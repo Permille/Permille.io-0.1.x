@@ -103,6 +103,8 @@ export default class RegionLoader{
     this.Data8 = LoadManager.Data8;
     this.Data64 = LoadManager.Data64;
 
+    this.Data64Offset = LoadManager.Data64Offset;
+
     this.AllocationIndex = LoadManager.AllocationIndex;
     this.AllocationArray = LoadManager.AllocationArray;
     this.AllocationIndex64 = LoadManager.AllocationIndex64;
@@ -186,10 +188,11 @@ export default class RegionLoader{
 
     this.WorkerRegionGenerator.postMessage({
       "Request": "ShareDataBuffers",
-      "VoxelTypes": this.VoxelTypes,
       "Data1": this.Data1,
       "Data8": this.Data8,
       "Data64": this.Data64,
+      "VoxelTypes": this.VoxelTypes,
+      "Data64Offset": this.Data64Offset,
       "AllocationIndex": this.AllocationIndex,
       "AllocationArray": this.AllocationArray,
       "AllocationIndex64": this.AllocationIndex64,
@@ -199,8 +202,7 @@ export default class RegionLoader{
     this.WorkerRegionGenerator.addEventListener("message", function(Event){
       switch(Event.data.Request){
         case "SaveRegionData":{
-          //this.Events.FireEventListeners("SaveRegionData", Event);
-          this.Stage3(Event.data);
+
           break;
         }
         case "SaveVirtualRegionData":{
@@ -306,33 +308,6 @@ export default class RegionLoader{
       "TemperatureMap": HeightMap.TemperatureMap,
       "MaxHeight": HeightMap.MaxHeight,
       "MinHeight": HeightMap.MinHeight
-    });
-  }
-
-  //Share region with main thread
-  Stage3(Data){
-    return;
-    const RegionX = Data.RegionX;
-    const RegionY = Data.RegionY;
-    const RegionZ = Data.RegionZ;
-
-    const Identifier = RegionX + "," + RegionY + "," + RegionZ;
-    const CurrentRegion = this.Regions[Identifier];
-
-    if(!CurrentRegion || CurrentRegion.SharedData[REGION_SD.UNLOAD_TIME] >= 0) return;
-
-    const CommonBlock = Data.CommonBlock;
-    const IsEntirelySolid = Data.IsEntirelySolid;
-
-    CurrentRegion.SharedData[REGION_SD.COMMON_BLOCK] = CommonBlock;
-    CurrentRegion.SharedData[REGION_SD.IS_ENTIRELY_SOLID] = IsEntirelySolid;
-
-    CurrentRegion.SharedData[REGION_SD.LOADING_STAGE] = 3;
-
-
-    self.postMessage({
-      "Request": "ShareRegion",
-      "Region": CurrentRegion
     });
   }
 

@@ -145,6 +145,7 @@ export default class Raymarcher{
         
         
         const float InDegrees = .01745329;
+        const float PI = 3.14159;
         
         mat3 RotateX(float a){
           float c = cos(a);
@@ -183,21 +184,21 @@ export default class Raymarcher{
         
         int GetLocation64(vec3 RayPosFloor){
           ivec3 mRayPosFloor = ivec3(RayPosFloor) >> 6; //Divides by 64. (gets location within 64, don't need to mod because this is the texture size)
-          return int(texelFetch(iTex64, mRayPosFloor, 0).r);
+          return int(texelFetch(iTex64, mRayPosFloor.zyx, 0).r);
         }
         uint GetLocation8(int Location64, vec3 RayPosFloor){
           ivec3 mRayPosFloor = (ivec3(RayPosFloor) >> 3) & 7; //Gets location within 8
-          int Pos8XYZ = (mRayPosFloor.z << 6) | (mRayPosFloor.y << 3) | mRayPosFloor.x;
+          int Pos8XYZ = (mRayPosFloor.x << 6) | (mRayPosFloor.y << 3) | mRayPosFloor.z;
           return texelFetch(iTex8, ivec3(0, Pos8XYZ, Location64), 0).r;
         }
         int GetType1(int Location8, vec3 RayPosFloor, out int Colour){
           //return 2;//int(Random(vec4(RayPosFloor, 0.)) * 3.);
           ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
-          int Pos1XY = (mRayPosFloor.z << 3) | mRayPosFloor.y;
+          int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
           
           //First set colour (it is passed by reference)
-          Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.x, Location8 & 2047, Location8 >> 11), 0).r);
-          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.x * 2)) & 3u);
+          Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
+          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
         }
         int GetRoughnessMap(vec3 RayPosFloor){
           return 2;
@@ -339,7 +340,7 @@ export default class Raymarcher{
   UpdateUniforms(){
     this.Material.uniforms["iResolution"].value = new THREE.Vector2(window.innerWidth, window.innerHeight);
     this.Material.uniforms["iTime"].value = window.performance.now();
-    this.Material.uniforms["iRotation"].value = new THREE.Vector3(-this.Renderer.Camera.rotation.x, -this.Renderer.Camera.rotation.y, this.Renderer.Camera.rotation.z);
-    this.Material.uniforms["iPosition"].value = new THREE.Vector3(this.Renderer.Camera.position.x, this.Renderer.Camera.position.y, -this.Renderer.Camera.position.z);
+    this.Material.uniforms["iRotation"].value = new THREE.Vector3(this.Renderer.Camera.rotation.x, this.Renderer.Camera.rotation.y, this.Renderer.Camera.rotation.z);
+    this.Material.uniforms["iPosition"].value = new THREE.Vector3(this.Renderer.Camera.position.x, this.Renderer.Camera.position.y, this.Renderer.Camera.position.z);
   }
 };

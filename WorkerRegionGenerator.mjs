@@ -54,6 +54,7 @@ let ScaledDistancedPointMap = [];
 let VoxelTypes, Data1, Data8, Data64;
 let AllocationIndex, AllocationArray;
 let AllocationIndex64, AllocationArray64;
+let Data64Offset;
 
 let Data8Length = 262144;
 let Data8Mod = 262143;
@@ -66,6 +67,9 @@ function AllocateData8(StartIndex8, x8, y8, z8) {
 }
 
 function AllocateData64(x64, y64, z64){
+  x64 -= Data64Offset[0];
+  y64 -= Data64Offset[1];
+  z64 -= Data64Offset[2];
   //Need to set coordinates within boundaries
   const Index = Atomics.add(AllocationIndex64, 0, 1) & 511;
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
@@ -76,6 +80,9 @@ function AllocateData64(x64, y64, z64){
 }
 
 function DeallocateData64(Location64, x64, y64, z64){
+  x64 -= Data64Offset[0];
+  y64 -= Data64Offset[1];
+  z64 -= Data64Offset[2];
   const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 511; //Indexing 1 for deallocation.
   Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
   Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset previous location and existence marker.
@@ -99,6 +106,7 @@ EventHandler.ShareDataBuffers = function(Data){
   AllocationArray = Data.AllocationArray;
   AllocationIndex64 = Data.AllocationIndex64;
   AllocationArray64 = Data.AllocationArray64;
+  Data64Offset = Data.Data64Offset;
 };
 
 EventHandler.ShareQueueSize = function(Data){

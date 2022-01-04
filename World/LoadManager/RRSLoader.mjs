@@ -19,13 +19,13 @@ export default class RRSLoader{
   }
 
   UpdateData64Offset(){ //This is kinda messy but it works
-    const PlayerX = this.PlayerPosition[0];
-    const PlayerY = this.PlayerPosition[1];
-    const PlayerZ = this.PlayerPosition[2];
+    const PlayerX = -16;//this.PlayerPosition[0];
+    const PlayerY = 0;//this.PlayerPosition[1];
+    const PlayerZ = 0;//this.PlayerPosition[2];
 
     let Changed = false;
 
-    const NewData64Offset = new Uint16Array(24);
+    const NewData64Offset = new Int32Array(24);
 
     for(let Depth = 0; Depth < 8; ++Depth){
       const Size = 64 << Depth;
@@ -118,9 +118,9 @@ export default class RRSLoader{
       const State = this.Data64[Index] >> 12;
       if((State & 0b0111) === 0b0000){ //This means that it's not started loading.
         this.Data64[Index] = (this.Data64[Index] & ~(0b0111 << 12)) | (0b0001 << 12); //Set state to 0bX001 (Started loading)
-        const RegionX = rx64 + this.Data64Offset[0] - 4; //TODO: The -4 is to center it, not sure if this will work for VRs!!!
-        const RegionY = ry64 + this.Data64Offset[1] - 4;
-        const RegionZ = rz64 + this.Data64Offset[2] - 4;
+        const RegionX = rx64 + this.Data64Offset[0]; //TODO: The -4 is to center it, not sure if this will work for VRs!!!
+        const RegionY = ry64 + this.Data64Offset[1];
+        const RegionZ = rz64 + this.Data64Offset[2];
 
         this.LoadManager.RegionLoader.Stage1(RegionX, RegionY, RegionZ);
       }

@@ -19,8 +19,8 @@ export default class RRSLoader{
       self.setTimeout(Load.bind(this), 2500);
       //this.UpdateRRS();
 
-      this.LoadRegions();
       this.UpdateData64Offset();
+      this.LoadRegions();
       //this.LoadRegions();
       //this.LoadVirtualRegions();
     }.bind(this)();

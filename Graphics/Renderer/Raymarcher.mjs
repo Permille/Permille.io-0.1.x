@@ -326,7 +326,7 @@ export default class Raymarcher{
     }.bind(this)();
 
     void function UpdateUniforms(){
-      if(window.performance.now() < 10000) window.setTimeout(UpdateUniforms.bind(this), 1000);
+      /*if(window.performance.now() < 20000) */window.setTimeout(UpdateUniforms.bind(this), 2500);
       this.Tex1.needsUpdate = true;
       this.Tex8.needsUpdate = true;
       this.Tex64.needsUpdate = true;

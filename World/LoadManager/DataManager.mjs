@@ -36,9 +36,10 @@ export function DeallocateData8Init(Data8, AllocationIndex, AllocationArray){
 
 export function DeallocateData64Init(Data64, AllocationIndex64, AllocationArray64, Data64Offset){
   return function(Location64, x64, y64, z64){
-    x64 -= Data64Offset[0];
-    y64 -= Data64Offset[1];
-    z64 -= Data64Offset[2];
+    if(Data64[(x64 << 6) | (y64 << 3) | z64] & 0x8000) return;
+    //x64 -= Data64Offset[0];
+    //y64 -= Data64Offset[1];
+    //z64 -= Data64Offset[2];
     const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 511; //Indexing 1 for deallocation.
     Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
     Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset previous location and existence marker.

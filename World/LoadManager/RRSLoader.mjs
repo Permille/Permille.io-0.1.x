@@ -16,13 +16,14 @@ export default class RRSLoader{
     this.AllocationArray64 = LoadManager.AllocationArray64;
 
     void function Load(){ //THIS WILL ONLY RUN ONCE!!!!
-      self.setTimeout(Load.bind(this), 250);
+      self.setTimeout(Load.bind(this), 2500);
       //this.UpdateRRS();
+
+      this.LoadRegions();
       this.UpdateData64Offset();
       //this.LoadRegions();
       //this.LoadVirtualRegions();
     }.bind(this)();
-    this.LoadRegions();
   }
 
   UpdateData64Offset(){ //This is kinda messy but it works
@@ -50,11 +51,14 @@ export default class RRSLoader{
       NewData64Offset[Depth * 3 + 1] = ScaledY;
       NewData64Offset[Depth * 3 + 2] = ScaledZ;
     }
-    if(!Changed) return;
+    //if(!Changed) return; //#######################
 
     //Shift references of Data64:
     const NewData64 = new Uint16Array(8*8*8*8).fill(0x8000); //Sets it to be empty (and unloaded)
 
+
+    const DeallocateData8 = DataManager.DeallocateData8Init(this.Data8, this.AllocationIndex, this.AllocationArray);
+    const DeallocateData64 = DataManager.DeallocateData64Init(this.Data64, this.AllocationIndex64, this.AllocationArray64, this.Data64Offset);
 
     for(let Depth = 0; Depth < 8; ++Depth){
       const ChangeX = NewData64Offset[Depth * 3 + 0] - this.Data64Offset[Depth * 3 + 0];
@@ -62,31 +66,26 @@ export default class RRSLoader{
       const ChangeZ = NewData64Offset[Depth * 3 + 2] - this.Data64Offset[Depth * 3 + 2];
 
       for(let rx64 = 0; rx64 < 8; rx64++){
-        const tx64 = rx64 + ChangeX;
+        const tx64 = rx64 - ChangeX;
         for(let ry64 = 0; ry64 < 8; ry64++){
-          const ty64 = ry64 + ChangeY;
+          const ty64 = ry64 - ChangeY;
           for(let rz64 = 0; rz64 < 8; rz64++){
-            const tz64 = rz64 + ChangeZ;
+            const tz64 = rz64 - ChangeZ;
             if(tx64 < 0 || tx64 >= 8 || ty64 < 0 || ty64 >= 8 || tz64 < 0 || tz64 >= 8){
-              //Free Data8 references
-              continue;
               if(Depth !== 0) continue;
-              debugger;
+
               const Location64 = this.Data64[(Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64] & 0x01ff;
 
+              //Free Data8 references
               for(let i = 0; i < 512; ++i){
                 DeallocateData8(Location64, i >> 6, (i >> 3) & 7, i & 7);
-                /*
-                The problem is that I'm writing to the old Data64 buffer which gets overwritten, and none of these changes get saved.
-                I probably won't be able to use the utility functions I created since I need to read from the old buffer and write to the new, or something like that.
-                 */
               }
               //Free Data64 reference
-              DeallocateData64(rx64, ry64, rz64);
+              DeallocateData64(Location64, rx64, ry64, rz64);
               //The Data1 and VoxelData references shouldn't matter, as they will probably get overwritten upon reallocation.
 
             } else{ //Move Data64 references
-              NewData64[(Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64] = this.Data64[(Depth << 9) | (tx64 << 6) | (ty64 << 3) | tz64];
+              NewData64[(Depth << 9) | (tx64 << 6) | (ty64 << 3) | tz64] = this.Data64[(Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64];
             }
           }
         }

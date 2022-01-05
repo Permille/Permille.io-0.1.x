@@ -4,6 +4,7 @@ import BlockRegistry from "./Block/BlockRegistry.mjs";
 import SVM from "./Libraries/SVM/SVM.mjs";
 import SVMUtils from "./Libraries/SVM/SVMUtils.mjs";
 import {GetHeight, ReSeed} from "./GetHeight.mjs";
+import * as DataManager from "./World/LoadManager/DataManager.mjs";
 
 ReSeed(17); //This is for pasting trees..
 

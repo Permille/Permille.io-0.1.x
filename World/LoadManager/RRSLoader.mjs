@@ -1,5 +1,6 @@
 import RRS_SD from "./RequiredRegionsSelectionSD.mjs";
 import {Region} from "../Region.mjs";
+import * as DataManager from "./DataManager.mjs";
 export default class RRSLoader{
   constructor(LoadManager){
     this.LoadManager = LoadManager;
@@ -7,25 +8,32 @@ export default class RRSLoader{
     this.VirtualRegions = LoadManager.VirtualRegions;
     this.Data64Offset = LoadManager.Data64Offset;
     this.PlayerPosition = LoadManager.PlayerPosition;
+    this.Data8 = LoadManager.Data8;
     this.Data64 = LoadManager.Data64;
+    this.AllocationIndex = LoadManager.AllocationIndex;
+    this.AllocationArray = LoadManager.AllocationArray;
+    this.AllocationIndex64 = LoadManager.AllocationIndex64;
+    this.AllocationArray64 = LoadManager.AllocationArray64;
 
     void function Load(){ //THIS WILL ONLY RUN ONCE!!!!
-      //self.setTimeout(Load.bind(this), 25);
+      self.setTimeout(Load.bind(this), 250);
       //this.UpdateRRS();
       this.UpdateData64Offset();
-      this.LoadRegions();
+      //this.LoadRegions();
       //this.LoadVirtualRegions();
     }.bind(this)();
+    this.LoadRegions();
   }
 
   UpdateData64Offset(){ //This is kinda messy but it works
-    const PlayerX = -16;//this.PlayerPosition[0];
+    const PlayerX = this.PlayerPosition[0];
     const PlayerY = 0;//this.PlayerPosition[1];
-    const PlayerZ = 0;//this.PlayerPosition[2];
+    const PlayerZ = this.PlayerPosition[2];
 
     let Changed = false;
 
     const NewData64Offset = new Int32Array(24);
+
 
     for(let Depth = 0; Depth < 8; ++Depth){
       const Size = 64 << Depth;
@@ -46,6 +54,8 @@ export default class RRSLoader{
 
     //Shift references of Data64:
     const NewData64 = new Uint16Array(8*8*8*8).fill(0x8000); //Sets it to be empty (and unloaded)
+
+
     for(let Depth = 0; Depth < 8; ++Depth){
       const ChangeX = NewData64Offset[Depth * 3 + 0] - this.Data64Offset[Depth * 3 + 0];
       const ChangeY = NewData64Offset[Depth * 3 + 1] - this.Data64Offset[Depth * 3 + 1];
@@ -53,14 +63,31 @@ export default class RRSLoader{
 
       for(let rx64 = 0; rx64 < 8; rx64++){
         const tx64 = rx64 + ChangeX;
-        if(tx64 < 0 || tx64 >= 8) continue;
         for(let ry64 = 0; ry64 < 8; ry64++){
           const ty64 = ry64 + ChangeY;
-          if(ty64 < 0 || ty64 >= 8) continue;
           for(let rz64 = 0; rz64 < 8; rz64++){
             const tz64 = rz64 + ChangeZ;
-            if(tz64 < 0 || tz64 >= 8) continue;
-            NewData64[(Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64] = this.Data64[(Depth << 9) | (tx64 << 6) | (ty64 << 3) | tz64];
+            if(tx64 < 0 || tx64 >= 8 || ty64 < 0 || ty64 >= 8 || tz64 < 0 || tz64 >= 8){
+              //Free Data8 references
+              continue;
+              if(Depth !== 0) continue;
+              debugger;
+              const Location64 = this.Data64[(Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64] & 0x01ff;
+
+              for(let i = 0; i < 512; ++i){
+                DeallocateData8(Location64, i >> 6, (i >> 3) & 7, i & 7);
+                /*
+                The problem is that I'm writing to the old Data64 buffer which gets overwritten, and none of these changes get saved.
+                I probably won't be able to use the utility functions I created since I need to read from the old buffer and write to the new, or something like that.
+                 */
+              }
+              //Free Data64 reference
+              DeallocateData64(rx64, ry64, rz64);
+              //The Data1 and VoxelData references shouldn't matter, as they will probably get overwritten upon reallocation.
+
+            } else{ //Move Data64 references
+              NewData64[(Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64] = this.Data64[(Depth << 9) | (tx64 << 6) | (ty64 << 3) | tz64];
+            }
           }
         }
       }

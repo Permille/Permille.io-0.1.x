@@ -76,8 +76,12 @@ export default class RRSLoader{
             if(tx64 < 0 || tx64 >= 8 || ty64 < 0 || ty64 >= 8 || tz64 < 0 || tz64 >= 8){
               if(Depth !== 0) continue;
 
-              const Location64 = this.Data64[(Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64] & 0x01ff;
-
+              const Data64Ref = this.Data64[(Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64];
+              if(Data64Ref & 0x8000) continue; //This is already unloaded and no further processing has to be done.
+              /*
+                Just to be clear: the above line meant that regions at location 0 would get unloaded, because 0 is the default identifier for new regions...
+               */
+              const Location64 = Data64Ref & 0x01ff;
               //Free Data8 references
               for(let i = 0; i < 512; ++i){
                 DeallocateData8(Location64, i >> 6, (i >> 3) & 7, i & 7);

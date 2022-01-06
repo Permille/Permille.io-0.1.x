@@ -1,3 +1,9 @@
+export default class DataManager{
+  constructor(Data8, AllocationIndex, AllocationArray, Data64, AllocationIndex64, AllocationArray64, Data64Offset){
+
+  }
+};
+
 export function AllocateData8Init(Data8, AllocationIndex, AllocationArray){
   const Data8Mod = Data8.length - 1;
   return function(Location64, x8, y8, z8){

@@ -97,7 +97,7 @@ EventHandler.GenerateHeightMap = function(Data){
       const CurrentX = Math.ceil(rX - rX * XRatio);
       for(let Z = RegionZ * 64, rZ = 0; rZ < 64; Z++, rZ++){
         const CurrentZ = Math.ceil(rZ - rZ * ZRatio);
-        const Height = FloatHeightMap[CurrentX * 64 + CurrentZ];debugger;
+        const Height = FloatHeightMap[CurrentX * 64 + CurrentZ];
         const SlopeX = Math.abs(FloatHeightMap[(CurrentX + AverageLength - 1) * 64 + CurrentZ] - Height);
         const SlopeZ = Math.abs(FloatHeightMap[CurrentX * 64 + AverageLength + CurrentZ - 1] - Height);
         const Slope = Math.max(SlopeX, SlopeZ); //TODO: Make a better slope calculation.

@@ -16,13 +16,11 @@ export default class RRSLoader{
     this.AllocationArray64 = LoadManager.AllocationArray64;
 
     void function Load(){ //THIS WILL ONLY RUN ONCE!!!!
-      self.setTimeout(Load.bind(this), 2500);
+      self.setTimeout(Load.bind(this), 1250);
       //this.UpdateRRS();
 
       this.UpdateData64Offset();
-      setTimeout(function(){
-        this.LoadRegions();
-      }.bind(this), 500);
+      this.LoadRegions();
       //this.LoadRegions();
       //this.LoadVirtualRegions();
     }.bind(this)();

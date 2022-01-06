@@ -13,39 +13,45 @@ export default class Raymarcher{
     this.Data1 = this.World.Data1;//new Uint16Array(64*2048*256); //64 MB
     // (it's actually supposed to be 1024*2048*64 to be full-size, but that including types would probably start wasting storage).
     // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
-
-    this.Tex1 = new THREE.DataTexture3D(this.Data1, 64, 2048, 256);
-    this.Tex1.internalFormat = "R16UI";
-    this.Tex1.format = THREE.RedIntegerFormat;
-    this.Tex1.type = THREE.UnsignedShortType;
-    this.Tex1.minFilter = this.Tex1.magFilter = THREE.NearestFilter;
-    this.Tex1.unpackAlignment = 1;
-    this.Tex1.needsUpdate = true;
-
-
     this.VoxelTypes = this.World.VoxelTypes;//new Uint16Array(512*2048*256); //512 MB
-
-    this.VoxelTypesTex = new THREE.DataTexture3D(this.VoxelTypes, 512, 2048, 256);
-    this.VoxelTypesTex.internalFormat = "R16UI";
-    this.VoxelTypesTex.format = THREE.RedIntegerFormat;
-    this.VoxelTypesTex.type = THREE.UnsignedShortType;
-    this.VoxelTypesTex.minFilter = this.VoxelTypesTex.magFilter = THREE.NearestFilter;
-    this.VoxelTypesTex.unpackAlignment = 1;
-    this.VoxelTypesTex.needsUpdate = true;
-
-
     this.Data8 = this.World.Data8;//new Uint32Array(512 * 512); //1 MB
-
-    this.Tex8 = new THREE.DataTexture3D(this.Data8, 1, 512, 512);
-    this.Tex8.internalFormat = "R32UI";
-    this.Tex8.format = THREE.RedIntegerFormat;
-    this.Tex8.type = THREE.UnsignedIntType;
-    this.Tex8.minFilter = this.Tex8.magFilter = THREE.NearestFilter;
-    this.Tex8.unpackAlignment = 1;
-    this.Tex8.needsUpdate = true;
-
-
     this.Data64 = this.World.Data64;//new Uint16Array(8*8*8*8); //8 kB (8*8*8, and 8 LODs)
+
+    this.UpdateBuffer = 1;
+
+    this.VoxelTypesTex = [];
+    this.Tex1 = [];
+    this.Tex8 = [];
+    for(let i = 0; i < 2; ++i) { //Generating double texutre buffers for VoxelTypesTex, Tex1 and Tex8. Tex64 will stay as a single buffer.
+      const VoxelTypesTex = new THREE.DataTexture3D(this.VoxelTypes, 512, 2048, 256);
+      VoxelTypesTex.internalFormat = "R16UI";
+      VoxelTypesTex.format = THREE.RedIntegerFormat;
+      VoxelTypesTex.type = THREE.UnsignedShortType;
+      VoxelTypesTex.minFilter = VoxelTypesTex.magFilter = THREE.NearestFilter;
+      VoxelTypesTex.unpackAlignment = 1;
+      VoxelTypesTex.needsUpdate = true;
+      this.VoxelTypesTex.push(VoxelTypesTex);
+
+
+      const Tex1 = new THREE.DataTexture3D(this.Data1, 64, 2048, 256);
+      Tex1.internalFormat = "R16UI";
+      Tex1.format = THREE.RedIntegerFormat;
+      Tex1.type = THREE.UnsignedShortType;
+      Tex1.minFilter = Tex1.magFilter = THREE.NearestFilter;
+      Tex1.unpackAlignment = 1;
+      Tex1.needsUpdate = true;
+      this.Tex1.push(Tex1);
+
+
+      const Tex8 = new THREE.DataTexture3D(this.Data8, 1, 512, 512);
+      Tex8.internalFormat = "R32UI";
+      Tex8.format = THREE.RedIntegerFormat;
+      Tex8.type = THREE.UnsignedIntType;
+      Tex8.minFilter = Tex8.magFilter = THREE.NearestFilter;
+      Tex8.unpackAlignment = 1;
+      Tex8.needsUpdate = true;
+      this.Tex8.push(Tex8);
+    }
 
     this.Tex64 = new THREE.DataTexture3D(this.Data64, 8, 8, 8*8);
     this.Tex64.internalFormat = "R16UI";
@@ -54,7 +60,7 @@ export default class Raymarcher{
     this.Tex64.minFilter = this.Tex64.magFilter = THREE.NearestFilter;
     this.Tex64.unpackAlignment = 1;
     this.Tex64.needsUpdate = true;
-
+    debugger;
     /*const SeededRandom = function(){
       let Seed = 0x1511426a;
       return function(){
@@ -103,10 +109,10 @@ export default class Raymarcher{
         iRotation: {value: new THREE.Vector3(0, 0, 0)},
         iPosition: {value: new THREE.Vector3(0, 0, 0)},
         iScalingFactor: {value: 0},
-        iTex1: {value: this.Tex1},
-        iTex8: {value: this.Tex8},
+        iVoxelTypesTex: {value: this.VoxelTypesTex[0]},
+        iTex1: {value: this.Tex1[0]},
+        iTex8: {value: this.Tex8[0]},
         iTex64: {value: this.Tex64},
-        iVoxelTypesTex: {value: this.VoxelTypesTex},
         FOV: {value: 110}
       },
       "transparent": true,
@@ -334,22 +340,56 @@ export default class Raymarcher{
     Mesh.frustumCulled = false;
     this.Scene.add(Mesh);
 
+    let Iteration = 0;
+
     void function AnimationFrame(){
       window.requestAnimationFrame(AnimationFrame.bind(this));
       this.UpdateUniforms();
+
+      this.Tex64.needsUpdate = true;
+
+      const Step = 3;
+
+      this.Renderer.Renderer.copyTextureToTexture3D(
+        new THREE.Box3(new THREE.Vector3(0, 0, Iteration * 2), new THREE.Vector3(0, 511, (Iteration + Step) * 2 + 1)),
+        new THREE.Vector3(0, 0, Iteration * 2),
+        this.Tex8[this.UpdateBuffer],
+        this.Tex8[this.UpdateBuffer]
+      );
+
+      this.Renderer.Renderer.copyTextureToTexture3D(
+        new THREE.Box3(new THREE.Vector3(0, 0, Iteration), new THREE.Vector3(63, 2047, Iteration + Step)),
+        new THREE.Vector3(0, 0, Iteration),
+        this.Tex1[this.UpdateBuffer],
+        this.Tex1[this.UpdateBuffer]
+      );
+
+      this.Renderer.Renderer.copyTextureToTexture3D(
+        new THREE.Box3(new THREE.Vector3(0, 0, Iteration), new THREE.Vector3(511, 2047, Iteration + Step)),
+        new THREE.Vector3(0, 0, Iteration),
+        this.VoxelTypesTex[this.UpdateBuffer],
+        this.VoxelTypesTex[this.UpdateBuffer]
+      );
+
+      Iteration = (Iteration + Step + 1) & 255;
+
+      if(Iteration === 0){ //Transfer completed, swap buffers:
+        console.log("Swapped buffers!");
+        this.Material.uniforms.iVoxelTypesTex.value = this.VoxelTypesTex[this.UpdateBuffer];
+        this.Material.uniforms.iTex8.value = this.Tex8[this.UpdateBuffer];
+        this.Material.uniforms.iTex1.value = this.Tex1[this.UpdateBuffer];
+
+        this.UpdateBuffer = (this.UpdateBuffer + 1) & 1;
+      }
+
     }.bind(this)();
 
     void function UpdateUniforms(){
       /*if(window.performance.now() < 20000) */window.setTimeout(UpdateUniforms.bind(this), 2500);
-      this.Tex1.needsUpdate = true;
-      this.Tex8.needsUpdate = true;
-      this.Tex64.needsUpdate = true;
-      this.VoxelTypesTex.needsUpdate = true;
+      //this.VoxelTypesTex.needsUpdate = true;
     }.bind(this)();
 
-    this.World.Events.AddEventListener("SetVirtualRegion", function(Event){
-      this.AddRegion(Event.Region);
-    }.bind(this));
+
   }
   UpdateUniforms(){
     this.Material.uniforms["iResolution"].value = new THREE.Vector2(window.innerWidth, window.innerHeight);

@@ -234,7 +234,7 @@ export default class Raymarcher{
           vec3 s = vec3(0.);
           
           for(int i = 0; i < 400 && Distance < MAX_DISTANCE && !HitVoxel; ++i){
-            s.g++;
+            //s.g++;
             while(ExitLevel){
               Level++;
               Size *= SCALE;
@@ -263,7 +263,21 @@ export default class Raymarcher{
               case 0:{
                 int VoxelColour;
                 VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelColour);
-                Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + vec3(0.45, 0., 0.95));
+                //Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + vec3(0.45, 0., 0.95));
+                switch(VoxelColour){
+                  case 1:{
+                    Colour = vec3(.1, .8, .2);
+                    break;
+                  }
+                  case 2:{
+                    Colour = vec3(.4, .4, .4);
+                    break;
+                  }
+                  case 3:{
+                    Colour = vec3(.2, .2, .2);
+                    break;
+                  }
+                }
                 break;
               }
               case -1:{

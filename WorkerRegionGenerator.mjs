@@ -74,7 +74,6 @@ function AllocateData64(x64, y64, z64){
   //Need to set coordinates within boundaries
   const Index = Atomics.add(AllocationIndex64, 0, 1) & 511;
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
-  debugger;
 
   Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset any previous location, and set first bit to 0 to mark existence.
   Data64[(x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
@@ -187,11 +186,7 @@ EventHandler.GenerateRegionData = function(Data){
   let IsEntirelySolid = true;
 
   const Location64 = AllocateData64(RegionX, RegionY, RegionZ);
-  if((Location64 & 511) === 0) {
-    console.log("Location 0 generated at");
-    console.log(rx64 + ", " + ry64 + ", " + rz64);
-    console.log(RegionX + "," + RegionY + "," + RegionZ);
-  }
+
   const x1Offset = RegionX * 64;
   const y1Offset = RegionY * 64;
   const z1Offset = RegionZ * 64;
@@ -205,7 +200,7 @@ EventHandler.GenerateRegionData = function(Data){
       const XPos64 = (x8 << 3) | x1;
       const ZPos64 = (z8 << 3) | z1;
       const MapIndex = (XPos64 << 6) | ZPos64;
-      const Height = HeightMap[MapIndex] / 2 - 200;
+      const Height = (HeightMap[MapIndex] - 400) / 2.;
       const Slope = SlopeMap[MapIndex];
       for(let y1 = 0; y1 < 8; ++y1){
         let Type;

@@ -20,7 +20,9 @@ export default class RRSLoader{
       //this.UpdateRRS();
 
       this.UpdateData64Offset();
-      this.LoadRegions();
+      setTimeout(function(){
+        this.LoadRegions();
+      }.bind(this), 500);
       //this.LoadRegions();
       //this.LoadVirtualRegions();
     }.bind(this)();
@@ -144,7 +146,7 @@ export default class RRSLoader{
       const State = this.Data64[Index] >> 12;
       if((State & 0b0111) === 0b0000){ //This means that it's not started loading.
         this.Data64[Index] = (this.Data64[Index] & ~(0b0111 << 12)) | (0b0001 << 12); //Set state to 0bX001 (Started loading)
-        const RegionX = rx64 + this.Data64Offset[0]; //TODO: The -4 is to center it, not sure if this will work for VRs!!!
+        const RegionX = rx64 + this.Data64Offset[0];
         const RegionY = ry64 + this.Data64Offset[1];
         const RegionZ = rz64 + this.Data64Offset[2];
 

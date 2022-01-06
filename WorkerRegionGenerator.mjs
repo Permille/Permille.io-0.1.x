@@ -74,6 +74,7 @@ function AllocateData64(x64, y64, z64){
   //Need to set coordinates within boundaries
   const Index = Atomics.add(AllocationIndex64, 0, 1) & 511;
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
+  debugger;
 
   Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset any previous location, and set first bit to 0 to mark existence.
   Data64[(x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
@@ -165,6 +166,11 @@ EventHandler.GenerateRegionData = function(Data){
   const RegionY = Data.RegionY;
   const RegionZ = Data.RegionZ;
 
+  const rx64 = RegionX - Data64Offset[0];
+  const ry64 = RegionY - Data64Offset[1];
+  const rz64 = RegionZ - Data64Offset[2];
+
+
   Requests++;
 
   const AirID = MainBlockRegistry.GetBlockByIdentifier("primary:air").ID;
@@ -180,7 +186,12 @@ EventHandler.GenerateRegionData = function(Data){
   let UniformType = undefined;
   let IsEntirelySolid = true;
 
-  const StartIndex8 = AllocateData64(RegionX, RegionY, RegionZ);
+  const Location64 = AllocateData64(RegionX, RegionY, RegionZ);
+  if((Location64 & 511) === 0) {
+    console.log("Location 0 generated at");
+    console.log(rx64 + ", " + ry64 + ", " + rz64);
+    console.log(RegionX + "," + RegionY + "," + RegionZ);
+  }
   const x1Offset = RegionX * 64;
   const y1Offset = RegionY * 64;
   const z1Offset = RegionZ * 64;
@@ -222,16 +233,18 @@ EventHandler.GenerateRegionData = function(Data){
     if(!WrittenTo8) continue;
     WrittenTo64 = true;
     //Now, since something was actually written to the temp buffer, write it to the Data1 buffer:
-    const Location8 = AllocateData8(StartIndex8, x8, y8, z8); //This automatically registers the Data8
+    const Location8 = AllocateData8(Location64, x8, y8, z8); //This automatically registers the Data8
     VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
     Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
   }
+  const Index64 = (rx64 << 6) | (ry64 << 3) | rz64;
+  if(Data64[Index64] & 0x8000) console.log(Data64[Index64]);
 
   if(!WrittenTo64){
-    DeallocateData64(StartIndex8, RegionX, RegionY, RegionZ);
+    DeallocateData64(Location64, RegionX, RegionY, RegionZ);
   }
 
-  const Index64 = (RegionX << 6) | (RegionY << 3) | RegionZ;
+
   Data64[Index64] = (Data64[Index64] & ~(0b0111 << 12)) | (0b0010 << 12); //Set state to 0bX010 (finished terrain loading)
 
   if(OwnQueueSize) OwnQueueSize[0]--;

@@ -52,6 +52,36 @@ let DistancedPointMap;
 
 let Structures = [];
 
+let VoxelTypes, Data1, Data8, Data64;
+let AllocationIndex, AllocationArray;
+let AllocationIndex64, AllocationArray64;
+let Data64Offset;
+
+let Data8Length = 262144;
+let Data8Mod = 262143;
+
+const EmptyData1 = new Uint16Array(64).fill(0b0101010101010101); //Empty
+const EmptyVoxelTypes = new Uint16Array(512); //Air
+
+function AllocateData8(Location64, x8, y8, z8) {
+  const Index = Atomics.add(AllocationIndex, 0, 1) & Data8Mod;
+  const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
+  Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location;
+  Data1.set(EmptyData1, Location << 6);
+  VoxelTypes.set(EmptyVoxelTypes, Location << 9);
+  return Location;
+}
+
+function AllocateData64(x64, y64, z64){
+  const Index = Atomics.add(AllocationIndex64, 0, 1) & 511;
+  const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
+  if(Location64 === 65535) debugger;
+
+  Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset any previous location, and set first bit to 0 to mark existence.
+  Data64[(x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
+  return Location64;
+}
+
 EventHandler.InitialiseBlockRegistry = function(Data){
   MainBlockRegistry = BlockRegistry.Initialise(Data.BlockIDMapping, Data.BlockIdentifierMapping);
 };
@@ -69,6 +99,18 @@ EventHandler.SaveDistancedPointMap = function(Data){
   console.log(DistancedPointMap);
 };
 
+EventHandler.ShareDataBuffers = function(Data){
+  VoxelTypes = Data.VoxelTypes;
+  Data1 = Data.Data1;
+  Data8 = Data.Data8;
+  Data64 = Data.Data64;
+  AllocationIndex = Data.AllocationIndex;
+  AllocationArray = Data.AllocationArray;
+  AllocationIndex64 = Data.AllocationIndex64;
+  AllocationArray64 = Data.AllocationArray64;
+  Data64Offset = Data.Data64Offset;
+};
+
 EventHandler.ShareStructures = function(Data){
   for(const Structure of Data.Structures){
     Structure.Selection = SVM.FromObject(Structure.Selection);
@@ -80,73 +122,51 @@ EventHandler.DecorateRegion = function(Data){
   const RegionX = Data.RegionX;
   const RegionY = Data.RegionY;
   const RegionZ = Data.RegionZ;
-  const Region000 = Data.Regions[RegionX + "," + RegionY + "," + RegionZ];
-  const Points6 = DistancedPointMap[6][(RegionX & 15) * 16 + (RegionZ & 15)];
-  const RNG = RandomNumberGenerator((RegionX >>> 0) * 65536 + (RegionY >>> 0) * 256 + (RegionZ >>> 0)); //Number can't be negative!
-
-  //const Points = PointGenerator(RegionX, RegionZ, 8);
-
-  if(Region000.SharedData[REGION_SD.UNLOAD_TIME] >= 0){
-    if(OwnQueueSize) OwnQueueSize[0]--;
-    return;
-  }
+  const rx64 = RegionX - Data64Offset[0];
+  const ry64 = RegionY - Data64Offset[1];
+  const rz64 = RegionZ - Data64Offset[2];
+  if(rx64 < 0 || rx64 > 7 || ry64 < 0 || ry64 > 7 || rz64 < 0 || rz64 > 7) console.warn("Generating out of bounds!!");
+  const Points6 = DistancedPointMap[6][(RegionX & 7) * 8 + (RegionZ & 7)];
+  //const RNG = RandomNumberGenerator((RegionX >>> 0) * 65536 + (RegionY >>> 0) * 256 + (RegionZ >>> 0)); //Number can't be negative!
   Requests++;
-
-  const AirID = MainBlockRegistry.GetBlockByIdentifier("primary:air").ID;
-  const GrassID = MainBlockRegistry.GetBlockByIdentifier("default:grass").ID;
-  const RockID = MainBlockRegistry.GetBlockByIdentifier("default:rock").ID;
-  const Rock1ID = MainBlockRegistry.GetBlockByIdentifier("default:rock1").ID;
-  const WaterID = MainBlockRegistry.GetBlockByIdentifier("default:water").ID;
-
-  const RegionData = new Array(27).fill().map(function(){return {};});
-
-  for(let x = -1; x < 2; x++) for(let y = -1; y < 2; y++) for(let z = -1; z < 2; z++){
-    const Region = Data.Regions[(RegionX + x) + "," + (RegionY + y) + "," + (RegionZ + z)];
-    RegionData[13 + x * 9 + y * 3 + z] = Region.RegionData;// ?? new Uint16Array(65536).fill(Region.SharedData[REGION_SD.COMMON_BLOCK]);
-  }
-
-  const AccessedRegions = new Set;
-
   const SetBlock = function(X, Y, Z, BlockType){
     if(BlockType === 0) return;
-    const RegionX = Math.floor(X / 32);
-    const RegionY = Math.floor(Y / 64);
-    const RegionZ = Math.floor(Z / 32);
-    if(RegionX < -1 || RegionX > 1 || RegionY < -1 || RegionY > 1 || RegionZ < -1 || RegionZ > 1) return; //Just to be 100% safe.
-    const Identifier = 13 + RegionX * 9 + RegionY * 3 + RegionZ;
-    RegionData[Identifier][(X & 31) * 2048 + (Y & 63) * 32 + (Z & 31)] = BlockType;
-    AccessedRegions.add(Identifier);
+    const ix64 = rx64 + (X >> 6);
+    const iy64 = ry64 + (Y >> 6);
+    const iz64 = rz64 + (Z >> 6);
+    let Location64 = Data64[(ix64 << 6) | (iy64 << 3) | iz64];
+
+    //I could probably remove this check by allocating it beforehand, and deallocating it if nothing was written to it
+    if((Location64 & 0x8000) !== 0) Location64 = AllocateData64(ix64, iy64, iz64);
+
+    Location64 &= 0x01ff; //Remove metadata and just get location
+    let Location8 = Data8[(Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7)];
+    if((Location8 & 0x80000000) !== 0) Location8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+    Location8 &= 0x0003ffff;
+    const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
+    Data1[Index] |= 2 << ((Z & 7) * 2);
+    VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;
   };
 
   for(const {X, Z} of Points6){
-    const Maps = Data.Maps[Region000.RegionX + "," + Region000.RegionZ];
-    const PasteHeight = (Maps.HeightMap[X * 32 + Z]) | 0;
-    const Temperature = Maps.TemperatureMap[X * 32 + Z];
+    const PasteHeight = (Data.Maps.HeightMap[X * 64 + Z]) | 0;
+    const Temperature = Data.Maps.TemperatureMap[X * 64 + Z];
 
-    const Random = RandomValue(X + RegionX * 32, 0, Z + RegionZ * 32);
+    const Random = RandomValue(X + RegionX * 64, 0, Z + RegionZ * 64);
 
     if((RegionY + 1) * 64 > PasteHeight && PasteHeight > RegionY * 64){
       if(Random > Temperature / 2) continue;
       if(PasteHeight < 0) continue;
       const Y = PasteHeight - RegionY * 64;
       //if(Random < 0.97) continue;
-      //                             Important: the Y vvv value is 1 as to generate a different hash than for the temperature.
-      const Tree = (RandomValue(X + RegionX * 32, 1, Z + RegionZ * 32) * Structures.length) >> 0;
+      //                        Important: the Y vvv value is 1 as to generate a different hash than for the temperature.
+      const Tree = (RandomValue(X + RegionX * 64, 1, Z + RegionZ * 64) * Structures.length) >> 0;
       Structures[Tree].Selection.DirectPaste(X, Y, Z, 1, null, SetBlock);
       //SetBlock(X, PasteHeight - RegionY * 64, Z, 5);
     }
   }
-
-  for(let RIdentifier of AccessedRegions){
-    const RegionX = Math.floor(RIdentifier / 9) + Region000.RegionX - 1;
-    RIdentifier %= 9;
-    const RegionY = Math.floor(RIdentifier / 3) + Region000.RegionY - 1;
-    RIdentifier %= 3;
-    const RegionZ = RIdentifier + Region000.RegionZ - 1;
-
-    Data.Regions[RegionX + "," + RegionY + "," + RegionZ].SharedData[REGION_SD.COMMON_BLOCK] = -1;
-  }
-
+  const Index = (rx64 << 6) | (ry64 << 3) | rz64;
+  Data64[Index] = (Data64[Index] & ~(0b0111 << 12)) | (0b0100 << 12); //Set state to 0bX100 (Finished stage 3)
   if(OwnQueueSize) OwnQueueSize[0]--;
 
   self.postMessage({

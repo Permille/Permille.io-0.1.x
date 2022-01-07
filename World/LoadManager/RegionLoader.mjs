@@ -13,11 +13,11 @@ export default class RegionLoader{
       RegionX &= 15;
       RegionZ &= 15;
 
-      const RNG = RandomPointGenerator(RegionX * 16 + RegionZ);
+      const RNG = RandomPointGenerator(RegionX * 8 + RegionZ);
       const Points = [];
-      for(let i = 0; i < 10; i++){
-        const X = Math.floor(RNG.next().value * 32);
-        const Z = Math.floor(RNG.next().value * 32);
+      for(let i = 0; i < 30; i++){
+        const X = Math.floor(RNG.next().value * 64);
+        const Z = Math.floor(RNG.next().value * 64);
         Points.push({"X": X, "Z": Z});
       }
       return Points;
@@ -37,14 +37,14 @@ export default class RegionLoader{
     for(const i of [6, 10, 15]){
       RandomPointMap[i] = {};
       let DensityObject = RandomPointMap[i];
-      for(let RegionX = 0; RegionX < 16; RegionX++) for(let RegionZ = 0; RegionZ < 16; RegionZ++){
-        const Identifier = RegionX * 16 + RegionZ;
+      for(let RegionX = 0; RegionX < 8; RegionX++) for(let RegionZ = 0; RegionZ < 8; RegionZ++){
+        const Identifier = RegionX * 8 + RegionZ;
         DensityObject[Identifier] = GetRandomPointsFor(RegionX, RegionZ);
       }
     }
 
     function* PointGenerator(RegionX, RegionZ, Density){
-      const RNG = RandomPointGenerator((RegionX & 15) * 16 + (RegionZ & 15));
+      const RNG = RandomPointGenerator((RegionX & 7) * 8 + (RegionZ & 7));
       const DensityObject = RandomPointMap[Density];
 
       const Points = [];
@@ -52,8 +52,8 @@ export default class RegionLoader{
         const rX = dX + RegionX;
         const rZ = dZ + RegionZ;
         if(rX === RegionX && rZ === RegionZ) continue;
-        const NewPoints = [...DensityObject[(rX & 15) * 16 + (rZ & 15)]];
-        for(const {X, Z} of NewPoints) Points.push({"X": X + Math.sign(dX) * 32, "Z": Z + Math.sign(dZ) * 32});
+        const NewPoints = [...DensityObject[(rX & 7) * 8 + (rZ & 7)]];
+        for(const {X, Z} of NewPoints) Points.push({"X": X + Math.sign(dX) * 64, "Z": Z + Math.sign(dZ) * 64});
       }
 
       const DensitySquared = Density ** 2;
@@ -62,8 +62,8 @@ export default class RegionLoader{
       while(GeneratorAttempts++ < 10){
         let ValidatorAttempts = 0;
         PointValidator: while(ValidatorAttempts++ < 10){
-          const X = Math.floor(RNG.next().value * 32);
-          const Z = Math.floor(RNG.next().value * 32);
+          const X = Math.floor(RNG.next().value * 64);
+          const Z = Math.floor(RNG.next().value * 64);
 
           for(const Point of Points){
             const DistanceSquared = (X - Point.X) ** 2 + (Z - Point.Z) ** 2;
@@ -83,8 +83,8 @@ export default class RegionLoader{
     for(const Density of [6, 10, 15]){
       DistancedPointMap[Density] = {};
       let DensityObject = DistancedPointMap[Density];
-      for(let RegionX = 0; RegionX < 16; RegionX++) for(let RegionZ = 0; RegionZ < 16; RegionZ++){
-        const Identifier = RegionX * 16 + RegionZ;
+      for(let RegionX = 0; RegionX < 8; RegionX++) for(let RegionZ = 0; RegionZ < 8; RegionZ++){
+        const Identifier = RegionX * 8 + RegionZ;
         DensityObject[Identifier] = [...PointGenerator(RegionX, RegionZ, Density)];
       }
     }
@@ -240,12 +240,23 @@ export default class RegionLoader{
       "DistancedPointMap": this.DistancedPointMap
     });
 
+    this.WorkerRegionDecorator.postMessage({
+      "Request": "ShareDataBuffers",
+      "Data1": this.Data1,
+      "Data8": this.Data8,
+      "Data64": this.Data64,
+      "VoxelTypes": this.VoxelTypes,
+      "Data64Offset": this.Data64Offset,
+      "AllocationIndex": this.AllocationIndex,
+      "AllocationArray": this.AllocationArray,
+      "AllocationIndex64": this.AllocationIndex64,
+      "AllocationArray64": this.AllocationArray64
+    });
+
     this.WorkerRegionDecorator.addEventListener("message", function(Event){
       switch(Event.data.Request){
         case "Finished":{
-          const Region000 = this.Regions[Event.data.RegionX + "," + Event.data.RegionY + "," + Event.data.RegionZ];
-          if(Region000?.SharedData) Region000.SharedData[REGION_SD.LOADING_STAGE] = 3.5;
-          this.Stage4(Event.data);
+
           break;
         }
         default:{
@@ -258,7 +269,7 @@ export default class RegionLoader{
     self.setTimeout(function(){
       void function Load(){
         self.setTimeout(Load.bind(this), 20);
-        this.CheckStage3_5Eligibility();
+        this.CheckStage3Eligibility();
       }.bind(this)();
     }.bind(this), 20);
   }
@@ -317,60 +328,38 @@ export default class RegionLoader{
     });
   }
 
-  CheckStage3_5Eligibility(){
-    return;
-    const RRS = this.LoadManager.RRSLoader.RequiredRegionsSelection;
-
-    const ThisMinRegionX = RRS[RRS_SD.IN_X1] - 1, ThisMaxRegionX = RRS[RRS_SD.IN_X2] + 1;
-    const ThisMinRegionY = RRS[RRS_SD.IN_Y1] - 1, ThisMaxRegionY = RRS[RRS_SD.IN_Y2] + 1;
-    const ThisMinRegionZ = RRS[RRS_SD.IN_Z1] - 1, ThisMaxRegionZ = RRS[RRS_SD.IN_Z2] + 1;
-
-    const BlockIDMapping = this.LoadManager.MainBlockRegistry.BlockIDMapping;
-
-    for(let RegionX = ThisMinRegionX; RegionX < ThisMaxRegionX; RegionX++){
-      const IdentifierX = RegionX + ",";
-      for(let RegionY = ThisMinRegionY; RegionY < ThisMaxRegionY; RegionY++){
-        const IdentifierXY = IdentifierX + RegionY + ",";
-        RegionIterator: for(let RegionZ = ThisMinRegionZ; RegionZ < ThisMaxRegionZ; RegionZ++){
-          const Identifier = IdentifierXY + RegionZ;
-          const Region000 = this.Regions[Identifier];
-          if(!Region000 || Region000.SharedData[REGION_SD.UNLOAD_TIME] >= 0 || Region000.SharedData[REGION_SD.LOADING_STAGE] !== 3) continue;
-
-          const CommonBlock = Region000.SharedData[REGION_SD.COMMON_BLOCK];
-
-          if(CommonBlock !== -1 && BlockIDMapping[CommonBlock].Properties.Invisible || Region000.SharedData[REGION_SD.IS_ENTIRELY_SOLID]){
-            Region000.SharedData[REGION_SD.LOADING_STAGE] = 3.5;
-            continue;
-          }
-
-          const Regions = {};
-          const Maps = {};
-
-          for(let rX = RegionX - 1; rX < RegionX + 2; rX++) for(let rZ = RegionZ - 1; rZ < RegionZ + 2; rZ++){
-            Maps[rX + "," + rZ] = this.HeightMaps[rX + "," + rZ]; //It is assumed that this exists, given that the regions aren't unloaded.
-            for(let rY = RegionY - 1; rY < RegionY + 2; rY++){
-              const Identifier = rX + "," + rY + "," + rZ;
-              const RegionXYZ = this.Regions[Identifier];
-              if(!RegionXYZ || RegionXYZ.SharedData[REGION_SD.UNLOAD_TIME] >= 0 || RegionXYZ.SharedData[REGION_SD.LOADING_STAGE] < 3) continue RegionIterator;
-              Regions[Identifier] = RegionXYZ;
-            }
-          }
-
-          Region000.SharedData[REGION_SD.LOADING_STAGE] = 3.25;
-
-          //Checking this might become obsolete as more features are added...
-          //const CommonBlock = Region000.SharedData[REGION_SD.COMMON_BLOCK];
-
-
-          this.WorkerRegionDecorator.postMessage({
-            "Request": "DecorateRegion",
-            "RegionX": RegionX,
-            "RegionY": RegionY,
-            "RegionZ": RegionZ,
-            "Regions": Regions,
-            "Maps": Maps
-          });
+  CheckStage3Eligibility(){
+    //Iterating from 1 to 6 because 0 and 7 are definitely going to have missing neighbours (since they're on the border)
+    for(let rx64 = 1; rx64 < 7; rx64++) for(let ry64 = 1; ry64 < 7; ry64++){
+      RegionIterator: for(let rz64 = 1; rz64 < 7; rz64++) {
+        const MainIndex = (rx64 << 6) | (ry64 << 3) | rz64;
+        const LoadState = (this.Data64[MainIndex] >> 12) & 0b0111; //The first bit indicates whether it's empty or not
+        if(LoadState !== 0b010){ //TODO: Or if it's empty, or if has a single voxel type
+          continue;
         }
+
+        for(let dx64 = rx64 - 1; dx64 < rx64 + 2; dx64++) for(let dz64 = rz64 - 1; dz64 < rz64 + 2; dz64++){
+          for(let dy64 = ry64 - 1; dy64 < ry64 + 2; dy64++){
+            const LoadState = (this.Data64[(dx64 << 6) | (dy64 << 3) | dz64] >> 12) & 0b0111;
+            if(LoadState < 0b010) continue RegionIterator; //This might not actually be that important
+          }
+        }
+        this.Data64[MainIndex] = (this.Data64[MainIndex] & ~(0b0111 << 12)) | (0b0011 << 12); //Set state to 0bX011 (Started stage 3)
+
+
+        const RegionX = this.Data64Offset[0] + rx64;
+        const RegionY = this.Data64Offset[1] + ry64;
+        const RegionZ = this.Data64Offset[2] + rz64;
+
+        const Maps = this.HeightMaps[RegionX + "," + RegionZ];
+
+        this.WorkerRegionDecorator.postMessage({
+          "Request": "DecorateRegion",
+          "RegionX": RegionX,
+          "RegionY": RegionY,
+          "RegionZ": RegionZ,
+          "Maps": Maps
+        });
       }
     }
   }

@@ -125,6 +125,10 @@ EventHandler.SaveDistancedPointMap = function(Data){
   }
 };
 
+EventHandler.ShareDataBuffers = function(Data){
+  for(const Worker of Workers) Worker.Worker.postMessage(Data); //Share data buffers (VoxelTypes, Data1, Data8, Data64)
+};
+
 function GetFile(Path, Callback){
   fetch(Path)
     .then(response => response.text())

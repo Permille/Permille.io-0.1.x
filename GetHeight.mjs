@@ -129,8 +129,9 @@ export function GetHeight(X, Z){
   Result += Weighting100(OctaveSum) * (Mountain * MountainWeight) ** 0.7 * 70;
 
   Result *= 1 - SmoothShoreWeighting(Result);
+  Result /= .5;
 
-  return Result / .5;
+  return (Result - 400.) / 2.;
 };
 
 export function ReSeed(NewSeed){

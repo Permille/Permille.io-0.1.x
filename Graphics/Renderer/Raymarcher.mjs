@@ -283,6 +283,14 @@ export default class Raymarcher{
                     Colour = vec3(.2, .2, .2);
                     break;
                   }
+                  case 8:{
+                    Colour = vec3(.1, .6, .25);
+                    break;
+                  }
+                  case 9:{
+                    Colour = vec3(.5, .2, .05);
+                    break;
+                  }
                 }
                 break;
               }

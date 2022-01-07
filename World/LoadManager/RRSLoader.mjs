@@ -51,7 +51,7 @@ export default class RRSLoader{
         try{
           await FinishedGPUDataTransferPromise;
         }catch(e){
-          console.warn("GPU data transfer took longer than 2500ms. Generation will resume immediately, and some graphical artefacts might arise.");
+          console.warn("GPU data transfer took longer than 2500ms. Generation will resume immediately, and thus some graphical artefacts might arise.");
         }
         console.log("Finished GPU transfer.");
       }

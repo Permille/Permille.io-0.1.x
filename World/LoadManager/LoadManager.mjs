@@ -29,7 +29,7 @@ export default class LoadManager{
     this.AllocationArray64 = Data.AllocationArray64;
 
     this.RegionLoader = new RegionLoader(this);
-    this.RegionUnloader = new RegionUnloader(this);
+    //this.RegionUnloader = new RegionUnloader(this);
     this.RRSLoader = new RRSLoader(this);
   }
 };

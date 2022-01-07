@@ -200,7 +200,7 @@ EventHandler.GenerateRegionData = function(Data){
       const XPos64 = (x8 << 3) | x1;
       const ZPos64 = (z8 << 3) | z1;
       const MapIndex = (XPos64 << 6) | ZPos64;
-      const Height = (HeightMap[MapIndex] - 400) / 2.;
+      const Height = HeightMap[MapIndex];
       const Slope = SlopeMap[MapIndex];
       for(let y1 = 0; y1 < 8; ++y1){
         let Type;

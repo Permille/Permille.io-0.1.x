@@ -7,7 +7,7 @@ let Count = 0;
 let Workers = [];
 let Queue = [];
 const MaxWorkers = 5;
-const MaxWorkerQueue = 5;
+const MaxWorkerQueue = 1;
 let LoadedStructures = false;
 
 let MainBlockRegistry;

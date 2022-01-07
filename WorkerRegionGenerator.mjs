@@ -243,11 +243,13 @@ EventHandler.GenerateRegionData = function(Data){
   Data64[Index64] = (Data64[Index64] & ~(0b0111 << 12)) | (0b0010 << 12); //Set state to 0bX010 (finished terrain loading)
 
   if(OwnQueueSize) OwnQueueSize[0]--;
+
   self.postMessage({
-    "Request": "SaveRegionData",
+    "Request": "GeneratedRegionData",
     "RegionX": Data.RegionX,
     "RegionY": Data.RegionY,
     "RegionZ": Data.RegionZ,
+    "LoadingBatch": Data.LoadingBatch
   });
 };
 

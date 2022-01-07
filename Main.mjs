@@ -92,10 +92,10 @@ class Main{
     this.Renderer.InitialiseTextures(this.BlockRegistry);
     await RendererPromise;
 
-    this.Raymarcher = new Raymarcher(this.World, this.Renderer);
-
     this.WorkerLoadingPipeline = new Worker(__ScriptPath__ + "/BackgroundTasks/WorkerLoadingPipeline.mjs", {"type": "module"});
     this.WorkerLoadingPipelineHandler = new WorkerLoadingPipelineHandler;
+
+    this.Raymarcher = new Raymarcher(this.World, this.Renderer);
 
     (Debug.DEBUG_LEVEL <= Debug.DEBUG_LEVELS.INFO) && console.timeEnd("Initialisation");
   }

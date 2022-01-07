@@ -38,6 +38,10 @@ export default class WorkerLoadingPipelineHandler{
           this.Events.FireEventListeners("UpdatedData64Offset");
           break;
         }
+        case "FinishedLoadingBatch":{
+          this.Events.FireEventListeners("FinishedLoadingBatch", Event.data.LoadingBatch);
+          break;
+        }
         default:{
           throw new Error("Handler doesn't exist.");
         }

@@ -201,8 +201,12 @@ export default class RegionLoader{
 
     this.WorkerRegionGenerator.addEventListener("message", function(Event){
       switch(Event.data.Request){
-        case "SaveRegionData":{
+        case "GeneratedRegionData":{
 
+          break;
+        }
+        case "FinishedLoadingBatch":{
+          this.Events.FireEventListeners("FinishedLoadingBatch", Event.data.LoadingBatch);
           break;
         }
         case "SaveVirtualRegionData":{
@@ -260,7 +264,7 @@ export default class RegionLoader{
   }
 
   //Generate heightmap
-  Stage1(RegionX, RegionY, RegionZ){
+  Stage1(RegionX, RegionY, RegionZ, LoadingBatch = -1, BatchSize = 1){
     const Identifier = RegionX + "," + RegionY + "," + RegionZ;
     const VerticalIdentifier = RegionX + "," + RegionZ;
 
@@ -282,13 +286,13 @@ export default class RegionLoader{
         });
       }
       this.Events.AddEventListener("GeneratedHeightMap" + VerticalIdentifier, function(){
-        this.Stage2(RegionX, RegionY, RegionZ);
+        this.Stage2(RegionX, RegionY, RegionZ, LoadingBatch, BatchSize);
       }.bind(this), {"Once": true});
     }
   }
 
   //Generate region data
-  Stage2(RegionX, RegionY, RegionZ){
+  Stage2(RegionX, RegionY, RegionZ, LoadingBatch, BatchSize){
     const Identifier = RegionX + "," + RegionY + "," + RegionZ;
     const VerticalIdentifier = RegionX + "," + RegionZ;
 
@@ -307,7 +311,9 @@ export default class RegionLoader{
       "SlopeMap": HeightMap.SlopeMap,
       "TemperatureMap": HeightMap.TemperatureMap,
       "MaxHeight": HeightMap.MaxHeight,
-      "MinHeight": HeightMap.MinHeight
+      "MinHeight": HeightMap.MinHeight,
+      "LoadingBatch": LoadingBatch,
+      "BatchSize": BatchSize
     });
   }
 

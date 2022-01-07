@@ -1,8 +1,11 @@
 import RRS_SD from "./RequiredRegionsSelectionSD.mjs";
 import {Region} from "../Region.mjs";
 import * as DataManager from "./DataManager.mjs";
+import DeferredPromise from "../../Libraries/DeferredPromise.mjs";
+import Listenable from "../../Libraries/Listenable/Listenable.mjs";
 export default class RRSLoader{
   constructor(LoadManager){
+    this.Events = new Listenable;
     this.LoadManager = LoadManager;
     this.Regions = LoadManager.Regions;
     this.VirtualRegions = LoadManager.VirtualRegions;
@@ -15,14 +18,44 @@ export default class RRSLoader{
     this.AllocationIndex64 = LoadManager.AllocationIndex64;
     this.AllocationArray64 = LoadManager.AllocationArray64;
 
-    void function Load(){ //THIS WILL ONLY RUN ONCE!!!!
-      self.setTimeout(Load.bind(this), 1250);
-      //this.UpdateRRS();
+    this.LoadingBatch = 0;
 
+    self.EventHandler["FinishedGPUDataTransfer"] = function(){
+      this.Events.FireEventListeners("FinishedGPUDataTransfer");
+    }.bind(this);
+
+    void async function Load(){
       this.UpdateData64Offset();
-      this.LoadRegions();
-      //this.LoadRegions();
-      //this.LoadVirtualRegions();
+      const CurrentBatch = this.LoadRegions();
+      if(CurrentBatch !== -1){ //-1 means that no regions were requested because everything was already loaded.
+        const FinishedBatchPromise = new DeferredPromise({"Timeout": 2000});
+        this.LoadManager.RegionLoader.Events.AddEventListener("FinishedLoadingBatch", function (FinishedBatch) {
+          if(CurrentBatch === FinishedBatch) FinishedBatchPromise.resolve();
+        });
+        console.time();
+        try{
+          await FinishedBatchPromise;
+        } catch(e){
+          console.warn("Batch generation took longer than 2000ms: while this might be due to a stalled thread, everything is probably still okay.");
+        }
+        console.timeEnd();
+        console.log("Finished batch " + CurrentBatch);
+
+        self.postMessage({ //Notify main thread so that textures can be updated.
+          "Request": "FinishedLoadingBatch",
+          "LoadingBatch": CurrentBatch
+        });
+
+        const FinishedGPUDataTransferPromise = new DeferredPromise({"Timeout": 2500});
+        this.Events.AddEventListener("FinishedGPUDataTransfer", FinishedGPUDataTransferPromise.resolve);
+        try{
+          await FinishedGPUDataTransferPromise;
+        }catch(e){
+          console.warn("GPU data transfer took longer than 2500ms. Generation will resume immediately, and some graphical artefacts might arise.");
+        }
+        console.log("Finished GPU transfer.");
+      }
+      self.setTimeout(Load.bind(this), 25);
     }.bind(this)();
   }
 
@@ -106,43 +139,8 @@ export default class RRSLoader{
     });
   }
 
-  /*UpdateRRS(){
-    const RRS = this.RequiredRegionsSelection;
-
-    const PlayerX = this.PlayerPosition[0];
-    const PlayerY = this.PlayerPosition[1];
-    const PlayerZ = this.PlayerPosition[2];
-
-    let LastInX1 = 0, LastInX2 = 0;
-    let LastInY1 = 0, LastInY2 = 0;
-    let LastInZ1 = 0, LastInZ2 = 0;
-    //^^This essentially means that the exclusion condition for the first (-1st) depth is never met, which is the desired outcome.
-
-    for(let Depth = -1; Depth < Settings.VirtualRegionDepths; Depth++){
-      const RRS_OFFSET = 13 * (Depth + 1);
-      const FACTOR = 2 ** (1 + Depth);
-
-      const ThisX = Math.floor(PlayerX / (FACTOR * Region.X_LENGTH));
-      const ThisY = Math.floor(PlayerY / (FACTOR * Region.Y_LENGTH));
-      const ThisZ = Math.floor(PlayerZ / (FACTOR * Region.Z_LENGTH));
-
-      RRS[RRS_OFFSET + RRS_SD.DEPTH] = Depth;
-
-      RRS[RRS_OFFSET + RRS_SD.IN_X1] = Math.ceil((ThisX - Settings.LoadDistance) / 2) * 2, RRS[RRS_OFFSET + RRS_SD.IN_X2] = Math.ceil((ThisX + Settings.LoadDistance) / 2) * 2;
-      RRS[RRS_OFFSET + RRS_SD.IN_Y1] = Math.ceil((ThisY - Settings.LoadDistance) / 2) * 2, RRS[RRS_OFFSET + RRS_SD.IN_Y2] = Math.ceil((ThisY + Settings.LoadDistance) / 2) * 2;
-      RRS[RRS_OFFSET + RRS_SD.IN_Z1] = Math.ceil((ThisZ - Settings.LoadDistance) / 2) * 2, RRS[RRS_OFFSET + RRS_SD.IN_Z2] = Math.ceil((ThisZ + Settings.LoadDistance) / 2) * 2;
-
-      RRS[RRS_OFFSET + RRS_SD.EX_X1] = LastInX1 / 2, RRS[RRS_OFFSET + RRS_SD.EX_X2] = LastInX2 / 2;
-      RRS[RRS_OFFSET + RRS_SD.EX_Y1] = LastInY1 / 2, RRS[RRS_OFFSET + RRS_SD.EX_Y2] = LastInY2 / 2;
-      RRS[RRS_OFFSET + RRS_SD.EX_Z1] = LastInZ1 / 2, RRS[RRS_OFFSET + RRS_SD.EX_Z2] = LastInZ2 / 2;
-
-      LastInX1 = RRS[RRS_OFFSET + RRS_SD.IN_X1], LastInX2 = RRS[RRS_OFFSET + RRS_SD.IN_X2];
-      LastInY1 = RRS[RRS_OFFSET + RRS_SD.IN_Y1], LastInY2 = RRS[RRS_OFFSET + RRS_SD.IN_Y2];
-      LastInZ1 = RRS[RRS_OFFSET + RRS_SD.IN_Z1], LastInZ2 = RRS[RRS_OFFSET + RRS_SD.IN_Z2];
-    }
-  }*/
-
   LoadRegions(){
+    const RequestedRegions = [];
     for(let rx64 = 0; rx64 < 8; rx64++) for(let ry64 = 0; ry64 < 8; ry64++) for(let rz64 = 0; rz64 < 8; rz64++){
       const Index = (rx64 << 6) | (ry64 << 3) | rz64;
       const State = this.Data64[Index] >> 12;
@@ -151,45 +149,14 @@ export default class RRSLoader{
         const RegionX = rx64 + this.Data64Offset[0];
         const RegionY = ry64 + this.Data64Offset[1];
         const RegionZ = rz64 + this.Data64Offset[2];
-
-        this.LoadManager.RegionLoader.Stage1(RegionX, RegionY, RegionZ);
+        RequestedRegions.push({RegionX, RegionY, RegionZ});
       }
     }
-  }
-
-  LoadVirtualRegions(){
-    const Depths = Settings.VirtualRegionDepths;
-    const RRS = this.RequiredRegionsSelection;
-    for(let Depth = 0; Depth < Depths; Depth++){
-      const RRS_OFFSET = 13 * (Depth + 1);
-
-      const ThisMinRegionX = RRS[RRS_OFFSET + RRS_SD.IN_X1], ThisMaxRegionX = RRS[RRS_OFFSET + RRS_SD.IN_X2];
-      const ThisMinRegionY = RRS[RRS_OFFSET + RRS_SD.IN_Y1], ThisMaxRegionY = RRS[RRS_OFFSET + RRS_SD.IN_Y2];
-      const ThisMinRegionZ = RRS[RRS_OFFSET + RRS_SD.IN_Z1], ThisMaxRegionZ = RRS[RRS_OFFSET + RRS_SD.IN_Z2];
-
-      const ExclusionX1 = RRS[RRS_OFFSET + RRS_SD.EX_X1], ExclusionX2 = RRS[RRS_OFFSET + RRS_SD.EX_X2];
-      const ExclusionY1 = RRS[RRS_OFFSET + RRS_SD.EX_Y1], ExclusionY2 = RRS[RRS_OFFSET + RRS_SD.EX_Y2];
-      const ExclusionZ1 = RRS[RRS_OFFSET + RRS_SD.EX_Z1], ExclusionZ2 = RRS[RRS_OFFSET + RRS_SD.EX_Z2];
-
-      const VRDepthObject = this.VirtualRegions[Depth];
-
-      for(let RegionX = ThisMinRegionX; RegionX < ThisMaxRegionX; RegionX++){
-        const IdentifierX = RegionX + ",";
-        for(let RegionY = ThisMinRegionY; RegionY < ThisMaxRegionY; RegionY++){
-          const IdentifierXY = IdentifierX + RegionY + ",";
-          for(let RegionZ = ThisMinRegionZ; RegionZ < ThisMaxRegionZ; RegionZ++){
-            const Identifier = IdentifierXY + RegionZ;
-            if(ExclusionX1 <= RegionX && ExclusionX2 > RegionX &&
-               ExclusionY1 <= RegionY && ExclusionY2 > RegionY &&
-               ExclusionZ1 <= RegionZ && ExclusionZ2 > RegionZ){
-              continue;
-            }
-            if(VRDepthObject[Identifier] !== undefined) continue;
-            VRDepthObject[Identifier] = null;
-            this.LoadManager.RegionLoader.VirtualStage1(RegionX, RegionY, RegionZ, Depth);
-          }
-        }
-      }
+    for(const {RegionX, RegionY, RegionZ} of RequestedRegions){
+      this.LoadManager.RegionLoader.Stage1(RegionX, RegionY, RegionZ, this.LoadingBatch, RequestedRegions.length);
+      //I need to pass the batch size (last parameter) so that I know when the batch has finished loading.
     }
+    if(RequestedRegions.length > 0) return this.LoadingBatch++;
+    else return -1;
   }
-}
+};

@@ -17,7 +17,7 @@ export default class DeferredPromise extends Promise{
   static #StaticInit(){
     DeferredPromise.prototype.constructor = Promise;
   }
-  constructor(){
+  constructor(Options = {}){
     let resolve, reject;
     super(function(Resolve, Reject){
       resolve = Resolve;
@@ -25,5 +25,8 @@ export default class DeferredPromise extends Promise{
     });
     this.resolve = resolve;
     this.reject = reject;
+    if(Options.Timeout){
+      globalThis.setTimeout(this.reject.bind(this), +Options.Timeout);
+    }
   }
 };

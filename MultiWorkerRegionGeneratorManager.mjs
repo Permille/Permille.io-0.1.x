@@ -13,6 +13,9 @@ let LoadedStructures = false;
 let MainBlockRegistry;
 let RequiredRegionSelection;
 
+const BatchItemsSent = {};
+const BatchItemsDone = {};
+
 class WorkerRegionGenerator{
   constructor(){
     this.Events = new Listenable;
@@ -26,6 +29,18 @@ class WorkerRegionGenerator{
 
     this.Worker.addEventListener("message", function(Event){
       if(Event.data.Request !== "Skipped") self.postMessage(Event.data); //"SaveRegionData", "SaveVirtualRegionData", "UnloadedRegionError", "UnloadedVirtualRegionError"
+      if(Event.data.Request === "GeneratedRegionData"){
+        const LoadingBatch = Event.data.LoadingBatch;
+        BatchItemsDone[LoadingBatch] ||= 0;
+        BatchItemsDone[LoadingBatch]++;
+        if(BatchItemsSent[LoadingBatch] === BatchItemsDone[LoadingBatch]){
+          //This most likely means that the entire batch was loaded, but due to slow serving, this *might* not be true.
+          self.postMessage({
+            "Request": "FinishedLoadingBatch",
+            "LoadingBatch": LoadingBatch
+          });
+        }
+      }
       this.Events.FireEventListeners("Finished");
     }.bind(this));
   }
@@ -164,6 +179,7 @@ EventHandler.ShareStructures = function(Data){
 };
 
 EventHandler.GenerateRegionData = function(Data){
+  BatchItemsSent[Data.LoadingBatch] ||= Data.BatchSize;
   QueueWorkerTask(Data);
 };
 

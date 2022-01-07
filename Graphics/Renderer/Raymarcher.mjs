@@ -60,7 +60,7 @@ export default class Raymarcher{
     this.Tex64.minFilter = this.Tex64.magFilter = THREE.NearestFilter;
     this.Tex64.unpackAlignment = 1;
     this.Tex64.needsUpdate = true;
-    debugger;
+
     /*const SeededRandom = function(){
       let Seed = 0x1511426a;
       return function(){
@@ -340,15 +340,20 @@ export default class Raymarcher{
     Mesh.frustumCulled = false;
     this.Scene.add(Mesh);
 
+    this.TransferBuffers = false;
+    Application.Main.WorkerLoadingPipelineHandler.Events.AddEventListener("FinishedLoadingBatch", function(Batch){
+      this.TransferBuffers = true;
+    }.bind(this));
+
     let Iteration = 0;
+    const Step = 3;
 
     void function AnimationFrame(){
       window.requestAnimationFrame(AnimationFrame.bind(this));
       this.UpdateUniforms();
 
-      this.Tex64.needsUpdate = true;
-
-      const Step = 3;
+      if(Iteration === 0 && !this.TransferBuffers) return;
+      this.TransferBuffers = false;
 
       this.Renderer.Renderer.copyTextureToTexture3D(
         new THREE.Box3(new THREE.Vector3(0, 0, Iteration * 2), new THREE.Vector3(0, 511, (Iteration + Step) * 2 + 1)),
@@ -375,21 +380,21 @@ export default class Raymarcher{
 
       if(Iteration === 0){ //Transfer completed, swap buffers:
         console.log("Swapped buffers!");
+        this.Tex64.needsUpdate = true;
         this.Material.uniforms.iVoxelTypesTex.value = this.VoxelTypesTex[this.UpdateBuffer];
         this.Material.uniforms.iTex8.value = this.Tex8[this.UpdateBuffer];
         this.Material.uniforms.iTex1.value = this.Tex1[this.UpdateBuffer];
 
         this.UpdateBuffer = (this.UpdateBuffer + 1) & 1;
+
+        //Notify generation threads that they can continue because the data has been transferred to the gpu
+
+        Application.Main.WorkerLoadingPipeline.postMessage({
+          "Request": "FinishedGPUDataTransfer"
+        });
       }
 
     }.bind(this)();
-
-    void function UpdateUniforms(){
-      /*if(window.performance.now() < 20000) */window.setTimeout(UpdateUniforms.bind(this), 2500);
-      //this.VoxelTypesTex.needsUpdate = true;
-    }.bind(this)();
-
-
   }
   UpdateUniforms(){
     this.Material.uniforms["iResolution"].value = new THREE.Vector2(window.innerWidth, window.innerHeight);

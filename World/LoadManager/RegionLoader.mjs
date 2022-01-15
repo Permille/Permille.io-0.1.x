@@ -329,6 +329,7 @@ export default class RegionLoader{
   }
 
   CheckStage3Eligibility(){
+    //return;
     //Iterating from 1 to 6 because 0 and 7 are definitely going to have missing neighbours (since they're on the border)
     for(let rx64 = 1; rx64 < 7; rx64++) for(let ry64 = 1; ry64 < 7; ry64++){
       RegionIterator: for(let rz64 = 1; rz64 < 7; rz64++) {

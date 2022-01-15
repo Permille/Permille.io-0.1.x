@@ -118,7 +118,7 @@ EventHandler.SaveDistancedPointMap = function(Data){
   console.time();
   ScaledDistancedPointMap["-1"] = Data.DistancedPointMap;
   const OriginalDPM = ScaledDistancedPointMap["-1"];
-  let Width = 16;
+  let Width = 8;
   let Depth = 0;
   do{
     ScaledDistancedPointMap[Depth] = {};

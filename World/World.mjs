@@ -14,7 +14,7 @@ export default class World{
     // (it's actually supposed to be 256*2048*256 to be full-size, but that including types would probably start wasting storage).
     // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
 
-    this.Data8 = new Uint32Array(new SharedArrayBuffer(4 * 512*512)); //1 MB
+    this.Data8 = new Uint32Array(new SharedArrayBuffer(4 * 1*512*512)); //8 MB
     this.Data64 = new Uint16Array(new SharedArrayBuffer(2 * 8*8*8*8)); //8 kB (8*8*8, and 8 LODs)
 
     this.Data64.fill(0x8000);

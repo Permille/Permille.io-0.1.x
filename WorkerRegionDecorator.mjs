@@ -144,7 +144,7 @@ EventHandler.DecorateRegion = function(Data){
     if((Location8 & 0x80000000) !== 0) Location8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
     Location8 &= 0x0003ffff;
     const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
-    Data1[Index] |= 2 << ((Z & 7) * 2);
+    Data1[Index] &= ~(0b11 << ((Z & 7) * 2)); //Sets it to subdivide (full)
     VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;
   };
 

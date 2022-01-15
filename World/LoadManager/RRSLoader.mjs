@@ -105,7 +105,7 @@ export default class RRSLoader{
           for(let rz64 = 0; rz64 < 8; rz64++){
             const tz64 = rz64 - ChangeZ;
             if(tx64 < 0 || tx64 >= 8 || ty64 < 0 || ty64 >= 8 || tz64 < 0 || tz64 >= 8){
-              if(Depth !== 0) continue;
+              //if(Depth !== 0) continue;
 
               const Data64Ref = this.Data64[(Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64];
               if(Data64Ref & 0x8000) continue; //This is already unloaded and no further processing has to be done.

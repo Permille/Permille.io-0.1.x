@@ -179,13 +179,17 @@ export default class Raymarcher{
         //Based on abje's octree tracer: https://www.shadertoy.com/view/4sVfWw
         const float MAX_DISTANCE = 1250.;
         const int MAX_DETAIL = 2;
-        const int MIN_DETAIL = -1;
+        const int MIN_DETAIL = -2;
         
         const float SCALE = 8.; //Only works for powers of 2
         const int POWER = int(log2(SCALE));
         
         float Random(vec4 v){
-          return fract(1223.34 * tan(dot(v,vec4(181.11, 132.52, 171.29, 188.42)))); 
+          return fract(1223.34 * tan(dot(v,vec4(181.11, 132.52, 171.29, 188.42))));
+        }
+        
+        float manhattan(vec3 a, vec3 b){
+          return dot(abs(a - b), vec3(1.));
         }
         
         int GetLocation64(vec3 RayPosFloor){
@@ -206,9 +210,22 @@ export default class Raymarcher{
           Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
           return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
         }
-        int GetRoughnessMap(vec3 RayPosFloor){
-          return 2;
-          return Random(vec4(RayPosFloor, 0.)) > .75 ? 0 : 2;
+        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level){
+          //if(Type != 8) return 2;
+          if(Level > -2) return 0;
+          bvec3 RayPosSides = greaterThanEqual(abs((fract(RayPosFloor) - .499)), vec3(7./16.));
+          if(all(not(RayPosSides))) return 2; //This is in the middle
+          vec3 RayPosScaled = floor(RayPosFloor * 16.) / 16.;
+          if(RayPosSides.x) RayPosFloor.yz = RayPosScaled.yz;
+          if(RayPosSides.y) RayPosFloor.xz = RayPosScaled.xz;
+          if(RayPosSides.z) RayPosFloor.xy = RayPosScaled.xy;
+          //float Depth = 16. - abs(length(vec3(RayPosSides) * fract(RayPosFloor)) - .492) * 32.;
+          float Depth;
+          if(dot(vec3(RayPosSides), vec3(1.)) == 1.) Depth = length(abs(vec3(RayPosSides) * (fract(RayPosFloor) - .48))) * 16. - 7.;
+          else Depth = .5;
+          return Random(vec4(RayPosFloor * vec3(not(RayPosSides)), 0.)) < Depth ? 0 : 2;
+          
+          //return Random(vec4(RayPosFloor, 0.)) + length(abs(fract(RayPosFloor) - .5)) > .75 ? 0 : 2;
         }
         
         void mainImage(out vec4 fragColor, in vec2 fragCoord){
@@ -236,6 +253,7 @@ export default class Raymarcher{
           int Location8 = 0;
           
           vec3 Colour = vec3(0.);
+          int VoxelType = 0;
           
           vec3 s = vec3(0.);
           
@@ -267,10 +285,9 @@ export default class Raymarcher{
                 break;
               }
               case 0:{
-                int VoxelColour;
-                VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelColour);
+                VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelType);
                 //Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + vec3(0.45, 0., 0.95));
-                switch(VoxelColour){
+                switch(VoxelType){
                   case 1:{
                     Colour = vec3(.1, .8, .2);
                     break;
@@ -294,8 +311,9 @@ export default class Raymarcher{
                 }
                 break;
               }
+              case -2:
               case -1:{
-                VoxelState = GetRoughnessMap(TrueRayPosFloor);
+                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level);
                 break;
               }
             }
@@ -335,7 +353,7 @@ export default class Raymarcher{
           
           float fLevel = float(Level) + 4.;
           //Colour *= normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
-          fragColor = vec4(s / 200. + Colour * length(Mask * vec3(.75, 1., .5)), 1.);
+          fragColor = vec4(s / 50. + Colour * length(Mask * vec3(.75, 1., .5)), 1.);
         }
         
         void main(){

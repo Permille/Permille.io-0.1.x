@@ -210,7 +210,7 @@ export default class Raymarcher{
           Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
           return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
         }
-        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level){
+        int GetRoughnessMap_(vec3 RayPosFloor, int Type, int Level){
           //if(Type != 8) return 2;
           if(Level > -2) return 0;
           bvec3 RayPosSides = greaterThanEqual(abs((fract(RayPosFloor) - .499)), vec3(7./16.));
@@ -228,6 +228,20 @@ export default class Raymarcher{
           //return Random(vec4(RayPosFloor, 0.)) + length(abs(fract(RayPosFloor) - .5)) > .75 ? 0 : 2;
         }
         
+        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, vec3 Mask1){
+          //if(Type != 8) return 2;
+          if(Level > -2) return 0;
+          bvec3 RayPosSides = bvec3(Mask1);
+          if(all(not(RayPosSides))) return 2; //Camera is probably in the middle of a block
+          vec3 RayPosScaled = floor(RayPosFloor * 16.) / 16.;
+          if(RayPosSides.x) RayPosFloor.yz = RayPosScaled.yz;
+          else if(RayPosSides.y) RayPosFloor.xz = RayPosScaled.xz;
+          else if(RayPosSides.z) RayPosFloor.xy = RayPosScaled.xy;
+          //float Depth = 16. - abs(length(vec3(RayPosSides) * fract(RayPosFloor)) - .492) * 32.;
+          float Depth = length(abs(vec3(RayPosSides) * (fract(RayPosFloor) - .48))) * 16. - 7.; //or *8.-3., *4.-1.
+          return Random(vec4(RayPosFloor * vec3(not(RayPosSides)), 0.)) < Depth ? 0 : 2;
+        }
+        
         void mainImage(out vec4 fragColor, in vec2 fragCoord){
           vec2 uv = (fragCoord.xy * 2. - iResolution.xy) / iResolution.y;
           vec3 RayOrigin = iPosition;
@@ -235,6 +249,7 @@ export default class Raymarcher{
           vec3 RayDirectionSign = sign(RayDirection);
           
           vec3 Mask = vec3(0.);
+          vec3 Mask1 = vec3(0.);
           bool ExitLevel = false;
           int Level = MAX_DETAIL;
           float Size = pow(SCALE, float(MAX_DETAIL));
@@ -313,7 +328,7 @@ export default class Raymarcher{
               }
               case -2:
               case -1:{
-                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level);
+                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, Mask1);
                 break;
               }
             }
@@ -335,6 +350,7 @@ export default class Raymarcher{
                 float HalfSize = Size / 2.;
                 vec3 Hit = -Correction * (RayDirectionSign * (RayPosFract - HalfSize) - HalfSize); //Trace ray to next voxel
                 Mask = vec3(lessThanEqual(Hit.xyz, min(Hit.yzx, Hit.zxy))); //Determine which side was hit
+                if(Level >= 0) Mask1 = Mask;
                 float NearestVoxelDistance = dot(Hit, Mask);
                 Distance += NearestVoxelDistance;
                 vec3 Step = Mask * RayDirectionSign * Size;

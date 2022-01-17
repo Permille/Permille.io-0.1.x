@@ -211,25 +211,64 @@ export default class Raymarcher{
           Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
           return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
         }
-        int GetRoughnessMap_(vec3 RayPosFloor, int Type, int Level){
-          //if(Type != 8) return 2;
+        int GetRoughnessMap_122(vec3 RayPosFloor, int Type, int Level, vec3 Mask1, vec3 RayOrigin){
           if(Level > -2) return 0;
-          bvec3 RayPosSides = greaterThanEqual(abs((fract(RayPosFloor) - .499)), vec3(7./16.));
-          if(all(not(RayPosSides))) return 2; //This is in the middle
+          bvec3 RayPosSides = greaterThan(abs(fract(RayPosFloor) - .5), vec3(7. / 16.));
+          if(all(not(RayPosSides))) return 2;
           vec3 RayPosScaled = floor(RayPosFloor * 16.) / 16.;
           if(RayPosSides.x) RayPosFloor.yz = RayPosScaled.yz;
           if(RayPosSides.y) RayPosFloor.xz = RayPosScaled.xz;
           if(RayPosSides.z) RayPosFloor.xy = RayPosScaled.xy;
-          //float Depth = 16. - abs(length(vec3(RayPosSides) * fract(RayPosFloor)) - .492) * 32.;
-          float Depth;
-          if(dot(vec3(RayPosSides), vec3(1.)) == 1.) Depth = length(abs(vec3(RayPosSides) * (fract(RayPosFloor) - .48))) * 16. - 7.;
-          else Depth = .5;
+          float ComponentSum = dot(vec3(RayPosSides), vec3(1.));
+          float Depth = 16. - abs(length(vec3(RayPosSides) * abs(fract(RayPosFloor) - .5))) * 32.;
           return Random(vec4(RayPosFloor * vec3(not(RayPosSides)), 0.)) < Depth ? 0 : 2;
+        }
+        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, vec3 Mask1, vec3 RayOrigin){
+          //return 2;
+          //if(Type != 8) return 2;
+          if(Level > -2) return 0;
+          bvec3 bMask1 = bvec3(Mask1);
+          bvec3 RayPosSides = greaterThanEqual(abs((fract(RayPosFloor) - .4995)), vec3(7./16.));
+          if(all(not(RayPosSides))) return 2; //This is in the middle
+          
+          vec3 RayPosScaled = floor(RayPosFloor * 16.) / 16.;
+          
+          if(RayPosSides.x){
+            vec3 RayPosModified = RayPosFloor;
+            RayPosModified.yz = RayPosScaled.yz;
+            float RandomNum = Random(vec4(floor(RayPosModified) + RayPosModified * vec3(not(RayPosSides)), 0.));
+            float Depth = abs((fract(RayPosModified) - .499)).x * 16. - 7.;
+            if(RandomNum < Depth) return 0;
+          }
+          if(RayPosSides.y){
+            vec3 RayPosModified = RayPosFloor;
+            RayPosModified.xz = RayPosScaled.xz;
+            float RandomNum = Random(vec4(floor(RayPosModified) + RayPosModified * vec3(not(RayPosSides)), 0.));
+            float Depth = abs((fract(RayPosModified) - .499)).y * 16. - 7.;
+            if(RandomNum < Depth) return 0;
+          }
+          if(RayPosSides.z){
+            vec3 RayPosModified = RayPosFloor;
+            RayPosModified.xy = RayPosScaled.xy;
+            float RandomNum = Random(vec4(floor(RayPosModified) + RayPosModified * vec3(not(RayPosSides)), 0.));
+            float Depth = abs((fract(RayPosModified) - .499)).z * 16. - 7.;
+            if(RandomNum < Depth) return 0;
+          }
+          return 2;
+          
+          //float Depth = 16. - abs(length(vec3(RayPosSides) * fract(RayPosFloor)) - .492) * 32.;
+          //float Depth = (abs((fract(RayPosFloor) - .499)) * 16. - 7.).y;
+          //if(all(lessThan(vec3(RandomNum), Depth))) return 2;
+          //return 0;
+          //float Depth = length(abs(vec3(RayPosSides) * (fract(RayPosFloor) - .499))) * 16. - 7.;
+          //return RandomNum < Depth ? 0 : 2;
+          //return /* sin(iTime / 1000.) / 2. + .5*/ < Depth ? 0 : 2;
           
           //return Random(vec4(RayPosFloor, 0.)) + length(abs(fract(RayPosFloor) - .5)) > .75 ? 0 : 2;
+          
         }
         
-        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, vec3 Mask1, vec3 RayOrigin){
+        int GetRoughnessMap_(vec3 RayPosFloor, int Type, int Level, vec3 Mask1, vec3 RayOrigin){
           //if(Type != 8) return 2;
           if(Level > -2) return 0;
           bvec3 RayPosSides = bvec3(Mask1);

@@ -368,40 +368,17 @@ export default class Renderer{
       const Up = new THREE.Vector3(0., 1., 0.);
       const Right = new THREE.Vector3(1., 0., 0.);
       const Distance1 = 1.;
-      const Distance2 = 2.;
       const FOV = (this.Camera.fov | 0) * Math.PI / 180. / this.Camera.zoom;
       const Aspect = window.innerWidth / window.innerHeight;
 
       const Height1 = 2. * Math.tan(FOV / 2.) * Distance1;
       const Width1 = Height1 * Aspect;
 
-      const Height2 = 2. * Math.tan(FOV / 2.) * Distance2;
-      const Width2 = Height2 * Aspect;
-
       const Center1 = Copy(Position).add(Copy(View).multiplyScalar(Distance1));
-      const Center2 = Copy(Position).add(Copy(View).multiplyScalar(Distance2));
 
       const TopRight1 = Copy(Center1).add(Copy(Up).multiplyScalar(Height1 / 2.)).add(Copy(Right).multiplyScalar(Width1 / 2.));
-      const TopRight2 = Copy(Center2).add(Copy(Up).multiplyScalar(Height2 / 2.)).add(Copy(Right).multiplyScalar(Width2 / 2.));
-      const BottomLeft1 = Copy(Center1).sub(Copy(Up).multiplyScalar(Height1 / 2.)).sub(Copy(Right).multiplyScalar(Width1 / 2.));
-      const BottomLeft2 = Copy(Center2).sub(Copy(Up).multiplyScalar(Height2 / 2.)).sub(Copy(Right).multiplyScalar(Width2 / 2.));
-      const TopLeft1 = Copy(Center1).add(Copy(Up).multiplyScalar(Height1 / 2.)).sub(Copy(Right).multiplyScalar(Width1 / 2.));
-      const TopLeft2 = Copy(Center2).add(Copy(Up).multiplyScalar(Height2 / 2.)).sub(Copy(Right).multiplyScalar(Width2 / 2.));
-      const BottomRight1 = Copy(Center1).sub(Copy(Up).multiplyScalar(Height1 / 2.)).add(Copy(Right).multiplyScalar(Width1 / 2.));
-      const BottomRight2 = Copy(Center2).sub(Copy(Up).multiplyScalar(Height2 / 2.)).add(Copy(Right).multiplyScalar(Width2 / 2.));
 
-      const ScalingFactor = TopRight1.y; //much quicker solution
-
-      const TopRightRay = Copy(TopRight2).sub(TopRight1).normalize();
-      const BottomLeftRay = Copy(BottomLeft2).sub(BottomLeft1).normalize();
-      const TopLeftRay = Copy(TopLeft2).sub(TopLeft1).normalize();
-      const BottomRightRay = Copy(BottomRight2).sub(BottomRight1).normalize();
-
-      this.BackgroundMaterial.uniforms.iTopRightRay.value = TopRightRay;
-      this.BackgroundMaterial.uniforms.iBottomLeftRay.value = BottomLeftRay;
-      this.BackgroundMaterial.uniforms.iTopLeftRay.value = TopLeftRay;
-      this.BackgroundMaterial.uniforms.iBottomRightRay.value = BottomRightRay;
-      this.BackgroundMaterial.uniforms.iScalingFactor.value = ScalingFactor;
+      this.BackgroundMaterial.uniforms.iScalingFactor.value = TopRight1.y;
 
     }.bind(this)();
 

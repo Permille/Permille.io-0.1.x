@@ -69,8 +69,18 @@ export class Main{
         return "";
       },
       function(){
-        return Math.round(1000 / Main.Renderer.RenderTime) + " fps";
-      }.bind(this),
+        const PreviousMeasures = [];
+        return function(){
+          PreviousMeasures.push(Main.Renderer.RenderTime);
+          if(PreviousMeasures.length > 10) PreviousMeasures.shift();
+          let Sum = 0;
+          const Length = PreviousMeasures.length;
+          for(let i = 0; i < Length; ++i){
+            Sum += PreviousMeasures[i] * (((i + .5) / Length) * 2);
+          }
+          return `${Math.round(1000 / (Sum / Length))} fps (${Math.round(100 * Main.Renderer.RenderTime) / 100.} ms)`;
+        };
+      }(),
       function(){
         const PerformanceInfo = Main.Renderer.Renderer.info;
         return "Geometries: " + PerformanceInfo.memory.geometries + ", Draw calls: " + PerformanceInfo.render.calls;
@@ -115,6 +125,8 @@ class PerformanceOverlay{
     this.GraphInfo = 1;
     this.UpdateInterval = 1;
     this.Updates = 0;
+    this.LastTextUpdate = 0;
+    this.TextUpdateInterval = 10;
     this.GraphSource = function(){
       if(this.GraphInfo === 1) return Application.Main.Renderer.RenderTime;
       else if(this.GraphInfo === 2) return Main.Renderer.Composer.renderer.info.render.triangles;
@@ -175,7 +187,11 @@ class PerformanceOverlay{
     }.bind(this));
     if(this.Updates++ % this.UpdateInterval === 0) this.Graph.AddItem(this.GraphSource());
 
-    switch(this.GraphInfo){
+    const Now = window.performance.now();
+    if(this.LastTextUpdate > Now - this.TextUpdateInterval) return;
+    this.LastTextUpdate = Now;
+
+    /*switch(this.GraphInfo){
       case 1:{
         this.Graph.Properties.Colour = "#007fffbf";
         break;
@@ -188,7 +204,7 @@ class PerformanceOverlay{
         this.Graph.Properties.Colour = "#00ff7fbf";
         break;
       }
-    }
+    }*/
 
     for(let i = 0, Length = this.Info.length; i < Length; i++){
       let Output = "";
@@ -198,7 +214,7 @@ class PerformanceOverlay{
       catch(Error){
         Output = Error.toString();
       }
-      this.Info[i].TextElement.innerHTML = Output;
+      this.Info[i].TextElement.innerText = Output;
     }
   }
 }

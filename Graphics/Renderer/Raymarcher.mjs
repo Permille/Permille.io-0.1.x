@@ -178,7 +178,7 @@ export default class Raymarcher{
         //Voxel grid hierarchy implementation
         //Based on abje's octree tracer: https://www.shadertoy.com/view/4sVfWw
         const float MAX_DISTANCE = 1250.;
-        const float MAX_ROUGHNESS_DISTANCE = 50.;
+        const float MAX_ROUGHNESS_DISTANCE = 30.;
         const int MAX_DETAIL = 2;
         const int MIN_DETAIL = -2;
         
@@ -188,9 +188,8 @@ export default class Raymarcher{
         float Random(vec4 v){
           return fract(1223.34 * sin(dot(v,vec4(181.11, 132.52, 171.29, 188.42))));
         }
-        
-        float manhattan(vec3 a, vec3 b){
-          return dot(abs(a - b), vec3(1.));
+        float Random(vec3 v){
+          return fract(1223.34 * sin(dot(v,vec3(181.11, 132.52, 171.29))));
         }
         
         int GetLocation64(vec3 RayPosFloor){
@@ -211,76 +210,59 @@ export default class Raymarcher{
           Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
           return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
         }
-        int GetRoughnessMap_122(vec3 RayPosFloor, int Type, int Level, vec3 Mask1, vec3 RayOrigin){
-          if(Level > -2) return 0;
-          bvec3 RayPosSides = greaterThan(abs(fract(RayPosFloor) - .5), vec3(7. / 16.));
-          if(all(not(RayPosSides))) return 2;
-          vec3 RayPosScaled = floor(RayPosFloor * 16.) / 16.;
-          if(RayPosSides.x) RayPosFloor.yz = RayPosScaled.yz;
-          if(RayPosSides.y) RayPosFloor.xz = RayPosScaled.xz;
-          if(RayPosSides.z) RayPosFloor.xy = RayPosScaled.xy;
-          float ComponentSum = dot(vec3(RayPosSides), vec3(1.));
-          float Depth = 16. - abs(length(vec3(RayPosSides) * abs(fract(RayPosFloor) - .5))) * 32.;
-          return Random(vec4(RayPosFloor * vec3(not(RayPosSides)), 0.)) < Depth ? 0 : 2;
+        int GetTypeDirectly(vec3 RayPosFloor){
+          int Location64 = GetLocation64(RayPosFloor);
+          if((Location64 & 0x8000) != 0) return 49151;
+          uint Location8 = GetLocation8(Location64 & 0x01ff, RayPosFloor);
+          if((Location8 & 0x80000000u) != 0u) return 49151;
+          int Colour;
+          GetType1(int(Location8 & 0x3fffffffu), RayPosFloor, Colour);
+          return Colour;
         }
-        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, vec3 Mask1, vec3 RayOrigin){
-          //return 2;
-          //if(Type != 8) return 2;
+        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, vec3 RayOrigin, out vec3 DirectionDepth){
+          float Distance = length(RayPosFloor - RayOrigin);
           if(Level > -2) return 0;
-          bvec3 bMask1 = bvec3(Mask1);
-          bvec3 RayPosSides = greaterThanEqual(abs((fract(RayPosFloor) - .4995)), vec3(7./16.));
-          if(all(not(RayPosSides))) return 2; //This is in the middle
+          //if(Distance > (MAX_ROUGHNESS_DISTANCE + 25.)) return 2;
+          float Unloading = max((length(RayOrigin - floor(RayPosFloor)) - 25.) / MAX_ROUGHNESS_DISTANCE, 0.);
           
+          vec3 Intermediate = fract(RayPosFloor) - .4995;
+          bvec3 RayPosSides = greaterThanEqual(abs(Intermediate), vec3(7./16.));
+          vec3 RayPosDiff = sign(Intermediate) * vec3(RayPosSides);
           vec3 RayPosScaled = floor(RayPosFloor * 16.) / 16.;
+          
+          if(all(not(RayPosSides))) return 2; //In the middle
+          
+          vec3 RayPosFloorFloor = floor(RayPosFloor);
+          
+          RayPosSides.x = RayPosSides.x && GetTypeDirectly(RayPosFloorFloor + vec3(RayPosDiff.x, 0., 0.)) != Type;
+          RayPosSides.y = RayPosSides.y && GetTypeDirectly(RayPosFloorFloor + vec3(0., RayPosDiff.y, 0.)) != Type;
+          RayPosSides.z = RayPosSides.z && GetTypeDirectly(RayPosFloorFloor + vec3(0., 0., RayPosDiff.z)) != Type;
+          
+          if(all(not(RayPosSides))) return 2; //In the middle, again
+          
+          vec3 Depth = abs((fract(RayPosFloor) - .499)) * 16. - 7.;
+          DirectionDepth = Depth * vec3(RayPosSides);
+          vec3 NotRayPosSides = vec3(not(RayPosSides));
           
           if(RayPosSides.x){
-            vec3 RayPosModified = RayPosFloor;
-            RayPosModified.yz = RayPosScaled.yz;
-            float RandomNum = Random(vec4(floor(RayPosModified) + RayPosModified * vec3(not(RayPosSides)), 0.));
-            float Depth = abs((fract(RayPosModified) - .499)).x * 16. - 7.;
-            if(RandomNum < Depth) return 0;
+            vec3 RayPosModified = RayPosScaled;
+            RayPosModified.x = RayPosFloor.x;
+            float RandomNum = Random(RayPosModified * NotRayPosSides);
+            if(RandomNum + Unloading < Depth.x) return 0;
           }
           if(RayPosSides.y){
-            vec3 RayPosModified = RayPosFloor;
-            RayPosModified.xz = RayPosScaled.xz;
-            float RandomNum = Random(vec4(floor(RayPosModified) + RayPosModified * vec3(not(RayPosSides)), 0.));
-            float Depth = abs((fract(RayPosModified) - .499)).y * 16. - 7.;
-            if(RandomNum < Depth) return 0;
+            vec3 RayPosModified = RayPosScaled;
+            RayPosModified.y = RayPosFloor.y;
+            float RandomNum = Random(RayPosModified * NotRayPosSides);
+            if(RandomNum + Unloading < Depth.y) return 0;
           }
           if(RayPosSides.z){
-            vec3 RayPosModified = RayPosFloor;
-            RayPosModified.xy = RayPosScaled.xy;
-            float RandomNum = Random(vec4(floor(RayPosModified) + RayPosModified * vec3(not(RayPosSides)), 0.));
-            float Depth = abs((fract(RayPosModified) - .499)).z * 16. - 7.;
-            if(RandomNum < Depth) return 0;
+            vec3 RayPosModified = RayPosScaled;
+            RayPosModified.z = RayPosFloor.z;
+            float RandomNum = Random(RayPosModified * NotRayPosSides);
+            if(RandomNum + Unloading < Depth.z) return 0;
           }
           return 2;
-          
-          //float Depth = 16. - abs(length(vec3(RayPosSides) * fract(RayPosFloor)) - .492) * 32.;
-          //float Depth = (abs((fract(RayPosFloor) - .499)) * 16. - 7.).y;
-          //if(all(lessThan(vec3(RandomNum), Depth))) return 2;
-          //return 0;
-          //float Depth = length(abs(vec3(RayPosSides) * (fract(RayPosFloor) - .499))) * 16. - 7.;
-          //return RandomNum < Depth ? 0 : 2;
-          //return /* sin(iTime / 1000.) / 2. + .5*/ < Depth ? 0 : 2;
-          
-          //return Random(vec4(RayPosFloor, 0.)) + length(abs(fract(RayPosFloor) - .5)) > .75 ? 0 : 2;
-          
-        }
-        
-        int GetRoughnessMap_(vec3 RayPosFloor, int Type, int Level, vec3 Mask1, vec3 RayOrigin){
-          //if(Type != 8) return 2;
-          if(Level > -2) return 0;
-          bvec3 RayPosSides = bvec3(Mask1);
-          if(all(not(RayPosSides))) return 2; //Camera is probably in the middle of a block
-          vec3 RayPosScaled = floor(RayPosFloor * 16.) / 16.;
-          if(RayPosSides.x) RayPosFloor.yz = RayPosScaled.yz;
-          else if(RayPosSides.y) RayPosFloor.xz = RayPosScaled.xz;
-          else if(RayPosSides.z) RayPosFloor.xy = RayPosScaled.xy;
-          //float Depth = 16. - abs(length(vec3(RayPosSides) * fract(RayPosFloor)) - .492) * 32.;
-          float Depth = length(abs(vec3(RayPosSides) * (fract(RayPosFloor) - .48))) * 16. - 7.; //or *8.-3., *4.-1.
-          float Unloading = max((length(RayOrigin - floor(RayPosFloor)) - 8.) / MAX_ROUGHNESS_DISTANCE, 0.);
-          return Random(vec4(RayPosFloor * vec3(not(RayPosSides)), 0.)) + Unloading < Depth ? 0 : 2;
         }
         
         void mainImage(out vec4 fragColor, in vec2 fragCoord){
@@ -312,6 +294,8 @@ export default class Raymarcher{
           int VoxelType = 0;
           
           vec3 s = vec3(0.);
+          
+          float DarknessColour = .75;
           
           for(int i = 0; i < 400 && Distance < MAX_DISTANCE && !HitVoxel; ++i){
             //s.r++;
@@ -369,7 +353,10 @@ export default class Raymarcher{
               }
               case -1:
               case -2:{
-                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, Mask1, RayOrigin + RayOriginOffset);
+                vec3 Darkness = vec3(0.);
+                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, RayOrigin + RayOriginOffset, Darkness);
+                Darkness = abs(Darkness);
+                DarknessColour = max(max(Darkness.x, Darkness.y), Darkness.z) / 4. + .75;
                 break;
               }
             }
@@ -409,7 +396,7 @@ export default class Raymarcher{
           }
           
           float fLevel = float(Level) + 4.;
-          Colour *= Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .2 + 1.;
+          Colour *= DarknessColour + Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .2;
           //Colour *= normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
           fragColor = vec4(s / 50. + Colour * length(Mask * vec3(.75, 1., .5)), 1.);
         }

@@ -32,13 +32,24 @@ class Application{
       };
     })();
 
+    let PriorityAnimationFrames = [];
+    window.requestPriorityAnimationFrame = function(Function){
+      PriorityAnimationFrames.push(Function);
+    };
+    void function Load(){
+      window.requestAnimationFrame(Load);
+      const Pending = PriorityAnimationFrames;
+      PriorityAnimationFrames = []; //This is so that new animation frames that are added aren't iterated forever.
+      while(Pending.length > 0) Pending.pop()();
+    }();
+
     this.Main = new Main;
     this.Main.RegisterDependencies();
     this.Debug = new Debug;
   }
 }
-window.Application = Application; //For debugging purposes.
-ModLoadingEngine.Application = Application; //I bet I'll regret this...
+window.Application = Application;
+ModLoadingEngine.Application = Application;
 
 class Main{
   constructor(){

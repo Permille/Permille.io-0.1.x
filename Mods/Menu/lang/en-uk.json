@@ -71,6 +71,7 @@
     "JumpSpeed": "Jumping velocity",
     "Gravity": "Gravitational acceleration",
     "AirDrag": "Air resistance",
+    "SurfaceDrag": "Flying resistance",
     "Exit": "Exit"
   },
   "Language":{

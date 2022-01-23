@@ -71,6 +71,7 @@
     "JumpSpeed": "Sprunggeschwindigkeit",
     "Gravity": "Gravitationsbeschleunigung",
     "AirDrag": "Luftwiderstand",
+    "SurfaceDrag": "Luftwiderstand beim Fliegen",
     "Exit": "Zurück"
   },
   "Language":{

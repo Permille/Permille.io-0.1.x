@@ -186,11 +186,11 @@ export default class Raymarcher{
         const int POWER = int(log2(SCALE));
         
         float Random(vec4 v){
-          return fract(1223.34 * sin(dot(v,vec4(181.11, 132.52, 171.29, 188.42))));
+          return fract(1223.34 * sin(dot(v,vec4(18.111, 13.252, 17.129, 18.842))));
         }
         float Random(vec3 v){
           //return sin(iTime / 2000.) / 2. + .5;
-          return fract(1223.34 * sin(dot(v,vec3(181.11, 132.52, 171.29))));
+          return fract(1223.34 * sin(dot(v,vec3(18.111, 13.252, 17.129))));
         }
         
         int GetLocation64(vec3 RayPosFloor){
@@ -220,7 +220,7 @@ export default class Raymarcher{
           GetType1(int(Location8 & 0x3fffffffu), RayPosFloor, Colour);
           return Colour;
         }
-        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, vec3 RayOrigin, out vec3 DirectionDepth){
+        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, vec3 RayOrigin){
           float Distance = length(RayPosFloor - RayOrigin);
           if(Level > -2) return 0;
           //if(Distance > (MAX_ROUGHNESS_DISTANCE + 25.)) return 2;
@@ -235,9 +235,6 @@ export default class Raymarcher{
           
           vec3 RayPosFloorFloor = floor(RayPosFloor);
           
-          //if(RayPosSides.x && RayPosScaled.x > 10010101.) return 0;
-          //return 2;
-          
           if(dot(vec3(RayPosSides), vec3(1.)) > 1.){
             RayPosSides.x = RayPosSides.x && GetTypeDirectly(RayPosFloorFloor + vec3(RayPosDiff.x, 0., 0.)) != Type;
             RayPosSides.y = RayPosSides.y && GetTypeDirectly(RayPosFloorFloor + vec3(0., RayPosDiff.y, 0.)) != Type;
@@ -247,7 +244,6 @@ export default class Raymarcher{
           if(all(not(RayPosSides))) return 2; //Not visible (occluded)
           
           vec3 Depth = abs((fract(RayPosFloor) - .5)) * 16. - 7.;
-          //DirectionDepth = Depth * vec3(RayPosSides);
           vec3 NotRayPosSides = vec3(not(RayPosSides));
           
           vec3 Correction = floor(Intermediate) / 4.; //For some reason, normally, the + side of each block is 1/4 higher...
@@ -303,9 +299,7 @@ export default class Raymarcher{
           
           vec3 s = vec3(0.);
           
-          float DarknessColour = .75;
-          
-          for(int i = 0; i < 400 /*&& Distance < MAX_DISTANCE*/ && !HitVoxel; ++i){
+          for(int i = 0; i < 400 && Distance < MAX_DISTANCE && !HitVoxel; ++i){
             //s.r++;
             while(ExitLevel){
               Level++;
@@ -322,10 +316,7 @@ export default class Raymarcher{
             switch(Level){
               case -1:
               case -2:{
-                vec3 Darkness = vec3(0.);
-                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, RayOrigin + RayOriginOffset, Darkness);
-                Darkness = abs(Darkness);
-                DarknessColour = max(max(Darkness.x, Darkness.y), Darkness.z) / 4. + .75;
+                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, RayOrigin + RayOriginOffset);
                 break;
               }
               case 0:{
@@ -404,7 +395,7 @@ export default class Raymarcher{
           }
           
           float fLevel = float(Level) + 4.;
-          Colour *= /*DarknessColour + */1. - Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .15;
+          Colour *= 1. - Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .15;
           //Colour *= normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
           fragColor = vec4(s / 50. + Colour * length(Mask * vec3(.75, 1., .5)), 1.);
         }
@@ -427,9 +418,13 @@ export default class Raymarcher{
     let Iteration = 0;
     const Step = 3;
 
+    void function Update(){
+      window.setTimeout(Update.bind(this), 5.);
+      this.UpdateUniforms();
+    }.bind(this)();
+
     void function AnimationFrame(){
       window.requestAnimationFrame(AnimationFrame.bind(this));
-      this.UpdateUniforms();
 
       if(Iteration === 0 && !this.TransferBuffers) return;
       this.TransferBuffers = false;
@@ -480,5 +475,6 @@ export default class Raymarcher{
     this.Material.uniforms["iTime"].value = window.performance.now();
     this.Material.uniforms["iRotation"].value = new THREE.Vector3(this.Renderer.Camera.rotation.x, this.Renderer.Camera.rotation.y, this.Renderer.Camera.rotation.z);
     this.Material.uniforms["iPosition"].value = new THREE.Vector3(this.Renderer.Camera.position.x, this.Renderer.Camera.position.y, this.Renderer.Camera.position.z);
+    this.Material.uniforms["iPosition"].needsUpdate = true;
   }
 };

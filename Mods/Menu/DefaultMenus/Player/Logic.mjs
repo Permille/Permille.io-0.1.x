@@ -14,7 +14,7 @@ export default class Logic{
         this.BaseMenu.Exit();
       }.bind(this));
 
-      for(const Property of ["Speed", "JumpSpeed", "Gravity", "AirDrag"]){
+      for(const Property of ["Speed", "JumpSpeed", "Gravity", "AirDrag", "SurfaceDrag"]){
         ICCD.Range(IDocument.getElementById(Property), function(){
           let Value = Number.parseFloat(ICVQ.Range(IDocument.getElementById(Property)));
           if(Number.isNaN(Value)) Value = 0;

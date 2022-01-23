@@ -25,7 +25,11 @@ export default class Renderer{
     this.ImageScale = 1;
     this.CloudsScale = .5;
 
-    this.BackgroundRenderer = new THREE.WebGLRenderer({"logarithmicDepthBuffer": false, alpha: true });
+    this.BackgroundRenderer = new THREE.WebGLRenderer({
+      "logarithmicDepthBuffer": false,
+      "alpha": true,
+      "powerPreference": "high-performance"
+    });
     this.BackgroundRenderer.autoClear = false;
     this.BackgroundRenderer.domElement.style.position = "absolute";
     document.getElementsByTagName("body")[0].appendChild(this.BackgroundRenderer.domElement);
@@ -393,15 +397,14 @@ export default class Renderer{
     this.Renderer.shadowMap.enabled = true;
     this.Renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-
-    this.UseAnimationFrame = true;
+    let Loaded = false;
     this.Events.AddEventListener("TextureLoad", function(){
-      void function Load(){
-        if(this.UseAnimationFrame) window.requestAnimationFrame(Load.bind(this));
-        else window.setTimeout(Load.bind(this), 0);
-        this.Render();
-      }.bind(this)();
+      Loaded = true;
     }.bind(this));
+    void function Load(){
+      window.requestAnimationFrame(Load.bind(this));
+      if(Loaded) this.Render();
+    }.bind(this)();
 
     window.addEventListener("resize", function(){
       this.UpdateSize();

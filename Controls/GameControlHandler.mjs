@@ -34,13 +34,12 @@ export default class GameControlHandler{
       "SurfaceDrag": 60
     };
 
-    (function Load(Scope){
-      Scope.FrameTime = window.performance.now() - Scope.LastAnimationFrame;
-      Scope.LastAnimationFrame = window.performance.now();
-      Scope.AnimationFrame();
-      //window.setTimeout(function(){Load(Scope);}.bind(this), 50);
-      window.requestAnimationFrame(function(){Load(Scope);}.bind(this));
-    }.bind(this))(this);
+    void function Load(){
+      window.setTimeout(Load.bind(this), 5.);
+      this.FrameTime = window.performance.now() - this.LastAnimationFrame;
+      this.LastAnimationFrame = window.performance.now();
+      this.AnimationFrame();
+    }.bind(this)();
   }
   AnimationFrame(){
     if(window.performance.now() < 1000) return; // Should prevent accidental freezes?

@@ -38,6 +38,14 @@
         "Max": 10000,
         "Step": 1,
         "Default": 2500
+      },
+      "SurfaceDrag":{
+        "Type": "Range",
+        "ID": "SurfaceDrag",
+        "Min": 0,
+        "Max": 200,
+        "Step": 1,
+        "Default": 60
       }
     }
   }

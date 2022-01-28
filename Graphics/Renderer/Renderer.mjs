@@ -315,9 +315,9 @@ export default class Renderer{
     this.Camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.0625, 16384);
     this.Camera.rotation.order = "YXZ";
 
-    const Scale = 4.;
+    this.UpscalingKernelSize = 4.;
 
-    this.ScaledTarget = new THREE.WebGLRenderTarget(Math.ceil(window.innerWidth / Scale), Math.ceil(window.innerHeight / Scale));
+    this.ScaledTarget = new THREE.WebGLRenderTarget(Math.ceil(window.innerWidth / this.UpscalingKernelSize), Math.ceil(window.innerHeight / this.UpscalingKernelSize));
     this.ScaledTarget.texture.format = THREE.RGBAFormat;
     this.ScaledTarget.texture.type = THREE.UnsignedByteType;
     this.ScaledTarget.texture.internalFormat = "RGBA8";
@@ -326,10 +326,12 @@ export default class Renderer{
     this.ScaledTarget.stencilBuffer = false;
 
     this.ScaledTarget.depthBuffer = true;
-    this.ScaledTarget.depthTexture = new THREE.DepthTexture(Math.ceil(window.innerWidth / Scale), Math.ceil(window.innerHeight / Scale));
+    this.ScaledTarget.depthTexture = new THREE.DepthTexture(Math.ceil(window.innerWidth / this.UpscalingKernelSize), Math.ceil(window.innerHeight / this.UpscalingKernelSize));
     this.ScaledTarget.depthTexture.format = THREE.DepthFormat;
     this.ScaledTarget.depthTexture.type = THREE.UnsignedShortType;
     this.ScaledTarget.depthTexture.needsUpdate = true;
+
+    this.UseScaledTarget = false;
 
     this.BackgroundScene = new THREE.Scene;
 
@@ -431,6 +433,7 @@ export default class Renderer{
     }.bind(this);*/
 
     window.addEventListener("resize", function(){
+      this.Events.FireEventListeners("Resize");
       this.UpdateSize();
     }.bind(this));
     this.UpdateSize();
@@ -440,7 +443,8 @@ export default class Renderer{
   UpdateSize(){
     this.Renderer.setSize(window.innerWidth * this.ImageScale, window.innerHeight * this.ImageScale);
     this.BackgroundRenderer.setSize(window.innerWidth * this.CloudsScale, window.innerHeight * this.CloudsScale);
-    //this.Composer.setSize(window.innerWidth * this.ImageScale, window.innerHeight * this.ImageScale);
+    this.ScaledTarget.setSize(window.innerWidth * this.ImageScale / this.UpscalingKernelSize, window.innerHeight * this.ImageScale / this.UpscalingKernelSize);
+
     this.Renderer.domElement.style.width = window.innerWidth + "px";
     this.Renderer.domElement.style.height = window.innerHeight + "px";
     this.BackgroundRenderer.domElement.style.width = window.innerWidth + "px";
@@ -459,10 +463,12 @@ export default class Renderer{
     this.BackgroundRenderer.clear();
     //this.BackgroundRenderer.render(this.BackgroundScene, this.BackgroundCamera);
 
-    this.Renderer.setRenderTarget(this.ScaledTarget);
-    this.Renderer.clear();
-    this.Events.FireEventListeners("RenderingScaledTarget");
-    this.Renderer.render(this.Scene, this.Camera);
+    this.Renderer.setRenderTarget(this.ScaledTarget); //For whatever reason, I need to do this no matter whether I'm upscaling so I don't get weird errors...
+    if(this.UseScaledTarget){
+      this.Renderer.clear();
+      this.Events.FireEventListeners("RenderingScaledTarget");
+      this.Renderer.render(this.Scene, this.Camera);
+    }
 
     //return;
     this.Renderer.setRenderTarget(null);

@@ -21,10 +21,19 @@
         "ID": "AO",
         "Default": true
       },
-      "AlternateBlocks":{
+      "UseUpscaling":{
         "Type": "Switch",
-        "ID": "AlternateBlocks",
-        "Default": true
+        "ID": "UseUpscaling",
+        "Default": false
+      },
+      "UpscalingKernelSize":{
+        "Type": "Range",
+        "ID": "UpscalingKernelSize",
+        "Weighting": "Linear",
+        "Min": 1,
+        "Max": 8,
+        "Default": 4,
+        "Step": 1
       },
       "RenderSize":{
         "Type": "Range",

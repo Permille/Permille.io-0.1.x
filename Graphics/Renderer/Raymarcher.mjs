@@ -64,8 +64,8 @@ export default class Raymarcher{
     this.DummyColourTexture = new THREE.DataTexture(new Uint8Array(16), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
     this.DummyColourTexture.internalFormat = "RGBA8UI";
 
-    this.DummyColourTexture = new THREE.DataTexture(new Uint16Array(16), 1, 1, THREE.DepthFormat, THREE.UnsignedShortType);
-    this.DummyColourTexture.internalFormat = "R16UI";
+    this.DummyDepthTexture = new THREE.DataTexture(new Uint16Array(16), 1, 1, THREE.DepthFormat, THREE.UnsignedShortType);
+    this.DummyDepthTexture.internalFormat = "R16UI";
 
     /*const SeededRandom = function(){
       let Seed = 0x1511426a;
@@ -121,7 +121,9 @@ export default class Raymarcher{
         iTex64: {value: this.Tex64},
         iColour: {value: this.Renderer.ScaledTarget.texture},
         iDepth: {value: this.Renderer.ScaledTarget.depthTexture},
+        iRenderSize: {value: 1.},
         iIsFirstPass: {value: true},
+        iUpscalingKernelSize: {value: 4.},
         FOV: {value: 110}
       },
       "transparent": true,
@@ -161,6 +163,8 @@ export default class Raymarcher{
         uniform sampler2D iColour;
         uniform sampler2D iDepth;
         uniform bool iIsFirstPass;
+        uniform float iUpscalingKernelSize;
+        uniform float iRenderSize;
         
         
         const float InDegrees = .01745329;
@@ -325,7 +329,7 @@ export default class Raymarcher{
           vec3 s = vec3(0.);
           
           if(!iIsFirstPass){
-            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / 4.);
+            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / iUpscalingKernelSize * iRenderSize);
             Colour = texelFetch(iColour, ScaledCoordinates, 0).rgb; //Backup colour in case nothing is hit
             float Depth = DecodeLogarithmicDepth(texelFetch(iDepth, ScaledCoordinates, 0).r);//intBitsToFloat((Converted.x << 24) | (Converted.y << 16) | (Converted.z << 8) | Converted.w);
             
@@ -339,9 +343,7 @@ export default class Raymarcher{
             RayOrigin = NewOffset;
             //fragColor.y = Distance / 255.;
             //return;
-          }/* else{
-            gl_FragDepth = sin(iTime / 1000.) / 2. + .5;
-          }*/
+          }
           
           vec3 RayOriginOffset = floor(RayOrigin / Size) * Size;
           RayOrigin -= RayOriginOffset;
@@ -491,7 +493,10 @@ export default class Raymarcher{
     this.Renderer.Events.AddEventListener("RenderingCanvas", function(){
       this.Material.uniforms.iColour.value = this.Renderer.ScaledTarget.texture;
       this.Material.uniforms.iDepth.value = this.Renderer.ScaledTarget.depthTexture;
-      this.Material.uniforms.iIsFirstPass.value = false;
+      if(this.Renderer.UseScaledTarget){
+        this.Material.uniforms.iIsFirstPass.value = false;
+      }
+      else this.Material.uniforms.iIsFirstPass.value = true;
     }.bind(this));
 
     const Mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2, 1, 1), this.Material);
@@ -558,7 +563,13 @@ export default class Raymarcher{
 
     }.bind(this)();
   }
+  SetKernelSize(Size){
+    this.Material.uniforms["iUpscalingKernelSize"].value = Size;
+    this.Renderer.UpscalingKernelSize = Size;
+    this.Renderer.UpdateSize();
+  }
   UpdateUniforms(){
+    this.Material.uniforms["iRenderSize"].value = this.Renderer.ImageScale;
     this.Material.uniforms["iResolution"].value = new THREE.Vector2(window.innerWidth, window.innerHeight);
     this.Material.uniforms["iTime"].value = window.performance.now();
     this.Material.uniforms["iRotation"].value = new THREE.Vector3(this.Renderer.Camera.rotation.x, this.Renderer.Camera.rotation.y, this.Renderer.Camera.rotation.z);

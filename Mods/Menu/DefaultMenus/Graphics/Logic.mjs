@@ -19,7 +19,16 @@ export default class Logic{
         Application.Main.Renderer.Camera.updateProjectionMatrix();
       });
       //AO
-      //Alternate Blocks
+
+      ICCD.Switch(IDocument.getElementById("UseUpscaling"), function(){
+        const UseUpscaling = ICVQ.Switch(IDocument.getElementById("UseUpscaling"));
+        Application.Main.Renderer.UseScaledTarget = UseUpscaling;
+      });
+
+      ICCD.Range(IDocument.getElementById("UpscalingKernelSize"), function(){
+        Application.Main.Raymarcher.SetKernelSize(ICVQ.Range(IDocument.getElementById("UpscalingKernelSize")));
+      });
+
       ICCD.Range(IDocument.getElementById("RenderSize"), function(){
         Application.Main.Renderer.ImageScale = ICVQ.Range(IDocument.getElementById("RenderSize"));
         Application.Main.Renderer.UpdateSize();

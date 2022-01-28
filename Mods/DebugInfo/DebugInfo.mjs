@@ -71,7 +71,7 @@ export class Main{
         const PreviousMeasures = [];
         return function(){
           PreviousMeasures.push(Main.Renderer.RenderTime);
-          if(PreviousMeasures.length > 10) PreviousMeasures.shift();
+          if(PreviousMeasures.length > 50) PreviousMeasures.shift();
           let Sum = 0;
           const Length = PreviousMeasures.length;
           for(let i = 0; i < Length; ++i){

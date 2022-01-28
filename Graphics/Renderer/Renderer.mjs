@@ -315,7 +315,7 @@ export default class Renderer{
     this.Camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.0625, 16384);
     this.Camera.rotation.order = "YXZ";
 
-    this.ScaledTarget = new THREE.WebGLRenderTarget(Math.ceil(window.innerWidth / 7.), Math.ceil(window.innerHeight / 7.));
+    this.ScaledTarget = new THREE.WebGLRenderTarget(Math.ceil(window.innerWidth / 5.), Math.ceil(window.innerHeight / 5.));
     this.ScaledTarget.texture.format = THREE.RGBAFormat;
     this.ScaledTarget.texture.type = THREE.UnsignedByteType;
     this.ScaledTarget.texture.internalFormat = "RGBA8";
@@ -419,10 +419,10 @@ export default class Renderer{
       if(Loaded) this.Render();
     }.bind(this)();
 
-    this.Scene.onBeforeRender = function(){
+    /*this.Scene.onBeforeRender = function(){
       this.RenderTime = window.performance.now() - this.LastRender;
       this.LastRender = window.performance.now();
-    }.bind(this);
+    }.bind(this);*/
     /*this.Scene.onAfterRender = function(){
       console.log(window.performance.now());
       this.RenderTime = window.performance.now() - this.LastRender;
@@ -451,6 +451,9 @@ export default class Renderer{
     this.Camera.rotation.order = "YXZ"; //?
   }
   Render(){
+    this.RenderTime = window.performance.now() - this.LastRender;
+    this.LastRender = window.performance.now();
+
     this.BackgroundRenderer.clear();
     //this.BackgroundRenderer.render(this.BackgroundScene, this.BackgroundCamera);
 

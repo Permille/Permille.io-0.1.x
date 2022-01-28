@@ -219,6 +219,11 @@ export default class Raymarcher{
           Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
           return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
         }
+        int GetType1(int Location8, vec3 RayPosFloor){
+          ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
+          int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
+          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
+        }
         int GetTypeDirectly(vec3 RayPosFloor){
           int Location64 = GetLocation64(RayPosFloor);
           if((Location64 & 0x8000) != 0) return 49151;
@@ -227,6 +232,13 @@ export default class Raymarcher{
           int Colour;
           GetType1(int(Location8 & 0x3fffffffu), RayPosFloor, Colour);
           return Colour;
+        }
+        int GetMaskDirectly(vec3 RayPosFloor){
+          int Location64 = GetLocation64(RayPosFloor);
+          if((Location64 & 0x8000) != 0) return 1;
+          uint Location8 = GetLocation8(Location64 & 0x01ff, RayPosFloor);
+          if((Location8 & 0x80000000u) != 0u) return 1;
+          return GetType1(int(Location8 & 0x3fffffffu), RayPosFloor);
         }
         int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, vec3 RayOrigin){
           float Distance = length(RayPosFloor - RayOrigin);
@@ -280,6 +292,7 @@ export default class Raymarcher{
         void mainImage(out vec4 fragColor, in vec2 fragCoord){
           vec2 uv = (fragCoord.xy * 2. - iResolution.xy) / iResolution.y;
           vec3 RayOrigin = iPosition;
+          vec3 TrueRayOrigin = RayOrigin;
           vec3 RayDirection = normalize(vec3(uv, .8)) * RotateX(iRotation.x) * RotateY(iRotation.y);
           vec3 RayDirectionSign = sign(RayDirection);
           
@@ -291,15 +304,27 @@ export default class Raymarcher{
           float Distance = 0.;
           bool HitVoxel = false;
           
-          vec3 RayOriginOffset = floor(RayOrigin / Size) * Size;
-          RayOrigin -= RayOriginOffset;
+          vec3 s = vec3(0.);
           
-          if(true || !iIsFirstPass){
-            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / 7.);
+          if(!iIsFirstPass){
+            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / 5.);
             ivec4 Converted = ivec4(texelFetch(iDepth, ScaledCoordinates, 0) * 256.);
             float Depth = intBitsToFloat((Converted.x << 24) | (Converted.y << 16) | (Converted.z << 8) | Converted.w);
-            RayOrigin += max(0., Depth / 1.04 - 4.) * RayDirection;
+            //fragColor.x = Depth / 255.;
+            vec3 NewOffset = RayOrigin;
+            for(int i = 0; i < 100 && Depth > 0.; ++i){
+              Depth = Depth / 1.02 - .25 * float(2 * i + 1);
+              NewOffset = RayOrigin + max(0., Depth) * RayDirection;
+              if(GetMaskDirectly(NewOffset) == 1) break;
+            }
+            Distance = length(RayOrigin - NewOffset);
+            RayOrigin = NewOffset;
+            //fragColor.y = Distance / 255.;
+            //return;
           }
+          
+          vec3 RayOriginOffset = floor(RayOrigin / Size) * Size;
+          RayOrigin -= RayOriginOffset;
           
           vec3 RayPosFloor = floor(RayOrigin / Size) * Size; //Voxel coordinate
           vec3 RayPosFract = RayOrigin - RayPosFloor; //Sub-voxel coordinate                   
@@ -311,9 +336,9 @@ export default class Raymarcher{
           vec3 Colour = vec3(0.);
           int VoxelType = 0;
           
-          vec3 s = vec3(0.);
+          int Max = 400;//iIsFirstPass ? 400 : 20;//Improves framerate substantially (280 -> 360)
           
-          for(int i = 0; i < 400 && Distance < MAX_DISTANCE && !HitVoxel; ++i){
+          for(int i = 0; i < Max && Distance < MAX_DISTANCE && !HitVoxel; ++i){
             //s.r++;
             while(ExitLevel){
               Level++;
@@ -330,7 +355,7 @@ export default class Raymarcher{
             switch(Level){
               case -1:
               case -2:{
-                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, RayOrigin + RayOriginOffset);
+                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, TrueRayOrigin);
                 break;
               }
               case 0:{

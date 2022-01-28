@@ -61,8 +61,11 @@ export default class Raymarcher{
     this.Tex64.unpackAlignment = 1;
     this.Tex64.needsUpdate = true;
 
-    this.DummyTexture = new THREE.DataTexture(new Uint8Array(16), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
-    this.DummyTexture.internalFormat = "RGBA8UI";
+    this.DummyColourTexture = new THREE.DataTexture(new Uint8Array(16), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+    this.DummyColourTexture.internalFormat = "RGBA8UI";
+
+    this.DummyColourTexture = new THREE.DataTexture(new Uint16Array(16), 1, 1, THREE.DepthFormat, THREE.UnsignedShortType);
+    this.DummyColourTexture.internalFormat = "R16UI";
 
     /*const SeededRandom = function(){
       let Seed = 0x1511426a;
@@ -116,14 +119,15 @@ export default class Raymarcher{
         iTex1: {value: this.Tex1[0]},
         iTex8: {value: this.Tex8[0]},
         iTex64: {value: this.Tex64},
-        iDepth: {value: this.Renderer.ScaledTarget.texture},
+        iColour: {value: this.Renderer.ScaledTarget.texture},
+        iDepth: {value: this.Renderer.ScaledTarget.depthTexture},
         iIsFirstPass: {value: true},
         FOV: {value: 110}
       },
       "transparent": true,
       "blending": THREE.NoBlending,
       "alphaTest": 1.,
-      "depthTest": false,
+      "depthTest": true,
       "depthWrite": true, //#######################
       "vertexShader": `
         varying vec2 vUv;
@@ -154,6 +158,7 @@ export default class Raymarcher{
         uniform highp usampler3D iTex8;
         uniform mediump usampler3D iTex64;
         uniform mediump usampler3D iVoxelTypesTex;
+        uniform sampler2D iColour;
         uniform sampler2D iDepth;
         uniform bool iIsFirstPass;
         
@@ -192,6 +197,16 @@ export default class Raymarcher{
         
         const float SCALE = 8.; //Only works for powers of 2
         const int POWER = int(log2(SCALE));
+        
+        const float Log16385 = log(16385.);
+        
+        float EncodeLogarithmicDepth(float Depth){
+          return log(Depth + 1.) / Log16385;
+        }
+        
+        float DecodeLogarithmicDepth(float Depth){
+          return exp(Depth * Log16385) - 1.;
+        }
         
         float Random(vec4 v){
           return fract(1223.34 * sin(dot(v,vec4(18.111, 13.252, 17.129, 18.842))));
@@ -304,15 +319,18 @@ export default class Raymarcher{
           float Distance = 0.;
           bool HitVoxel = false;
           
+          vec3 Colour = vec3(0.);
+          int VoxelType = 0;
+          
           vec3 s = vec3(0.);
           
           if(!iIsFirstPass){
-            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / 5.);
-            ivec4 Converted = ivec4(texelFetch(iDepth, ScaledCoordinates, 0) * 256.);
-            float Depth = intBitsToFloat((Converted.x << 24) | (Converted.y << 16) | (Converted.z << 8) | Converted.w);
-            //fragColor.x = Depth / 255.;
+            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / 4.);
+            Colour = texelFetch(iColour, ScaledCoordinates, 0).rgb; //Backup colour in case nothing is hit
+            float Depth = DecodeLogarithmicDepth(texelFetch(iDepth, ScaledCoordinates, 0).r);//intBitsToFloat((Converted.x << 24) | (Converted.y << 16) | (Converted.z << 8) | Converted.w);
+            
             vec3 NewOffset = RayOrigin;
-            for(int i = 0; i < 100 && Depth > 0.; ++i){
+            for(int i = 0; i < 20 && Depth > 0.; ++i){
               Depth = Depth / 1.02 - .25 * float(2 * i + 1);
               NewOffset = RayOrigin + max(0., Depth) * RayDirection;
               if(GetMaskDirectly(NewOffset) == 1) break;
@@ -321,7 +339,9 @@ export default class Raymarcher{
             RayOrigin = NewOffset;
             //fragColor.y = Distance / 255.;
             //return;
-          }
+          }/* else{
+            gl_FragDepth = sin(iTime / 1000.) / 2. + .5;
+          }*/
           
           vec3 RayOriginOffset = floor(RayOrigin / Size) * Size;
           RayOrigin -= RayOriginOffset;
@@ -333,10 +353,7 @@ export default class Raymarcher{
           int Location64 = 0;
           int Location8 = 0;
           
-          vec3 Colour = vec3(0.);
-          int VoxelType = 0;
-          
-          int Max = 400;//iIsFirstPass ? 400 : 20;//Improves framerate substantially (280 -> 360)
+          int Max = iIsFirstPass ? 400 : 20;//Improves framerate substantially (280 -> 360)
           
           for(int i = 0; i < Max && Distance < MAX_DISTANCE && !HitVoxel; ++i){
             //s.r++;
@@ -434,7 +451,7 @@ export default class Raymarcher{
           }
           
           float fLevel = float(Level) + 4.;
-          Colour *= 1. - Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .15;
+          if(HitVoxel) Colour *= 1. - Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .15;
           //Colour *= normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
           fragColor = vec4(s / 50. + Colour * length(Mask * vec3(.75, 1., .5)), 1.);
           
@@ -446,9 +463,10 @@ export default class Raymarcher{
             fragColor += Result.z / 16.;// + Result.w;
           }*/
           if(iIsFirstPass){
-            int IntDistance = floatBitsToInt(Distance);
+            gl_FragDepth = EncodeLogarithmicDepth(Distance);
+            /*int IntDistance = floatBitsToInt(Distance);
             vec4 Depth = vec4(ivec4(IntDistance >> 24, (IntDistance >> 16) & 255, (IntDistance >> 8) & 255, IntDistance & 255));
-            fragColor = Depth / 256.;
+            fragColor = Depth / 256.;*/
           }
           else{
             //fragColor += Depth;//mod(Depth, 1.);
@@ -466,11 +484,13 @@ export default class Raymarcher{
     });
 
     this.Renderer.Events.AddEventListener("RenderingScaledTarget", function(){
-      this.Material.uniforms.iDepth.value = this.DummyTexture;
+      this.Material.uniforms.iColour.value = this.DummyColourTexture;
+      this.Material.uniforms.iDepth.value = this.DummyDepthTexture;
       this.Material.uniforms.iIsFirstPass.value = true;
     }.bind(this));
     this.Renderer.Events.AddEventListener("RenderingCanvas", function(){
-      this.Material.uniforms.iDepth.value = this.Renderer.ScaledTarget.texture;
+      this.Material.uniforms.iColour.value = this.Renderer.ScaledTarget.texture;
+      this.Material.uniforms.iDepth.value = this.Renderer.ScaledTarget.depthTexture;
       this.Material.uniforms.iIsFirstPass.value = false;
     }.bind(this));
 

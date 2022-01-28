@@ -315,7 +315,9 @@ export default class Renderer{
     this.Camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.0625, 16384);
     this.Camera.rotation.order = "YXZ";
 
-    this.ScaledTarget = new THREE.WebGLRenderTarget(Math.ceil(window.innerWidth / 5.), Math.ceil(window.innerHeight / 5.));
+    const Scale = 4.;
+
+    this.ScaledTarget = new THREE.WebGLRenderTarget(Math.ceil(window.innerWidth / Scale), Math.ceil(window.innerHeight / Scale));
     this.ScaledTarget.texture.format = THREE.RGBAFormat;
     this.ScaledTarget.texture.type = THREE.UnsignedByteType;
     this.ScaledTarget.texture.internalFormat = "RGBA8";
@@ -323,11 +325,11 @@ export default class Renderer{
     this.ScaledTarget.generateMipmaps = false;
     this.ScaledTarget.stencilBuffer = false;
 
-    /*this.ScaledTarget.depthBuffer = true;
-    this.ScaledTarget.depthTexture = new THREE.DepthTexture(Math.ceil(window.innerWidth / 3.), Math.ceil(window.innerHeight / 3.));
+    this.ScaledTarget.depthBuffer = true;
+    this.ScaledTarget.depthTexture = new THREE.DepthTexture(Math.ceil(window.innerWidth / Scale), Math.ceil(window.innerHeight / Scale));
     this.ScaledTarget.depthTexture.format = THREE.DepthFormat;
     this.ScaledTarget.depthTexture.type = THREE.UnsignedShortType;
-    this.ScaledTarget.depthTexture.needsUpdate = true;*/
+    this.ScaledTarget.depthTexture.needsUpdate = true;
 
     this.BackgroundScene = new THREE.Scene;
 

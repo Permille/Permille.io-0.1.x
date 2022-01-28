@@ -55,8 +55,7 @@ export class Main{
         return "Permille.io " + Application.Version + " [" + Application.Build + "]";
       },
       function(){
-        if(typeof process !== "undefined") return "Running on Electron " + process.versions.electron + ", " + "Node " + process.versions.node + ", " + "Chrome " + process.versions.chrome;
-        else return navigator.userAgent;
+        return navigator.userAgent;
       },
       function(){
         return "";
@@ -97,11 +96,7 @@ export class Main{
         const Utilisation = ((AllocationIndex[0] - AllocationIndex[1]) & (Size8 - 1)) / Size8;
         const Utilisation64 = ((AllocationIndex64[0] - AllocationIndex64[1]) & (Size64 - 1)) / Size64;
         return `Buffer utilisation: 8: ${Math.round(Utilisation * 1e5) / 1e3}%, 64: ${Math.round(Utilisation64 * 1e5) / 1e3}%`;
-      }/*,
-      function(){
-        const Max = Math.round(Math.max(Application.Main.GeometryDataAdder.TimeLastRegion, Application.Main.GeometryDataAdder.TimeLastVirtualRegion));
-        return "Last Update: " + Max + "; RG: " + Math.round(Application.Main.GeometryDataAdder.TimeLastRegion) + ", VG: " + Math.round(Application.Main.GeometryDataAdder.TimeLastVirtualRegion);
-      }.bind(this)*/
+      }
     ]);
     Main.MLE.Init.Done(Main.Identifier);
   }
@@ -129,7 +124,6 @@ class PerformanceOverlay{
     this.TextUpdateInterval = 10;
     this.GraphSource = function(){
       if(this.GraphInfo === 1) return Application.Main.Renderer.RenderTime;
-      else if(this.GraphInfo === 2) return Main.Renderer.Composer.renderer.info.render.triangles;
     }.bind(this);
 
     document.addEventListener("keydown", function(Event){

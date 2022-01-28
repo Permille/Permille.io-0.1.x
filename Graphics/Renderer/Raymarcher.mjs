@@ -61,6 +61,9 @@ export default class Raymarcher{
     this.Tex64.unpackAlignment = 1;
     this.Tex64.needsUpdate = true;
 
+    this.DummyTexture = new THREE.DataTexture(new Uint8Array(16), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+    this.DummyTexture.internalFormat = "RGBA8UI";
+
     /*const SeededRandom = function(){
       let Seed = 0x1511426a;
       return function(){
@@ -113,12 +116,15 @@ export default class Raymarcher{
         iTex1: {value: this.Tex1[0]},
         iTex8: {value: this.Tex8[0]},
         iTex64: {value: this.Tex64},
+        iDepth: {value: this.Renderer.ScaledTarget.texture},
+        iIsFirstPass: {value: true},
         FOV: {value: 110}
       },
       "transparent": true,
-      "alphaTest": 0.5,
+      "blending": THREE.NoBlending,
+      "alphaTest": 1.,
       "depthTest": false,
-      "depthWrite": false,
+      "depthWrite": true, //#######################
       "vertexShader": `
         varying vec2 vUv;
         varying vec4 vPosition;
@@ -148,6 +154,8 @@ export default class Raymarcher{
         uniform highp usampler3D iTex8;
         uniform mediump usampler3D iTex64;
         uniform mediump usampler3D iVoxelTypesTex;
+        uniform sampler2D iDepth;
+        uniform bool iIsFirstPass;
         
         
         const float InDegrees = .01745329;
@@ -286,11 +294,17 @@ export default class Raymarcher{
           vec3 RayOriginOffset = floor(RayOrigin / Size) * Size;
           RayOrigin -= RayOriginOffset;
           
+          if(true || !iIsFirstPass){
+            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / 7.);
+            ivec4 Converted = ivec4(texelFetch(iDepth, ScaledCoordinates, 0) * 256.);
+            float Depth = intBitsToFloat((Converted.x << 24) | (Converted.y << 16) | (Converted.z << 8) | Converted.w);
+            RayOrigin += max(0., Depth / 1.04 - 4.) * RayDirection;
+          }
+          
           vec3 RayPosFloor = floor(RayOrigin / Size) * Size; //Voxel coordinate
           vec3 RayPosFract = RayOrigin - RayPosFloor; //Sub-voxel coordinate                   
           vec3 LastRayPosFloor = RayPosFloor;
           vec3 Correction = 1./max(abs(RayDirection), 1e-4);
-          
           int Location64 = 0;
           int Location8 = 0;
           
@@ -398,6 +412,26 @@ export default class Raymarcher{
           Colour *= 1. - Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .15;
           //Colour *= normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
           fragColor = vec4(s / 50. + Colour * length(Mask * vec3(.75, 1., .5)), 1.);
+          
+          /*if(iIsFirstPass){
+            fragColor = vec4(0., 0., mod(Distance / 256., 1.), mod(Distance, 1.));
+          } else{
+            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / 3.);
+            vec4 Result = texelFetch(iDepth, ScaledCoordinates, 0);
+            fragColor += Result.z / 16.;// + Result.w;
+          }*/
+          if(iIsFirstPass){
+            int IntDistance = floatBitsToInt(Distance);
+            vec4 Depth = vec4(ivec4(IntDistance >> 24, (IntDistance >> 16) & 255, (IntDistance >> 8) & 255, IntDistance & 255));
+            fragColor = Depth / 256.;
+          }
+          else{
+            //fragColor += Depth;//mod(Depth, 1.);
+            //if(TextureDepth == 255) fragColor -= .4;
+          }
+          /*uint TextureDepth = texelFetch(iDepth, ivec2(0), 0).r;
+          if(iIsFirstPass) fragColor = vec4(0.5);
+          else if(TextureDepth > 50u) fragColor = vec4(0.);*/
         }
         
         void main(){
@@ -405,6 +439,15 @@ export default class Raymarcher{
         }
       `
     });
+
+    this.Renderer.Events.AddEventListener("RenderingScaledTarget", function(){
+      this.Material.uniforms.iDepth.value = this.DummyTexture;
+      this.Material.uniforms.iIsFirstPass.value = true;
+    }.bind(this));
+    this.Renderer.Events.AddEventListener("RenderingCanvas", function(){
+      this.Material.uniforms.iDepth.value = this.Renderer.ScaledTarget.texture;
+      this.Material.uniforms.iIsFirstPass.value = false;
+    }.bind(this));
 
     const Mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2, 1, 1), this.Material);
     Mesh.frustumCulled = false;

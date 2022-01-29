@@ -55,6 +55,9 @@ export default class RRSLoader{
         }
         console.log("Finished GPU transfer.");
       }
+
+
+      //return;//############################
       self.setTimeout(Load.bind(this), 25);
     }.bind(this)();
   }

@@ -221,8 +221,8 @@ EventHandler.GenerateRegionData = function(Data){
         if(Type !== 0) WrittenTo8 = true;
         TempDataBuffer[(x1 << 6) | (y1 << 3) | z1] = Type;
         if(Type !== 0){ //For now, this just checks against air, but it will be more complicated than that...
-          TempTypeBuffer[(x1 << 3) | y1] |= 0b00 << (z1 * 2);
-        } else TempTypeBuffer[(x1 << 3) | y1] |= 0b01 << (z1 * 2);
+          TempTypeBuffer[(x1 << 3) | y1] |= 0 << z1 * 2;
+        } else TempTypeBuffer[(x1 << 3) | y1] |= 1 << z1;
       }
     }
     if(!WrittenTo8) continue;

@@ -60,7 +60,7 @@ let Data64Offset;
 let Data8Length = 262144;
 let Data8Mod = 262143;
 
-const EmptyData1 = new Uint16Array(64).fill(0b0101010101010101); //Empty
+const EmptyData1 = new Uint8Array(64).fill(0b11111111); //Empty
 const EmptyVoxelTypes = new Uint16Array(512); //Air
 
 function AllocateData8(Location64, x8, y8, z8) {
@@ -144,7 +144,7 @@ EventHandler.DecorateRegion = function(Data){
     if((Location8 & 0x80000000) !== 0) Location8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
     Location8 &= 0x0003ffff;
     const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
-    Data1[Index] &= ~(0b11 << ((Z & 7) * 2)); //Sets it to 0, which means subdivide (full)
+    Data1[Index] &= ~(1 << (Z & 7)); //Sets it to 0, which means subdivide (full)
     VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;
   };
 

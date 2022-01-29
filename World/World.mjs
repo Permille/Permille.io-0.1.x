@@ -10,12 +10,16 @@ export default class World{
     this.Events = new Listenable;
 
     this.VoxelTypes = new Uint16Array(new SharedArrayBuffer(2 * 512*2048*256)); //512 MB
-    this.Data1 = new Uint16Array(new SharedArrayBuffer(2 * 64*2048*256)); //64 MB
+    this.Data1 = new Uint8Array(new SharedArrayBuffer(2 * 64*2048*256)); //64 MB
     // (it's actually supposed to be 256*2048*256 to be full-size, but that including types would probably start wasting storage).
     // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
 
     this.Data8 = new Uint32Array(new SharedArrayBuffer(4 * 1*512*512)); //8 MB
     this.Data64 = new Uint16Array(new SharedArrayBuffer(2 * 8*8*8*8)); //8 kB (8*8*8, and 8 LODs)
+
+    //this.Data1.fill(0b11111111);
+
+    //this.Data1[(131 << 17) | (71 << 6) | 60] = 0b01000000;
 
     this.Data64.fill(0x8000);
     this.Data8.fill(0x80000000);

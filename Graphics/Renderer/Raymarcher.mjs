@@ -28,17 +28,17 @@ export default class Raymarcher{
       VoxelTypesTex.format = THREE.RedIntegerFormat;
       VoxelTypesTex.type = THREE.UnsignedShortType;
       VoxelTypesTex.minFilter = VoxelTypesTex.magFilter = THREE.NearestFilter;
-      VoxelTypesTex.unpackAlignment = 1;
+      VoxelTypesTex.unpackAlignment = 8;
       VoxelTypesTex.needsUpdate = true;
       this.VoxelTypesTex.push(VoxelTypesTex);
 
 
       const Tex1 = new THREE.DataTexture3D(this.Data1, 64, 2048, 256);
-      Tex1.internalFormat = "R16UI";
+      Tex1.internalFormat = "R8UI";
       Tex1.format = THREE.RedIntegerFormat;
-      Tex1.type = THREE.UnsignedShortType;
+      Tex1.type = THREE.UnsignedByteType;
       Tex1.minFilter = Tex1.magFilter = THREE.NearestFilter;
-      Tex1.unpackAlignment = 1;
+      Tex1.unpackAlignment = 8;
       Tex1.needsUpdate = true;
       this.Tex1.push(Tex1);
 
@@ -156,7 +156,7 @@ export default class Raymarcher{
         uniform vec3 iPosition;
         uniform vec3 iRotation;
         uniform float FOV;
-        uniform mediump usampler3D iTex1;
+        uniform lowp usampler3D iTex1;
         uniform highp usampler3D iTex8;
         uniform mediump usampler3D iTex64;
         uniform mediump usampler3D iVoxelTypesTex;
@@ -230,19 +230,29 @@ export default class Raymarcher{
           return texelFetch(iTex8, ivec3(0, Pos8XYZ, Location64), 0).r;
         }
         int GetType1(int Location8, vec3 RayPosFloor, out int Colour){
-          //return 2;//int(Random(vec4(RayPosFloor, 0.)) * 3.);
+          if(RayPosFloor.x < 0. || RayPosFloor.y < 0. || RayPosFloor.z < 0. || RayPosFloor.x > 511. || RayPosFloor.y > 511. || RayPosFloor.z > 511.) return 0;
           ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
           int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
           
           //First set colour (it is passed by reference)
           Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
-          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
+          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> mRayPosFloor.z) & 1u);
         }
         int GetType1(int Location8, vec3 RayPosFloor){
+          if(RayPosFloor.x < 0. || RayPosFloor.y < 0. || RayPosFloor.z < 0. || RayPosFloor.x > 511. || RayPosFloor.y > 511. || RayPosFloor.z > 511.) return 0;
           ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
           int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
-          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> (mRayPosFloor.z * 2)) & 3u);
+          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> mRayPosFloor.z) & 1u);
         }
+        
+        /*int GetType1Test(vec3 RayPosFloor, out int Colour){
+          if(RayPosFloor.x < 0. || RayPosFloor.y < 0. || RayPosFloor.z < 0. || RayPosFloor.x > 511. || RayPosFloor.y > 2047. || RayPosFloor.z > 255.) return 1;
+          Colour = 1;////int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
+          ivec3 iRayPosFloor = ivec3(RayPosFloor);
+          int Offset = iRayPosFloor.x & 7;
+          iRayPosFloor.x >>= 3;
+          return int((texelFetch(iTex1, iRayPosFloor, 0).r >> Offset) & 1u);
+        }*/
         int GetTypeDirectly(vec3 RayPosFloor){
           int Location64 = GetLocation64(RayPosFloor);
           if((Location64 & 0x8000) != 0) return 49151;
@@ -378,11 +388,11 @@ export default class Raymarcher{
                 break;
               }
               case 0:{
-                VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelType);
+                VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelType);//GetType1Test(TrueRayPosFloor, VoxelType);//
                 //Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + vec3(0.45, 0., 0.95));
                 switch(VoxelType){
                   case 1:{
-                    Colour = vec3(.1, .8, .2);
+                    Colour = vec3(.1, .8, .2);//vec3(.133, .335, .898);//
                     break;
                   }
                   case 2:{

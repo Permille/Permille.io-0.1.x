@@ -17,43 +17,40 @@ export default class Raymarcher{
     this.Data8 = this.World.Data8;//new Uint32Array(512 * 512); //1 MB
     this.Data64 = this.World.Data64;//new Uint16Array(8*8*8*8); //8 kB (8*8*8, and 8 LODs)
 
-    this.UpdateBuffer = 1;
-
-    this.VoxelTypesTex = [];
-    this.Tex1 = [];
-    this.Tex8 = [];
-    for(let i = 0; i < 2; ++i) { //Generating double texutre buffers for VoxelTypesTex, Tex1 and Tex8. Tex64 will stay as a single buffer.
-      const VoxelTypesTex = new THREE.DataTexture3D(this.VoxelTypes, 512, 2048, 256);
-      VoxelTypesTex.internalFormat = "R16UI";
-      VoxelTypesTex.format = THREE.RedIntegerFormat;
-      VoxelTypesTex.type = THREE.UnsignedShortType;
-      VoxelTypesTex.minFilter = VoxelTypesTex.magFilter = THREE.NearestFilter;
-      VoxelTypesTex.unpackAlignment = 8;
-      VoxelTypesTex.needsUpdate = true;
-      this.VoxelTypesTex.push(VoxelTypesTex);
+    this.GPUData1 = this.World.GPUData1;//new Uint8Array(new SharedArrayBuffer(64 * 512 * 512));
+    this.GPUData8 = this.World.GPUData8;//new Uint32Array(new SharedArrayBuffer(512 * 512));
+    this.GPUData64 = this.World.GPUData64;//new Uint16Array(new SharedArrayBuffer(8 * 8 * 8 * 8));
+    this.GPUTypes = this.World.GPUTypes;//new Uint16Array(new SharedArrayBuffer(512 * 512 * 512));
 
 
-      const Tex1 = new THREE.DataTexture3D(this.Data1, 64, 2048, 256);
-      Tex1.internalFormat = "R8UI";
-      Tex1.format = THREE.RedIntegerFormat;
-      Tex1.type = THREE.UnsignedByteType;
-      Tex1.minFilter = Tex1.magFilter = THREE.NearestFilter;
-      Tex1.unpackAlignment = 8;
-      Tex1.needsUpdate = true;
-      this.Tex1.push(Tex1);
+    this.VoxelTypesTex = new THREE.DataTexture3D(this.GPUTypes, 512, 512, 512);
+    this.VoxelTypesTex.internalFormat = "R16UI";
+    this.VoxelTypesTex.format = THREE.RedIntegerFormat;
+    this.VoxelTypesTex.type = THREE.UnsignedShortType;
+    this.VoxelTypesTex.minFilter = this.VoxelTypesTex.magFilter = THREE.NearestFilter;
+    this.VoxelTypesTex.unpackAlignment = 8;
+    this.VoxelTypesTex.needsUpdate = true;
 
 
-      const Tex8 = new THREE.DataTexture3D(this.Data8, 1, 512, 512);
-      Tex8.internalFormat = "R32UI";
-      Tex8.format = THREE.RedIntegerFormat;
-      Tex8.type = THREE.UnsignedIntType;
-      Tex8.minFilter = Tex8.magFilter = THREE.NearestFilter;
-      Tex8.unpackAlignment = 1;
-      Tex8.needsUpdate = true;
-      this.Tex8.push(Tex8);
-    }
+    this.Tex1 = new THREE.DataTexture3D(this.GPUData1, 64, 512, 512);
+    this.Tex1.internalFormat = "R8UI";
+    this.Tex1.format = THREE.RedIntegerFormat;
+    this.Tex1.type = THREE.UnsignedByteType;
+    this.Tex1.minFilter = this.Tex1.magFilter = THREE.NearestFilter;
+    this.Tex1.unpackAlignment = 8;
+    this.Tex1.needsUpdate = true;
 
-    this.Tex64 = new THREE.DataTexture3D(this.Data64, 8, 8, 8*8);
+
+    this.Tex8 = new THREE.DataTexture3D(this.GPUData8, 1, 512, 512);
+    this.Tex8.internalFormat = "R32UI";
+    this.Tex8.format = THREE.RedIntegerFormat;
+    this.Tex8.type = THREE.UnsignedIntType;
+    this.Tex8.minFilter = this.Tex8.magFilter = THREE.NearestFilter;
+    this.Tex8.unpackAlignment = 1;
+    this.Tex8.needsUpdate = true;
+
+
+    this.Tex64 = new THREE.DataTexture3D(this.GPUData64, 8, 8, 8*8);
     this.Tex64.internalFormat = "R16UI";
     this.Tex64.format = THREE.RedIntegerFormat;
     this.Tex64.type = THREE.UnsignedShortType;
@@ -61,51 +58,12 @@ export default class Raymarcher{
     this.Tex64.unpackAlignment = 1;
     this.Tex64.needsUpdate = true;
 
+
     this.DummyColourTexture = new THREE.DataTexture(new Uint8Array(16), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
     this.DummyColourTexture.internalFormat = "RGBA8UI";
 
     this.DummyDepthTexture = new THREE.DataTexture(new Uint16Array(16), 1, 1, THREE.DepthFormat, THREE.UnsignedShortType);
     this.DummyDepthTexture.internalFormat = "R16UI";
-
-    /*const SeededRandom = function(){
-      let Seed = 0x1511426a;
-      return function(){
-        Seed = ((Seed >>> 16) ^ Seed) * 0x045d9f3b;
-        Seed = ((Seed >>> 16) ^ Seed) * 0x045d9f3b;
-        Seed = (Seed >>> 16) ^ Seed;
-        return Seed / 0xffffffff + .5;
-      };
-    }();
-
-    for(let x64 = 0, Counter64 = 0, Counter8 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
-      const Index64 = x64 * 64 + y64 * 8 + z64;
-      if(SeededRandom() < .25) { //64 exists
-        this.Data64[Index64] = Counter64;
-        for(let x8 = 0; x8 < 8; x8++) for(let y8 = 0; y8 < 8; y8++) for(let z8 = 0; z8 < 8; z8++){
-          const Index8 = (Counter64 << 9) | (x8 << 6) | (y8 << 3) | z8;
-          if(SeededRandom() < .6){ //8 exists
-            this.Data8[Index8] = Counter8;
-            for(let x1 = 0; x1 < 8; x1++) for(let y1 = 0; y1 < 8; y1++){
-              const Index1 = (Counter8 << 6) | (x1 << 3) | y1;
-              for(let z1 = 0; z1 < 8; z1++){
-                const FullIndex1 = (Index1 << 3) | z1;
-                //Finally
-                if(SeededRandom() < .5){ //1 exists
-                  this.Data1[Index1] |= 0b00 << (z1 * 2); //Set subdivide (for roughness thing)
-                  this.VoxelTypes[FullIndex1] = (SeededRandom() * 65536) | 0;
-                } else this.Data1[Index1] |= 0b01 << (z1 * 2); //Set empty
-              }
-            }
-            Counter8++;
-          } else{ //8 doesn't exist
-            this.Data8[Index8] |= 1 << 31;
-          }
-        }
-        Counter64++; //Increment only if data in 8 was written to save space.
-      } else{ //64 doesn't exist
-        this.Data64[Index64] = 0b1000000000000000; //Doesn't exist.
-      }
-    }*/
 
     this.Material = new THREE.ShaderMaterial({
       "uniforms": {
@@ -115,9 +73,9 @@ export default class Raymarcher{
         iRotation: {value: new THREE.Vector3(0, 0, 0)},
         iPosition: {value: new THREE.Vector3(0, 0, 0)},
         iScalingFactor: {value: 0},
-        iVoxelTypesTex: {value: this.VoxelTypesTex[0]},
-        iTex1: {value: this.Tex1[0]},
-        iTex8: {value: this.Tex8[0]},
+        iVoxelTypesTex: {value: this.VoxelTypesTex},
+        iTex1: {value: this.Tex1},
+        iTex8: {value: this.Tex8},
         iTex64: {value: this.Tex64},
         iColour: {value: this.Renderer.ScaledTarget.texture},
         iDepth: {value: this.Renderer.ScaledTarget.depthTexture},
@@ -235,18 +193,18 @@ export default class Raymarcher{
           int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
           
           //First set colour (it is passed by reference)
-          Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
-          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> mRayPosFloor.z) & 1u);
+          Colour = int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 511, Location8 >> 9), 0).r);
+          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 511, Location8 >> 9), 0).r >> mRayPosFloor.z) & 1u);
         }
         int GetType1(int Location8, vec3 RayPosFloor){
           if(RayPosFloor.x < 0. || RayPosFloor.y < 0. || RayPosFloor.z < 0. || RayPosFloor.x > 511. || RayPosFloor.y > 511. || RayPosFloor.z > 511.) return 0;
           ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
           int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
-          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 2047, Location8 >> 11), 0).r >> mRayPosFloor.z) & 1u);
+          return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 511, Location8 >> 9), 0).r >> mRayPosFloor.z) & 1u);
         }
         
         /*int GetType1Test(vec3 RayPosFloor, out int Colour){
-          if(RayPosFloor.x < 0. || RayPosFloor.y < 0. || RayPosFloor.z < 0. || RayPosFloor.x > 511. || RayPosFloor.y > 2047. || RayPosFloor.z > 255.) return 1;
+          if(RayPosFloor.x < 0. || RayPosFloor.y < 0. || RayPosFloor.z < 0. || RayPosFloor.x > 511. || RayPosFloor.y > 511. || RayPosFloor.z > 511.) return 1;
           Colour = 1;////int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
           ivec3 iRayPosFloor = ivec3(RayPosFloor);
           int Offset = iRayPosFloor.x & 7;
@@ -503,20 +461,13 @@ export default class Raymarcher{
     this.Renderer.Events.AddEventListener("RenderingCanvas", function(){
       this.Material.uniforms.iColour.value = this.Renderer.ScaledTarget.texture;
       this.Material.uniforms.iDepth.value = this.Renderer.ScaledTarget.depthTexture;
-      if(this.Renderer.UseScaledTarget){
-        this.Material.uniforms.iIsFirstPass.value = false;
-      }
-      else this.Material.uniforms.iIsFirstPass.value = true;
+
+      this.Material.uniforms.iIsFirstPass.value = !this.Renderer.UseScaledTarget; //Is first pass if upscaling is disabled.
     }.bind(this));
 
     const Mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2, 1, 1), this.Material);
     Mesh.frustumCulled = false;
     this.Scene.add(Mesh);
-
-    this.TransferBuffers = false;
-    Application.Main.WorkerLoadingPipelineHandler.Events.AddEventListener("FinishedLoadingBatch", function(Batch){
-      this.TransferBuffers = true;
-    }.bind(this));
 
     let Iteration = 0;
     const Step = 3;
@@ -527,50 +478,52 @@ export default class Raymarcher{
     }.bind(this)();
 
     void function AnimationFrame(){
-      window.requestAnimationFrame(AnimationFrame.bind(this));
+      //window.requestAnimationFrame(AnimationFrame.bind(this));
+      window.setTimeout(AnimationFrame.bind(this), 100);
+      //TODO: This still causes small lag spikes when updating.
+      //Possible fixes: spread out updates, merge nearby segments, etc
+      const UpdatedData64 = [];
+      for(let x64 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
+        const Index64 = (x64 << 6) | (y64 << 3) | z64;
+        if(((this.GPUData64[Index64] >> 14) & 1) === 1) UpdatedData64.push(Index64);
+      }
+      if(UpdatedData64.length === 0) return;
 
-      if(Iteration === 0 && !this.TransferBuffers) return;
-      this.TransferBuffers = false;
-
-      this.Renderer.Renderer.copyTextureToTexture3D(
-        new THREE.Box3(new THREE.Vector3(0, 0, Iteration * 2), new THREE.Vector3(0, 511, (Iteration + Step) * 2 + 1)),
-        new THREE.Vector3(0, 0, Iteration * 2),
-        this.Tex8[this.UpdateBuffer],
-        this.Tex8[this.UpdateBuffer]
-      );
-
-      this.Renderer.Renderer.copyTextureToTexture3D(
-        new THREE.Box3(new THREE.Vector3(0, 0, Iteration), new THREE.Vector3(63, 2047, Iteration + Step)),
-        new THREE.Vector3(0, 0, Iteration),
-        this.Tex1[this.UpdateBuffer],
-        this.Tex1[this.UpdateBuffer]
-      );
-
-      this.Renderer.Renderer.copyTextureToTexture3D(
-        new THREE.Box3(new THREE.Vector3(0, 0, Iteration), new THREE.Vector3(511, 2047, Iteration + Step)),
-        new THREE.Vector3(0, 0, Iteration),
-        this.VoxelTypesTex[this.UpdateBuffer],
-        this.VoxelTypesTex[this.UpdateBuffer]
-      );
-
-      Iteration = (Iteration + Step + 1) & 255;
-
-      if(Iteration === 0){ //Transfer completed, swap buffers:
-        console.log("Swapped buffers!");
-        this.Tex64.needsUpdate = true;
-        this.Material.uniforms.iVoxelTypesTex.value = this.VoxelTypesTex[this.UpdateBuffer];
-        this.Material.uniforms.iTex8.value = this.Tex8[this.UpdateBuffer];
-        this.Material.uniforms.iTex1.value = this.Tex1[this.UpdateBuffer];
-
-        this.UpdateBuffer = (this.UpdateBuffer + 1) & 1;
-
-        //Notify generation threads that they can continue because the data has been transferred to the gpu
-
-        Application.Main.WorkerLoadingPipeline.postMessage({
-          "Request": "FinishedGPUDataTransfer"
-        });
+      const AffectedSegments = new Set;
+      for(const Index64 of UpdatedData64){
+        const Info64 = this.GPUData64[Index64];
+        if((Info64 & 0x8000) !== 0) continue; //Just in case
+        const Location64 = Info64 & 0x0fff;
+        const StartIndex8 = Location64 << 9;
+        for(let Index8 = StartIndex8; Index8 < StartIndex8 + 512; ++Index8){
+          const Info8 = this.GPUData8[Index8];
+          if((Info8 & 0x80000000) !== 0 || (Info8 & 0x40000000) === 0) continue; //Is either empty or has no changes
+          this.GPUData8[Index8] &= ~(1 << 30); //Set update to false
+          AffectedSegments.add((Info8 & 0x0003ffff) >> 4);
+        }
       }
 
+      this.Tex64.needsUpdate = true;
+      this.Tex8.needsUpdate = true; //This might be too much effort to selectively update
+
+      for(const SegmentLocation of AffectedSegments){ //TODO: Merge nearby segments (when uploading)
+        const YOffset = (SegmentLocation & 31) << 4;
+        const ZOffset = SegmentLocation >> 5;
+
+        this.Renderer.Renderer.copyTextureToTexture3D(
+          new THREE.Box3(new THREE.Vector3(0, YOffset, ZOffset), new THREE.Vector3(63, YOffset + 15, ZOffset)),
+          new THREE.Vector3(0, YOffset, ZOffset),
+          this.Tex1,
+          this.Tex1
+        );
+
+        this.Renderer.Renderer.copyTextureToTexture3D(
+          new THREE.Box3(new THREE.Vector3(0, YOffset, ZOffset), new THREE.Vector3(511, YOffset + 15, ZOffset)),
+          new THREE.Vector3(0, YOffset, ZOffset),
+          this.VoxelTypesTex,
+          this.VoxelTypesTex
+        );
+      }
     }.bind(this)();
   }
   SetKernelSize(Size){

@@ -282,7 +282,7 @@ export default class RegionLoader{
     const HeightMap = this.HeightMaps[VerticalIdentifier];
 
     if(HeightMap){
-      this.Stage2(RegionX, RegionY, RegionZ);
+      this.Stage2(RegionX, RegionY, RegionZ, LoadingBatch, BatchSize);
     } else{
       if(HeightMap === undefined){
         this.HeightMaps[VerticalIdentifier] = null; //To show that the heightmap has started generating so it doesn't generate again.
@@ -334,18 +334,18 @@ export default class RegionLoader{
     for(let rx64 = 1; rx64 < 7; rx64++) for(let ry64 = 1; ry64 < 7; ry64++){
       RegionIterator: for(let rz64 = 1; rz64 < 7; rz64++) {
         const MainIndex = (rx64 << 6) | (ry64 << 3) | rz64;
-        const LoadState = (this.Data64[MainIndex] >> 12) & 0b0111; //The first bit indicates whether it's empty or not
-        if(LoadState !== 0b010){ //TODO: Or if it's empty, or if has a single voxel type
+        const LoadState = (this.Data64[MainIndex] >> 12) & 0b0011; //The first bit indicates whether it's empty or not
+        if(LoadState !== 0b10){ //TODO: Or if it's empty, or if has a single voxel type
           continue;
         }
 
         for(let dx64 = rx64 - 1; dx64 < rx64 + 2; dx64++) for(let dz64 = rz64 - 1; dz64 < rz64 + 2; dz64++){
           for(let dy64 = ry64 - 1; dy64 < ry64 + 2; dy64++){
-            const LoadState = (this.Data64[(dx64 << 6) | (dy64 << 3) | dz64] >> 12) & 0b0111;
-            if(LoadState < 0b010) continue RegionIterator; //This might not actually be that important
+            const LoadState = (this.Data64[(dx64 << 6) | (dy64 << 3) | dz64] >> 12) & 0b0011;
+            if(LoadState < 0b10) continue RegionIterator; //This might not actually be that important
           }
         }
-        this.Data64[MainIndex] = (this.Data64[MainIndex] & ~(0b0111 << 12)) | (0b0011 << 12); //Set state to 0bX011 (Started stage 3)
+        this.Data64[MainIndex] = (this.Data64[MainIndex] & ~(0b0011 << 12)) | (0b0011 << 12); //Set state to 0bXX11 (Started stage 3)
 
 
         const RegionX = this.Data64Offset[0] + rx64;

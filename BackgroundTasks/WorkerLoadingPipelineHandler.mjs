@@ -28,7 +28,12 @@ export default class WorkerLoadingPipelineHandler{
       "AllocationArray": Application.Main.World.AllocationArray,
       "AllocationIndex64": Application.Main.World.AllocationIndex64,
       "AllocationArray64": Application.Main.World.AllocationArray64,
-      "Data64Offset": Application.Main.World.Data64Offset
+      "Data64Offset": Application.Main.World.Data64Offset,
+      "GPUData1": Application.Main.World.GPUData1,
+      "GPUData8": Application.Main.World.GPUData8,
+      "GPUData64": Application.Main.World.GPUData64,
+      "GPUTypes": Application.Main.World.GPUTypes,
+      "SegmentAllocation": Application.Main.World.SegmentAllocation
     });
 
     Application.Main.WorkerLoadingPipeline.addEventListener("message", function(Event){

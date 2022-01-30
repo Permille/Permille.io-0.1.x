@@ -126,15 +126,20 @@ EventHandler.DecorateRegion = function(Data){
   const ry64 = RegionY - Data64Offset[1];
   const rz64 = RegionZ - Data64Offset[2];
   if(rx64 < 0 || rx64 > 7 || ry64 < 0 || ry64 > 7 || rz64 < 0 || rz64 > 7) console.warn("Generating out of bounds!!");
-  const Points6 = DistancedPointMap[6][(RegionX & 7) * 8 + (RegionZ & 7)];
-  //const RNG = RandomNumberGenerator((RegionX >>> 0) * 65536 + (RegionY >>> 0) * 256 + (RegionZ >>> 0)); //Number can't be negative!
   Requests++;
+
+  const Index64 = (rx64 << 6) | (ry64 << 3) | rz64;
+  const ModifiedData64 = new Set([Index64]); //Add current region to modification set (so it's uploaded to the gpu)
+  Data64[Index64] &= ~(1 << 14); //Suppress updates while region is being modified. This will be set at the end.
+
   const SetBlock = function(X, Y, Z, BlockType){
     if(BlockType === 0) return;
     const ix64 = rx64 + (X >> 6);
     const iy64 = ry64 + (Y >> 6);
     const iz64 = rz64 + (Z >> 6);
-    let Location64 = Data64[(ix64 << 6) | (iy64 << 3) | iz64];
+    const Index64 = (ix64 << 6) | (iy64 << 3) | iz64;
+    ModifiedData64.add(Index64);
+    let Location64 = Data64[Index64];
 
     //I could probably remove this check by allocating it beforehand, and deallocating it if nothing was written to it
     if((Location64 & 0x8000) !== 0) Location64 = AllocateData64(ix64, iy64, iz64);
@@ -148,6 +153,7 @@ EventHandler.DecorateRegion = function(Data){
     VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;
   };
 
+  const Points6 = DistancedPointMap[6][(RegionX & 7) * 8 + (RegionZ & 7)];
   for(const {X, Z} of Points6){
     const PasteHeight = (Data.Maps.HeightMap[X * 64 + Z]) | 0;
     const Temperature = Data.Maps.TemperatureMap[X * 64 + Z];
@@ -165,8 +171,7 @@ EventHandler.DecorateRegion = function(Data){
       //SetBlock(X, PasteHeight - RegionY * 64, Z, 5);
     }
   }
-  const Index = (rx64 << 6) | (ry64 << 3) | rz64;
-  Data64[Index] = (Data64[Index] & ~(0b0111 << 12)) | (0b0100 << 12); //Set state to 0bX100 (Finished stage 3)
+  for(const Index64 of ModifiedData64) Data64[Index64] = Data64[Index64] | (1 << 14); //Request update (Finished stage 3)
   if(OwnQueueSize) OwnQueueSize[0]--;
 
   self.postMessage({

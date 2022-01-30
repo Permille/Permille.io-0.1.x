@@ -169,7 +169,6 @@ EventHandler.GenerateRegionData = function(Data){
   const ry64 = RegionY - Data64Offset[1];
   const rz64 = RegionZ - Data64Offset[2];
 
-
   Requests++;
 
   const AirID = MainBlockRegistry.GetBlockByIdentifier("primary:air").ID;
@@ -240,7 +239,7 @@ EventHandler.GenerateRegionData = function(Data){
   }
 
 
-  Data64[Index64] = (Data64[Index64] & ~(0b0111 << 12)) | (0b0010 << 12); //Set state to 0bX010 (finished terrain loading)
+  Data64[Index64] = (Data64[Index64] & ~(0b0011 << 12)) | (0b0010 << 12); //Set state to 0bXX10 (finished terrain loading)
 
   if(OwnQueueSize) OwnQueueSize[0]--;
 

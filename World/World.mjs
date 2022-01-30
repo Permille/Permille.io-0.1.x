@@ -17,12 +17,19 @@ export default class World{
     this.Data8 = new Uint32Array(new SharedArrayBuffer(4 * 1*512*512)); //8 MB
     this.Data64 = new Uint16Array(new SharedArrayBuffer(2 * 8*8*8*8)); //8 kB (8*8*8, and 8 LODs)
 
-    //this.Data1.fill(0b11111111);
-
-    //this.Data1[(131 << 17) | (71 << 6) | 60] = 0b01000000;
-
     this.Data64.fill(0x8000);
     this.Data8.fill(0x80000000);
+
+    this.GPUData1 = new Uint8Array(new SharedArrayBuffer(64 * 512 * 512));
+    this.GPUData8 = new Uint32Array(new SharedArrayBuffer(4 * 512 * 512));
+    this.GPUData64 = new Uint16Array(new SharedArrayBuffer(2 * 8 * 8 * 8 * 8));
+    this.GPUTypes = new Uint16Array(new SharedArrayBuffer(2 * 512 * 512 * 512));
+    this.SegmentAllocation = new Uint16Array(new SharedArrayBuffer(2 * 32 * 512));
+
+    this.GPUData64.fill(0x8000);
+    this.GPUData8.fill(0x80000000);
+
+
 
     this.AllocationIndex = new Uint32Array(new SharedArrayBuffer(8)); //First slot is for allocation, second is for deallocation
     this.AllocationArray = new Uint32Array(new SharedArrayBuffer(4 * this.Data8.length)); //Stores available Data8 slots

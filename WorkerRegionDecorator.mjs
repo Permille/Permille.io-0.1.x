@@ -66,7 +66,7 @@ const EmptyVoxelTypes = new Uint16Array(512); //Air
 function AllocateData8(Location64, x8, y8, z8) {
   const Index = Atomics.add(AllocationIndex, 0, 1) & Data8Mod;
   const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
-  Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location;
+  Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location | 0x40000000;
   Data1.set(EmptyData1, Location << 6);
   VoxelTypes.set(EmptyVoxelTypes, Location << 9);
   return Location;
@@ -145,9 +145,11 @@ EventHandler.DecorateRegion = function(Data){
     if((Location64 & 0x8000) !== 0) Location64 = AllocateData64(ix64, iy64, iz64);
 
     Location64 &= 0x01ff; //Remove metadata and just get location
-    let Location8 = Data8[(Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7)];
+    const Index8 = (Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7);
+    let Location8 = Data8[Index8];
     if((Location8 & 0x80000000) !== 0) Location8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
     Location8 &= 0x0003ffff;
+    Data8[Index8] |= 0x40000000; //Looks like this has to be done every time.
     const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
     Data1[Index] &= ~(1 << (Z & 7)); //Sets it to 0, which means subdivide (full)
     VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;

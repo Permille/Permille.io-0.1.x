@@ -39,15 +39,45 @@ export default class GPURegionDataLoader{
       const RequiredLocation8 = new Set;
       for(let x8 = 0; x8 < 8; x8++) for(let y8 = 0; y8 < 8; y8++) for(let z8 = 0; z8 < 8; z8++){
         const Location8 = (Location64 << 9) | (x8 << 6) | (y8 << 3) | z8;
-        const Info1 = Data8[Location8];
-        if((Info1 & 0x80000000) !== 0/* || (Info1 & 0x40000000) === 0*/) continue; //Is all air, or has not been updated
-        const StartLocation1 = (Info1 & 0x0003ffff) << 6;
-        for(let i = StartLocation1; i < StartLocation1 + 64; ++i){ //TODO: Also check surroundings.
-          if(Data1[i] !== 0){ //This means that at least one of the blocks isn't solid, meaning that it has to be added.
-            RequiredLocation8.add(Location8);
-            break;
+        const Info8 = Data8[Location8];
+        if((Info8 & 0x80000000) !== 0 || (Info8 & 0x60000000) === 0) continue; //Is all air or has no update
+        Data8[Location8] &= ~0x60000000; //Toggle update to false
+        const StartLocation1 = (Info8 & 0x0003ffff) << 6;
+        if((Info8 & 0x40000000) !== 0){
+          let Required = false;
+          for(let i = StartLocation1; i < StartLocation1 + 64; ++i){ //TODO: Also check surroundings.
+            if(Data1[i] !== 0){ //This means that at least one of the blocks isn't solid, meaning that it has to be added.
+              Required = true;
+              RequiredLocation8.add(Location8);
+              break;
+            }
           }
-        }
+          if(!Required) continue;
+          for(const [dx8, dy8, dz8] of [
+            [x8 - 1, y8, z8],
+            [x8 + 1, y8, z8],
+            [x8, y8 - 1, z8],
+            [x8, y8 + 1, z8],
+            [x8, y8, z8 - 1],
+            [x8, y8, z8 + 1]
+          ]){
+            const dx64 = x64 + Math.floor(dx8 / 8.);
+            const dy64 = y64 + Math.floor(dy8 / 8.);
+            const dz64 = z64 + Math.floor(dz8 / 8.);
+            const dIndex64 = ((dx64 & 7) << 6) | ((dy64 & 7) << 3) | (dz64 & 7);
+            if((Data64[dIndex64] & 0x8000) !== 0) continue;
+            const dLocation64 = Data64[dIndex64] & 0x0fff;
+            const dIndex8 = (dLocation64 << 9) | ((dx8 & 7) << 6) | ((dy8 & 7) << 3) | (dz8 & 7);
+            const dInfo8 = Data8[dIndex8];
+            if((dInfo8 & 0x80000000) !== 0) continue;
+            if(dIndex64 === Index64){//Is within the same Location64, so it can be added straight to the update set
+              RequiredLocation8.add(dIndex8);
+            } else{
+              Data8[dIndex8] |= 1 << 29;
+              Data64[dIndex64] |= 1 << 14;
+            }
+          }
+        } else if((Info8 & 0x20000000) !== 0) RequiredLocation8.add(Location8);
       }
       if(RequiredLocation8.size === 0) continue;
       let GPULocation64 = GPUData64[Index64];
@@ -55,12 +85,11 @@ export default class GPURegionDataLoader{
       GPULocation64 &= 0x0fff;
       const Segments = Data64SegmentAllocations[Index64];
       if(Segments.length === 0) this.AllocateSegment(Index64);
-      //for(const Location8 of RequiredLocation8){
       for(let i = 0; i < 512; ++i){
         const Location8 = (Location64 << 9) | i;
         const GPULocation8 = (GPULocation64 << 9) | i;
         if(!RequiredLocation8.has(Location8)){
-          GPUData8[GPULocation8] = 0x80000000;
+          //GPUData8[GPULocation8] = 0x80000000;
           continue;
         }
         //These are now going to get their data saved

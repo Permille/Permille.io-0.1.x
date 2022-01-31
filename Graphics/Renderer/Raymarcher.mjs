@@ -477,8 +477,6 @@ export default class Raymarcher{
       this.UpdateUniforms();
     }.bind(this)();
 
-    this.UpdatedSegments = new Set;
-
     void function AnimationFrame(){
       (window.requestIdleCallback ?? window.requestAnimationFrame)(AnimationFrame.bind(this), {"timeout": 400});
 
@@ -492,6 +490,7 @@ export default class Raymarcher{
 
       if(UpdatedData64.length === 0) return;
 
+      const UpdatedSegments = new Set;
       for(const Index64 of UpdatedData64){
         const Info64 = this.GPUData64[Index64];
         if((Info64 & 0x8000) !== 0) continue; //Just in case
@@ -500,18 +499,21 @@ export default class Raymarcher{
         for(let Index8 = StartIndex8; Index8 < StartIndex8 + 512; ++Index8){
           const Info8 = this.GPUData8[Index8];
           if((Info8 & 0x80000000) !== 0 || (Info8 & 0x40000000) === 0) continue; //Is either empty or has no changes
-          this.GPUData8[Index8] &= ~(1 << 30); //Set update to false
-          this.UpdatedSegments.add((Info8 & 0x0003ffff) >> 9);
+          const SegmentColumn = (Info8 & 0x0003ffff) >> 9;
+          if(UpdatedSegments.size < 10 || UpdatedSegments.has(SegmentColumn)){
+            UpdatedSegments.add(SegmentColumn); //if this.UpdatedSegments.size < 10
+            this.GPUData8[Index8] &= ~(1 << 30); //Set update to false
+          }
         }
-        this.GPUData64[Index64] &= ~(1 << 14); //Toggle update to false
-        if(this.UpdatedSegments.size > 15) break; //Spread out updates over multiple frames
+        if(UpdatedSegments.size < 10) this.GPUData64[Index64] &= ~(1 << 14); //Toggle update to false
+        //The if is there because if the size is greater than 10, most likely only part of the Data64 has been updated (due to segment distribution)
       }
 
       this.Tex64.needsUpdate = true;
-      this.Tex8.needsUpdate = true; //This might be too much effort to selectively update
-      for(const SegmentLocation of this.UpdatedSegments){ //TODO: Merge nearby segments (when uploading)
-        this.UpdatedSegments.delete(SegmentLocation);
-        const YOffset = (SegmentLocation & 31) << 4;
+      this.Tex8.needsUpdate = true; //This might be too much effort to selectively update (and also has weird artefacts)
+
+      for(const SegmentLocation of UpdatedSegments){ //This is not sending individual segments, but entire columns
+        //const YOffset = (SegmentLocation & 31) << 4;
         const ZOffset = SegmentLocation;// >> 5;
 
         this.Renderer.Renderer.copyTextureToTexture3D(

@@ -9,7 +9,7 @@ export function AllocateData8Init(Data8, AllocationIndex, AllocationArray){
   return function(Location64, x8, y8, z8){
     const Index = Atomics.add(AllocationIndex, 0, 1) & Data8Mod;
     const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
-    Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location;
+    Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location & 0x40000000;
     return Location;
   };
 };

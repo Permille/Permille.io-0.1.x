@@ -203,14 +203,14 @@ export default class Raymarcher{
           return int((texelFetch(iTex1, ivec3(Pos1XY, Location8 & 511, Location8 >> 9), 0).r >> mRayPosFloor.z) & 1u);
         }
         
-        /*int GetType1Test(vec3 RayPosFloor, out int Colour){
+        int GetType1Test(vec3 RayPosFloor, out int Colour){
           if(RayPosFloor.x < 0. || RayPosFloor.y < 0. || RayPosFloor.z < 0. || RayPosFloor.x > 511. || RayPosFloor.y > 511. || RayPosFloor.z > 511.) return 1;
           Colour = 1;////int(texelFetch(iVoxelTypesTex, ivec3((Pos1XY << 3) | mRayPosFloor.z, Location8 & 2047, Location8 >> 11), 0).r);
           ivec3 iRayPosFloor = ivec3(RayPosFloor);
           int Offset = iRayPosFloor.x & 7;
           iRayPosFloor.x >>= 3;
           return int((texelFetch(iTex1, iRayPosFloor, 0).r >> Offset) & 1u);
-        }*/
+        }
         int GetTypeDirectly(vec3 RayPosFloor){
           int Location64 = GetLocation64(RayPosFloor);
           if((Location64 & 0x8000) != 0) return 49151;
@@ -477,9 +477,11 @@ export default class Raymarcher{
       this.UpdateUniforms();
     }.bind(this)();
 
+    this.UpdatedSegments = new Set;
+
     void function AnimationFrame(){
-      //window.requestAnimationFrame(AnimationFrame.bind(this));
-      window.setTimeout(AnimationFrame.bind(this), 100);
+      (window.requestIdleCallback ?? window.requestAnimationFrame)(AnimationFrame.bind(this), {"timeout": 400});
+
       //TODO: This still causes small lag spikes when updating.
       //Possible fixes: spread out updates, merge nearby segments, etc
       const UpdatedData64 = [];
@@ -487,9 +489,9 @@ export default class Raymarcher{
         const Index64 = (x64 << 6) | (y64 << 3) | z64;
         if(((this.GPUData64[Index64] >> 14) & 1) === 1) UpdatedData64.push(Index64);
       }
+
       if(UpdatedData64.length === 0) return;
 
-      const AffectedSegments = new Set;
       for(const Index64 of UpdatedData64){
         const Info64 = this.GPUData64[Index64];
         if((Info64 & 0x8000) !== 0) continue; //Just in case
@@ -499,27 +501,29 @@ export default class Raymarcher{
           const Info8 = this.GPUData8[Index8];
           if((Info8 & 0x80000000) !== 0 || (Info8 & 0x40000000) === 0) continue; //Is either empty or has no changes
           this.GPUData8[Index8] &= ~(1 << 30); //Set update to false
-          AffectedSegments.add((Info8 & 0x0003ffff) >> 4);
+          this.UpdatedSegments.add((Info8 & 0x0003ffff) >> 9);
         }
+        this.GPUData64[Index64] &= ~(1 << 14); //Toggle update to false
+        if(this.UpdatedSegments.size > 15) break; //Spread out updates over multiple frames
       }
 
       this.Tex64.needsUpdate = true;
       this.Tex8.needsUpdate = true; //This might be too much effort to selectively update
-
-      for(const SegmentLocation of AffectedSegments){ //TODO: Merge nearby segments (when uploading)
+      for(const SegmentLocation of this.UpdatedSegments){ //TODO: Merge nearby segments (when uploading)
+        this.UpdatedSegments.delete(SegmentLocation);
         const YOffset = (SegmentLocation & 31) << 4;
-        const ZOffset = SegmentLocation >> 5;
+        const ZOffset = SegmentLocation;// >> 5;
 
         this.Renderer.Renderer.copyTextureToTexture3D(
-          new THREE.Box3(new THREE.Vector3(0, YOffset, ZOffset), new THREE.Vector3(63, YOffset + 15, ZOffset)),
-          new THREE.Vector3(0, YOffset, ZOffset),
+          new THREE.Box3(new THREE.Vector3(0, 0, ZOffset), new THREE.Vector3(63, 511, ZOffset)),
+          new THREE.Vector3(0, 0, ZOffset),
           this.Tex1,
           this.Tex1
         );
 
         this.Renderer.Renderer.copyTextureToTexture3D(
-          new THREE.Box3(new THREE.Vector3(0, YOffset, ZOffset), new THREE.Vector3(511, YOffset + 15, ZOffset)),
-          new THREE.Vector3(0, YOffset, ZOffset),
+          new THREE.Box3(new THREE.Vector3(0, 0, ZOffset), new THREE.Vector3(511, 511, ZOffset)),
+          new THREE.Vector3(0, 0, ZOffset),
           this.VoxelTypesTex,
           this.VoxelTypesTex
         );

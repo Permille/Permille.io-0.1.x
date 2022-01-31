@@ -427,10 +427,9 @@ export default class Renderer{
       this.RenderTime = window.performance.now() - this.LastRender;
       this.LastRender = window.performance.now();
     }.bind(this);*/
-    /*this.Scene.onAfterRender = function(){
-      console.log(window.performance.now());
-      this.RenderTime = window.performance.now() - this.LastRender;
-    }.bind(this);*/
+    this.Scene.onAfterRender = function(){
+      this.Events.FireEventListeners("AfterRender");
+    }.bind(this);
 
     window.addEventListener("resize", function(){
       this.Events.FireEventListeners("Resize");

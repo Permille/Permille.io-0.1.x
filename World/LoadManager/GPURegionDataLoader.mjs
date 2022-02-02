@@ -30,11 +30,11 @@ export default class GPURegionDataLoader{
     const GPUTypes = this.LoadManager.GPUTypes;
     const Data64SegmentAllocations = this.LoadManager.Data64SegmentAllocations;
     const Data64SegmentIndices = this.LoadManager.Data64SegmentIndices;
-    for(let x64 = 1; x64 < 7; x64++) for(let y64 = 1; y64 < 7; y64++) Iterator64: for(let z64 = 1; z64 < 7; z64++){
+    for(let x64 = 1; x64 < 7; x64++) for(let y64 = 1; y64 < 7; y64++) for(let z64 = 1; z64 < 7; z64++){
       const Index64 = (x64 << 6) | (y64 << 3) | z64;
       const Info64 = Data64[Index64];
       if(((Info64 >> 15) & 1) !== 0 || ((Info64 >> 14) & 1) === 0) continue; //Is empty, or doesn't need GPU update
-      /*if(((Info64 >> 18) & 1) !== 0){ //Propagate update
+      if(((Info64 >> 18) & 1) !== 0){ //Propagate update
         Data64[Index64] &= ~(1 << 18);
         Data64[((x64 - 1) << 6) | (y64 << 3) | z64] |= 1 << 14;
         Data64[((x64 + 1) << 6) | (y64 << 3) | z64] |= 1 << 14;
@@ -42,7 +42,7 @@ export default class GPURegionDataLoader{
         Data64[(x64 << 6) | ((y64 + 1) << 3) | z64] |= 1 << 14;
         Data64[(x64 << 6) | (y64 << 3) | (z64 - 1)] |= 1 << 14;
         Data64[(x64 << 6) | (y64 << 3) | (z64 + 1)] |= 1 << 14;
-      }*/
+      }
       Data64[Index64] &= ~(1 << 14); //Toggle GPU update to false
       const Location64 = Info64 & 0x0fff;
       const RequiredIndex8 = new Set;
@@ -51,14 +51,16 @@ export default class GPURegionDataLoader{
         const Info8 = Data8[Index8];
         if((Info8 & 0x80000000) !== 0 || (Info8 & 0x60000000) === 0) continue; //Is all air or has no update
         Data8[Index8] &= ~0x60000000; //Toggle update to false
-        const StartLocation1 = (Info8 & 0x0003ffff) << 6;
         if((Info8 & 0x40000000) !== 0){
           let Required = false;
-          for(let i = StartLocation1; i < StartLocation1 + 64; ++i){ //TODO: Also check surroundings.
-            if(Data1[i] !== 0){ //This means that at least one of the blocks isn't solid, meaning that it has to be added.
-              Required = true;
-              RequiredIndex8.add(Index8);
-              break;
+          if((Info8 & 0x10000000) === 0){ //Does not have uniform type
+            const StartLocation1 = (Info8 & 0x0003ffff) << 6;
+            for (let i = StartLocation1; i < StartLocation1 + 64; ++i) { //TODO: Also check surroundings.
+              if (Data1[i] !== 0) { //This means that at least one of the blocks isn't solid, meaning that it has to be added.
+                Required = true;
+                RequiredIndex8.add(Index8);
+                break;
+              }
             }
           }
           for(const [dx8, dy8, dz8] of [
@@ -110,10 +112,7 @@ export default class GPURegionDataLoader{
       for(let i = 0; i < 512; ++i){
         const Index8 = (Location64 << 9) | i;
         const GPUIndex8 = (GPULocation64 << 9) | i;
-        if(!RequiredIndex8.has(Index8)){
-          //GPUData8[GPUIndex8] = 0x80000000;
-          continue;
-        }
+        if(!RequiredIndex8.has(Index8)) continue;
         //These are now going to get their data saved
         let GPUDataLocation1 = null;
         const Index = Data64SegmentIndices[Index64];
@@ -128,16 +127,27 @@ export default class GPURegionDataLoader{
         }
         //GPUDataLocation1 allocation done
         GPUData8[GPUIndex8] = GPUDataLocation1 | (1 << 30); //Set update flag
-        const DataLocation1 = Data8[Index8];
+        const Info8 = Data8[Index8];
         const GPUData1Start = GPUDataLocation1 << 6;
-        const Data1Start = DataLocation1 << 6;
-        for(let i = 0; i < 64; ++i){ //TODO: change this to .set if possible, https://stackoverflow.com/a/35563895
-          GPUData1[GPUData1Start | i] = Data1[Data1Start | i];
-        }
         const GPUTypesStart = GPUDataLocation1 << 9;
-        const VoxelTypesStart = DataLocation1 << 9;
-        for(let i = 0; i < 512; ++i){ //TODO: change this to .set if possible
-          GPUTypes[GPUTypesStart | i] = VoxelTypes[VoxelTypesStart | i];
+        if((Info8 & 0x10000000) !== 0){ //Has uniform type
+          const Type = Info8 & 0x0000ffff;
+          for(let i = 0; i < 64; ++i){
+            GPUData1[GPUData1Start | i] = 0; //TODO: Might have to revise this? It's probably fine for now
+          }
+          for(let i = 0; i < 512; ++i){
+            GPUTypes[GPUTypesStart | i] = Type;
+          }
+        } else{ //Not uniform type, has saved data, copy it over
+          const Location8 = Data8[Index8] & 0x0003ffff;
+          const Data1Start = Location8 << 6;
+          const VoxelTypesStart = Location8 << 9;
+          for(let i = 0; i < 64; ++i){ //TODO: change this to .set if possible, https://stackoverflow.com/a/35563895
+            GPUData1[GPUData1Start | i] = Data1[Data1Start | i];
+          }
+          for(let i = 0; i < 512; ++i){ //TODO: change this to .set if possible
+            GPUTypes[GPUTypesStart | i] = VoxelTypes[VoxelTypesStart | i];
+          }
         }
       }
       GPUData64[Index64] |= 1 << 14; //Set update flag

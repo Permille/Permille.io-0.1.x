@@ -14,7 +14,7 @@ export default class World{
     // (it's actually supposed to be 256*2048*256 to be full-size, but that including types would probably start wasting storage).
     // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
 
-    this.Data8 = new Uint32Array(new SharedArrayBuffer(4 * 1*512*512)); //8 MB
+    this.Data8 = new Uint32Array(new SharedArrayBuffer(4 * 8*512*512)); //64 MB
     this.Data64 = new Uint32Array(new SharedArrayBuffer(4 * 8*8*8*8)); //8 kB (8*8*8, and 8 LODs)
 
     this.Data64.fill(0x8000);
@@ -30,10 +30,9 @@ export default class World{
     this.GPUData8.fill(0x80000000);
 
 
-
     this.AllocationIndex = new Uint32Array(new SharedArrayBuffer(8)); //First slot is for allocation, second is for deallocation
-    this.AllocationArray = new Uint32Array(new SharedArrayBuffer(4 * this.Data8.length)); //Stores available Data8 slots
-    for(let i = 0, Length = this.Data8.length; i < Length; ++i) this.AllocationArray[i] = i; //Initialise allocation array
+    this.AllocationArray = new Uint32Array(new SharedArrayBuffer(4 * 262144)); //Stores available Data8 slots
+    for(let i = 0, Length = 262144; i < Length; ++i) this.AllocationArray[i] = i; //Initialise allocation array
 
     //Same thing but for allocation of 64s
     this.AllocationIndex64 = new Uint16Array(new SharedArrayBuffer(4));

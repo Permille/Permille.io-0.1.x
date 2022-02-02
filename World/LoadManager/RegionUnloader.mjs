@@ -28,8 +28,10 @@ export default class RegionUnloader{
   DeallocateData8(Index8){
     const Location = this.Data8[Index8];
     if((Location & 0x80000000) !== 0) return;
-    const DeallocIndex = Atomics.add(this.AllocationIndex, 1, 1) & 0x0003ffff;
-    Atomics.store(this.AllocationArray, DeallocIndex, Location);
+    if((Location & 0x10000000) === 0){ //Doesn't have uniform type, so has to deallocate Data1 and VoxelTypes memory
+      const DeallocIndex = Atomics.add(this.AllocationIndex, 1, 1) & 0x0003ffff;
+      Atomics.store(this.AllocationArray, DeallocIndex, Location);
+    }
     this.Data8[Index8] = 0x80000000;
   }
   UnloadRegions(){
@@ -41,7 +43,6 @@ export default class RegionUnloader{
       const Info64 = Data64[Index64];
       //Has not fully been loaded, or is completely empty, or is already unloaded, or is unloadable
       if(((Info64 >> 12) & 3) < 3 || ((Info64 >> 15) & 1) === 1 || ((Info64 >> 16) & 1) === 1 || ((Info64 >> 17) & 1) === 1) continue;
-      if(x64 === 2 && y64 === 2 && z64 === 2) debugger;
       for(const [dx64, dy64, dz64] of [
         [x64, y64, z64],
         [x64 - 1, y64, z64],
@@ -63,6 +64,7 @@ export default class RegionUnloader{
         for(let i = 0; i < 512; ++i){
           const dInfo8 = Data8[(dLocation64 << 9) | i];
           if((dInfo8 >> 31) === 1) continue Iterator;
+          if(((dInfo8 >> 28) & 1) === 1) continue Iterator; //TODO: Check if the type is actually solid (might be water or something)
           const dLocation8 = dInfo8 & 0x0003ffff;
           for(let j = 0; j < 64; ++j){
             if(Data1[(dLocation8 << 6) | j] !== 0){

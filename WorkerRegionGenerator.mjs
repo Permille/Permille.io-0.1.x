@@ -57,11 +57,8 @@ let AllocationIndex, AllocationArray;
 let AllocationIndex64, AllocationArray64;
 let Data64Offset;
 
-let Data8Length = 262144;
-let Data8Mod = 262143;
-
 function AllocateData8(StartIndex8, x8, y8, z8) {
-  const Index = Atomics.add(AllocationIndex, 0, 1) & Data8Mod;
+  const Index = Atomics.add(AllocationIndex, 0, 1) & 262143;
   const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
   Data8[(StartIndex8 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location | 0x40000000;
   return Location;
@@ -192,9 +189,12 @@ EventHandler.GenerateRegionData = function(Data){
 
   let WrittenTo64 = false;
   for(let x8 = 0; x8 < 8; ++x8) for(let y8 = 0; y8 < 8; ++y8) for(let z8 = 0; z8 < 8; ++z8){
+    const Index8 = (Location64 << 9) | (x8 << 6) | (y8 << 3) | z8;
     TempDataBuffer.set(EmptyDataBuffer, 0);
     TempTypeBuffer.set(EmptyTypeBuffer, 0);
     let WrittenTo8 = false;
+    let UniformType = -1;
+    let HasUniformType = -1;
     for(let x1 = 0; x1 < 8; ++x1) for(let z1 = 0; z1 < 8; ++z1){
       const XPos64 = (x8 << 3) | x1;
       const ZPos64 = (z8 << 3) | z1;
@@ -216,7 +216,10 @@ EventHandler.GenerateRegionData = function(Data){
             Type = AirID;
           }
         }
-
+        if(Type !== UniformType){
+          UniformType = Type;
+          HasUniformType++;
+        }
         if(Type !== 0) WrittenTo8 = true;
         TempDataBuffer[(x1 << 6) | (y1 << 3) | z1] = Type;
         if(Type !== 0){ //For now, this just checks against air, but it will be more complicated than that...
@@ -226,6 +229,12 @@ EventHandler.GenerateRegionData = function(Data){
     }
     if(!WrittenTo8) continue;
     WrittenTo64 = true;
+    if(HasUniformType === 0){ //Means that it has a uniform type, and can be compressed.
+      Data8[Index8] = (1 << 28);    //Mark Data8 region as uniform type
+      Data8[Index8] |= UniformType; //Set uniform type in first 16 bits
+      Data8[Index8] |= (1 << 30);   //Mark it as updated to be sent to the gpu (this is usually done in AllocateData8 function)
+      continue;
+    }
     //Now, since something was actually written to the temp buffer, write it to the Data1 buffer:
     const Location8 = AllocateData8(Location64, x8, y8, z8); //This automatically registers the Data8
     VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.

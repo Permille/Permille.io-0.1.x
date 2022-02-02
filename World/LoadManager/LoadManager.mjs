@@ -44,7 +44,7 @@ export default class LoadManager{
 
     this.RegionLoader = new RegionLoader(this);
     this.GPURegionDataLoader = new GPURegionDataLoader(this);
-    //this.RegionUnloader = new RegionUnloader(this);
+    this.RegionUnloader = new RegionUnloader(this);
     this.RRSLoader = new RRSLoader(this);
   }
 };

@@ -3,96 +3,76 @@ import RRS_SD from "./RequiredRegionsSelectionSD.mjs";
 export default class RegionUnloader{
   constructor(LoadManager){
     this.LoadManager = LoadManager;
-    this.Regions = LoadManager.Regions;
-    this.VirtualRegions = LoadManager.VirtualRegions;
-    this.HeightMaps = LoadManager.RegionLoader.HeightMaps;
+    this.Data64 = LoadManager.Data64;
+    this.Data8 = LoadManager.Data8;
+    this.AllocationIndex64 = LoadManager.AllocationIndex64;
+    this.AllocationIndex = LoadManager.AllocationIndex;
+    this.AllocationArray64 = LoadManager.AllocationArray64;
+    this.AllocationArray = LoadManager.AllocationArray;
 
     void function Load(){
-      self.setTimeout(Load.bind(this), 100);
-      const AllowedHeightMaps = new Set;
-
-      this.UnloadRegions(AllowedHeightMaps);
-      this.UnloadVirtualRegions(AllowedHeightMaps);
-
-      for(const Identifier in this.HeightMaps){
-        if(AllowedHeightMaps.has(Identifier)) continue;
-        delete this.HeightMaps[Identifier];
-      }
+      self.setTimeout(Load.bind(this), 10);
+      this.UnloadRegions();
     }.bind(this)();
   }
-  UnloadRegions(AllowedHeightMaps){
-    const RRS = this.LoadManager.RequiredRegionsSelection;
-
-    const ThisMinRegionX = RRS[RRS_SD.IN_X1] - 2, ThisMaxRegionX = RRS[RRS_SD.IN_X2] + 2;
-    const ThisMinRegionY = RRS[RRS_SD.IN_Y1] - 2, ThisMaxRegionY = RRS[RRS_SD.IN_Y2] + 2;
-    const ThisMinRegionZ = RRS[RRS_SD.IN_Z1] - 2, ThisMaxRegionZ = RRS[RRS_SD.IN_Z2] + 2;
-
-    const AllowedRegions = new Set;
-
-    for(let RegionX = ThisMinRegionX; RegionX < ThisMaxRegionX; RegionX++){
-      for(let RegionZ = ThisMinRegionZ; RegionZ < ThisMaxRegionZ; RegionZ++){
-        const VerticalIdentifier = RegionX + "," + RegionZ;
-        AllowedHeightMaps.add(VerticalIdentifier);
-        for(let RegionY = ThisMinRegionY; RegionY < ThisMaxRegionY; RegionY++){
-          const Identifier = RegionX + "," + RegionY + "," + RegionZ;
-          AllowedRegions.add(Identifier);
-        }
-      }
-    }
-
-    for(const Identifier in this.LoadManager.Regions){ //vv The region hasn't generated its heightmap yet, so it doesn't have SharedData.
-      if(AllowedRegions.has(Identifier) || this.Regions[Identifier] === null) continue;
-      this.Regions[Identifier].SharedData[REGION_SD.UNLOAD_TIME] = self.performance.now();
-      delete this.Regions[Identifier];
-    }
+  UnloadData64(x64, y64, z64){
+    const Index64 = (x64 << 6) | (y64 << 3) | z64;
+    if(((this.Data64[Index64] >> 15) & 1) === 1 || ((this.Data64[Index64] >> 17) & 1) === 1) return; //Is all air or is unloadable
+    const DeallocIndex = Atomics.add(this.AllocationIndex64, 1, 1) & 511; //Indexing 1 for deallocation.
+    const Location64 = this.Data64[Index64] & 0x0fff;
+    for(let i = 0; i < 512; ++i) this.DeallocateData8((Location64 << 9) | i)
+    Atomics.store(this.AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
+    this.Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000111111111111; //Reset previous location and existence marker.
+    this.Data64[(x64 << 6) | (y64 << 3) | z64] |=0b11000000000000000; //Set unloaded and inexistence markers.
   }
-  UnloadVirtualRegions(AllowedHeightMaps){
-    const RRS = this.LoadManager.RequiredRegionsSelection;
-
-    for(const DepthID in this.VirtualRegions){
-      const Depth = Number.parseInt(DepthID); //Make sure it's an int.
-      const VRDepthObject = this.VirtualRegions[Depth];
-      const RRS_OFFSET = 13 * (Depth + 1);
-      const FACTOR = 2 ** (1 + Depth);
-
-      const AllowedVirtualRegions = new Set;
-
-      const ThisMinRegionX = RRS[RRS_OFFSET + RRS_SD.IN_X1], ThisMaxRegionX = RRS[RRS_OFFSET + RRS_SD.IN_X2];
-      const ThisMinRegionY = RRS[RRS_OFFSET + RRS_SD.IN_Y1], ThisMaxRegionY = RRS[RRS_OFFSET + RRS_SD.IN_Y2];
-      const ThisMinRegionZ = RRS[RRS_OFFSET + RRS_SD.IN_Z1], ThisMaxRegionZ = RRS[RRS_OFFSET + RRS_SD.IN_Z2];
-
-      const ExclusionX1 = RRS[RRS_OFFSET + RRS_SD.EX_X1], ExclusionX2 = RRS[RRS_OFFSET + RRS_SD.EX_X2];
-      const ExclusionY1 = RRS[RRS_OFFSET + RRS_SD.EX_Y1], ExclusionY2 = RRS[RRS_OFFSET + RRS_SD.EX_Y2];
-      const ExclusionZ1 = RRS[RRS_OFFSET + RRS_SD.EX_Z1], ExclusionZ2 = RRS[RRS_OFFSET + RRS_SD.EX_Z2];
-
-      if(true/*Depth <= Settings.VirtualRegionDepths*/){ //Only allow valid depths. This would clear depths which were recently made obsolete by lowering the depth count.
-        for(let RegionX = ThisMinRegionX; RegionX < ThisMaxRegionX; RegionX++){
-          for(let RegionZ = ThisMinRegionZ; RegionZ < ThisMaxRegionZ; RegionZ++){
-            //Heightmaps
-            if(!(ExclusionX1 <= RegionX && ExclusionX2 > RegionX &&
-                 ExclusionZ1 <= RegionZ && ExclusionZ2 > RegionZ)){
-              const VerticalIdentifier = RegionX + "," + RegionZ + "," + Depth;
-              AllowedHeightMaps.add(VerticalIdentifier);
-            }
-            //Regions
-            for(let RegionY = ThisMinRegionY; RegionY < ThisMaxRegionY; RegionY++){
-              if(ExclusionX1 <= RegionX && ExclusionX2 > RegionX &&
-                 ExclusionY1 <= RegionY && ExclusionY2 > RegionY &&
-                 ExclusionZ1 <= RegionZ && ExclusionZ2 > RegionZ){
-                continue;
-              }
-              const Identifier = RegionX + "," + RegionY + "," + RegionZ;
-              AllowedVirtualRegions.add(Identifier);
+  DeallocateData8(Index8){
+    const Location = this.Data8[Index8];
+    if((Location & 0x80000000) !== 0) return;
+    const DeallocIndex = Atomics.add(this.AllocationIndex, 1, 1) & 0x0003ffff;
+    Atomics.store(this.AllocationArray, DeallocIndex, Location);
+    this.Data8[Index8] = 0x80000000;
+  }
+  UnloadRegions(){
+    const Data64 = this.LoadManager.Data64;
+    const Data8 = this.LoadManager.Data8;
+    const Data1 = this.LoadManager.Data1;
+    for(let x64 = 1; x64 < 7; ++x64) for(let y64 = 1; y64 < 7; ++y64) Iterator: for(let z64 = 1; z64 < 7; ++z64){
+      const Index64 = (x64 << 6) | (y64 << 3) | z64;
+      const Info64 = Data64[Index64];
+      //Has not fully been loaded, or is completely empty, or is already unloaded, or is unloadable
+      if(((Info64 >> 12) & 3) < 3 || ((Info64 >> 15) & 1) === 1 || ((Info64 >> 16) & 1) === 1 || ((Info64 >> 17) & 1) === 1) continue;
+      if(x64 === 2 && y64 === 2 && z64 === 2) debugger;
+      for(const [dx64, dy64, dz64] of [
+        [x64, y64, z64],
+        [x64 - 1, y64, z64],
+        [x64 + 1, y64, z64],
+        [x64, y64 - 1, z64],
+        [x64, y64 + 1, z64],
+        [x64, y64, z64 - 1],
+        [x64, y64, z64 + 1]
+      ]){
+        const dIndex64 = (dx64 << 6) | (dy64 << 3) | dz64;
+        const dInfo64 = Data64[dIndex64];
+        if(((dInfo64 >> 12) & 3) < 2) continue Iterator;
+        if(((dInfo64 >> 16) & 1) === 1) continue;
+        if(((dInfo64 >> 15) & 1) === 1){
+          Data64[Index64] |= 1 << 17; //I already know that Index64 isn't fully air, so this is fine.
+          continue Iterator;
+        }
+        const dLocation64 = dInfo64 & 0x0fff;
+        for(let i = 0; i < 512; ++i){
+          const dInfo8 = Data8[(dLocation64 << 9) | i];
+          if((dInfo8 >> 31) === 1) continue Iterator;
+          const dLocation8 = dInfo8 & 0x0003ffff;
+          for(let j = 0; j < 64; ++j){
+            if(Data1[(dLocation8 << 6) | j] !== 0){
+              Data64[dIndex64] |= 1 << 17; //Make unloadable
+              continue Iterator;
             }
           }
         }
       }
-
-      for(const Identifier in VRDepthObject){
-        if(AllowedVirtualRegions.has(Identifier)) continue;
-        if(VRDepthObject[Identifier] !== null) VRDepthObject[Identifier].SharedData[REGION_SD.UNLOAD_TIME] = self.performance.now();
-        delete VRDepthObject[Identifier];
-      }
+      this.UnloadData64(x64, y64, z64);
     }
   }
 };

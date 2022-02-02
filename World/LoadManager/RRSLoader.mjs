@@ -94,7 +94,7 @@ export default class RRSLoader{
     //if(!Changed) return; //#######################
 
     //Shift references of Data64:
-    const NewData64 = new Uint16Array(8*8*8*8).fill(0x8000); //Sets it to be empty (and unloaded)
+    const NewData64 = new Uint32Array(8*8*8*8).fill(0x8000); //Sets it to be empty (and unloaded)
     const NewGPUData64 = new Uint16Array(8*8*8*8).fill(0x8000);
     const NewData64SegmentAllocations = new Array(8*8*8*8).fill(null); //nulls will later be replaced with empty arrays
     const NewData64SegmentIndices = new Uint8Array(8*8*8*8);

@@ -15,7 +15,7 @@ export default class World{
     // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
 
     this.Data8 = new Uint32Array(new SharedArrayBuffer(4 * 1*512*512)); //8 MB
-    this.Data64 = new Uint16Array(new SharedArrayBuffer(2 * 8*8*8*8)); //8 kB (8*8*8, and 8 LODs)
+    this.Data64 = new Uint32Array(new SharedArrayBuffer(4 * 8*8*8*8)); //8 kB (8*8*8, and 8 LODs)
 
     this.Data64.fill(0x8000);
     this.Data8.fill(0x80000000);

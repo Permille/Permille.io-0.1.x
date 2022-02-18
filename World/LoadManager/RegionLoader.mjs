@@ -114,7 +114,7 @@ export default class RegionLoader{
     this.WorkerRegionGenerator = new Worker("../MultiWorkerRegionGeneratorManager.mjs", {"type": "module", "name": "Region Generator Manager"});
     this.WorkerRegionDecorator = new Worker("../RegionDecoratorThreadPool.mjs", {"type": "module", "name": "Region Decorator Thread Pool"});
     this.WorkerGeometryDataGenerator = new Worker("../MultiWorkerGeometryDataGeneratorManager.mjs", {"type": "module", "name": "Geometry Data Generator Manager"});
-    this.WorkerPriorityGeometryDataGenerator = new Worker("../WorkerGeometryDataGenerator.mjs", {"type": "module", "name": "Priority Geometry Data Generator"});
+
 
     this.Structures = this.LoadManager.Structures;
     this.MainBlockRegistry = this.LoadManager.MainBlockRegistry;
@@ -146,7 +146,7 @@ export default class RegionLoader{
     });
 
     this.WorkerHeightMapGenerator.addEventListener("message", function(Event){
-      const VerticalIdentifier = Event.data.RegionX + "," + Event.data.RegionZ + ((Event.data.Depth !== -1) ? ("," + Event.data.Depth) : "");
+      const VerticalIdentifier = Event.data.RegionX + "," + Event.data.RegionZ + ((Event.data.Depth !== 0) ? ("," + Event.data.Depth) : "");
       switch(Event.data.Request){
         case "SaveHeightMap":{
           this.HeightMaps[VerticalIdentifier] = {
@@ -210,7 +210,7 @@ export default class RegionLoader{
           break;
         }
         case "SaveVirtualRegionData":{
-          this.VirtualStage3(Event.data);
+
           break;
         }
       }
@@ -284,7 +284,7 @@ export default class RegionLoader{
     if(HeightMap){
       this.Stage2(RegionX, RegionY, RegionZ, LoadingBatch, BatchSize);
     } else{
-      if(HeightMap === undefined){
+      if(HeightMap === undefined){ //It can also be null, in which case generation of the heightmap has already started, but has not finished.
         this.HeightMaps[VerticalIdentifier] = null; //To show that the heightmap has started generating so it doesn't generate again.
         this.WorkerHeightMapGenerator.postMessage({
           "Request": "GenerateHeightMap",
@@ -293,7 +293,7 @@ export default class RegionLoader{
           "XLength": 64,
           "ZLength": 64,
           "GenerateSlopeMap": true,
-          "Depth": -1
+          "Depth": 0
         });
       }
       this.Events.AddEventListener("GeneratedHeightMap" + VerticalIdentifier, function(){
@@ -304,7 +304,6 @@ export default class RegionLoader{
 
   //Generate region data
   Stage2(RegionX, RegionY, RegionZ, LoadingBatch, BatchSize){
-    const Identifier = RegionX + "," + RegionY + "," + RegionZ;
     const VerticalIdentifier = RegionX + "," + RegionZ;
 
     const HeightMap = this.HeightMaps[VerticalIdentifier];
@@ -369,61 +368,47 @@ export default class RegionLoader{
 
   //Virtual regions
 
-  VirtualStage1(RegionX, RegionY, RegionZ, Depth){
+  VirtualStage1(RegionX, RegionY, RegionZ, Depth, LoadingBatch = -1, BatchSize = 1){
     const VerticalIdentifier = RegionX + "," + RegionZ + "," + Depth;
 
     const HeightMap = this.HeightMaps[VerticalIdentifier];
 
     if(HeightMap){
-      this.VirtualStage2(RegionX, RegionY, RegionZ, Depth);
+      this.VirtualStage2(RegionX, RegionY, RegionZ, Depth, LoadingBatch, BatchSize);
     } else{
-      if(HeightMap === undefined){
+      if(HeightMap === undefined){ //It can also be null, in which case generation of the heightmap has already started, but has not finished.
         this.HeightMaps[VerticalIdentifier] = null; //To show that the heightmap has started generating so it doesn't generate again.
         this.WorkerHeightMapGenerator.postMessage({
           "Request": "GenerateHeightMap",
           "RegionX": RegionX,
           "RegionZ": RegionZ,
-          "XLength": Region.X_LENGTH,
-          "ZLength": Region.Z_LENGTH,
+          "XLength": 64,
+          "ZLength": 64,
           "GenerateSlopeMap": true,
           "Depth": Depth
         });
       }
       this.Events.AddEventListener("GeneratedHeightMap" + VerticalIdentifier, function(){
-        this.VirtualStage2(RegionX, RegionY, RegionZ, Depth);
+        this.VirtualStage2(RegionX, RegionY, RegionZ, Depth, LoadingBatch, BatchSize);
       }.bind(this), {"Once": true});
     }
   }
-
-  //Generate region data
-  VirtualStage2(RegionX, RegionY, RegionZ, Depth){
-    const Identifier = RegionX + "," + RegionY + "," + RegionZ;
-    const VRDepthObject = this.VirtualRegions[Depth];
+  VirtualStage2(RegionX, RegionY, RegionZ, Depth, LoadingBatch, BatchSize){
     const VerticalIdentifier = RegionX + "," + RegionZ + "," + Depth;
 
     const HeightMap = this.HeightMaps[VerticalIdentifier];
 
-    if(!HeightMap) return; //The heightmap has been unloaded, which means that the region is also not needed anymore.
+    if(!HeightMap){ //The heightmap was probably unloaded...
+      console.error("No heightmap!! Region generation might stall as a result...");
+      return;
+    }
 
     const LocalMin = RegionY * Region.Y_LENGTH * (2 ** (1 + Depth));
     const LocalMax = (RegionY + 1) * Region.Y_LENGTH * (2 ** (1 + Depth));
-    if(HeightMap.MinHeight > LocalMax + 32 || Math.max(HeightMap.MaxHeight, 10) < LocalMin - 160) return;
+    //if(HeightMap.MinHeight > LocalMax + 69 || Math.max(HeightMap.MaxHeight, 10) < LocalMin - 169) return; //TODO: Properly unload the region!
     //^^ Discard virtual regions that are too far away from the heightmap. The large buffer zone
-    //is to account for objects independent of the heightmap, e.g. trees (-160) or craters (+32).
-    //The Math.max is there to ensure that ocean water is rendered.
-
-    const RegionData = new Uint16Array(this.LoadManager.GetSharedArrayBuffer(Region.X_LENGTH * Region.Y_LENGTH * Region.Z_LENGTH * 2));
-    const RegionSD = new Float64Array(this.LoadManager.GetSharedArrayBuffer(REGION_SD.BUFFER_SIZE));
-
-    if(VRDepthObject[Identifier]) debugger; //The region is being overwritten; unload it first and then proceed.
-
-    VRDepthObject[Identifier] = new VirtualRegion(RegionSD, RegionData, RegionX, RegionY, RegionZ, Depth);
-
-    RegionSD[REGION_SD.LOADING_STAGE] = 2;
-
-    //Progression to Stage 3 is managed in the constructor.
-
-    const IntHeightMap = new Int8Array(new SharedArrayBuffer(32 * 32));
+    //is to account for objects independent of the heightmap, e.g. trees (-169) or craters (+69).
+    //The Math.max is there to ensure that ocean water is loaded.
 
     this.WorkerRegionGenerator.postMessage({
       "Request": "GenerateVirtualRegionData",
@@ -431,130 +416,13 @@ export default class RegionLoader{
       "RegionY": RegionY,
       "RegionZ": RegionZ,
       "Depth": Depth,
-      "RegionData": RegionData,
       "HeightMap": HeightMap.HeightMap,
       "SlopeMap": HeightMap.SlopeMap,
       "TemperatureMap": HeightMap.TemperatureMap,
-      "IntHeightMap": IntHeightMap,
-      "SharedData": RegionSD
+      "MaxHeight": HeightMap.MaxHeight,
+      "MinHeight": HeightMap.MinHeight,
+      "LoadingBatch": LoadingBatch,
+      "BatchSize": BatchSize
     });
-  }
-
-
-  VirtualStage3(Data){
-    const RegionX = Data.RegionX;
-    const RegionY = Data.RegionY;
-    const RegionZ = Data.RegionZ;
-    const Depth = Data.Depth;
-
-    const Identifier = RegionX + "," + RegionY + "," + RegionZ;
-    const CurrentRegion = this.VirtualRegions[Depth][Identifier];
-
-    if(!CurrentRegion || CurrentRegion.SharedData[REGION_SD.UNLOAD_TIME] >= 0) return;
-
-
-    const CommonBlock = Data.CommonBlock;
-    const IsEntirelySolid = Data.IsEntirelySolid;
-
-    CurrentRegion.SharedData[REGION_SD.COMMON_BLOCK] = CommonBlock;
-    CurrentRegion.SharedData[REGION_SD.IS_ENTIRELY_SOLID] = IsEntirelySolid;
-
-    /*if(CommonBlock !== -1){
-      this.LoadManager.RecycleSharedArrayBuffer(CurrentRegion.RegionData.buffer);
-      CurrentRegion.RegionData = null;
-      CurrentRegion.SharedData[REGION_SD.DATA_ATTACHED] = 0;
-    }*/ //This will be recycled later anyways.
-
-    CurrentRegion.SharedData[REGION_SD.LOADING_STAGE] = 3;
-
-    //Important note: Virtual regions' RegionData is never shared, only their SharedData is shared in stage 5.
-
-    this.VirtualStage4(CurrentRegion, Data.IntHeightMap);
-  }
-
-  VirtualStage4(CurrentRegion, IntHeightMap){
-    if(!CurrentRegion || CurrentRegion.SharedData[REGION_SD.UNLOAD_TIME] >= 0) return;
-
-    CurrentRegion.SharedData[REGION_SD.LOADING_STAGE] = 4;
-
-    const RegionX = CurrentRegion.RegionX;
-    const RegionY = CurrentRegion.RegionY;
-    const RegionZ = CurrentRegion.RegionZ;
-    const Depth = CurrentRegion.Depth;
-
-    let IsNeeded = true;
-
-    const VerticalIdentifier = RegionX + "," + RegionZ + "," + Depth;
-
-    const HeightMap = this.HeightMaps[VerticalIdentifier];
-
-    const FACTOR = 2 ** (1 + Depth);
-
-    const LocalMin = RegionY * Region.Y_LENGTH * FACTOR;
-    const LocalMax = (RegionY + 1) * Region.Y_LENGTH * FACTOR;
-
-    const CommonBlock = CurrentRegion.SharedData[REGION_SD.COMMON_BLOCK];
-
-    if((CommonBlock !== -1 && this.LoadManager.MainBlockRegistry.BlockIDMapping[CommonBlock].Properties.Invisible) ||
-      ((CommonBlock !== -1 || CurrentRegion.SharedData[REGION_SD.IS_ENTIRELY_SOLID] === 1) &&
-      (HeightMap.MinHeight > LocalMax + FACTOR * 2 || Math.max(HeightMap.MaxHeight, 10) < LocalMin - FACTOR * 2))){
-
-      IsNeeded = false;
-      //This is similar to the filtering in Stage 2, but here I already know whether the region has a CommonBlock or if it is entirely solid.
-      //Thus, except for rendering ocean water, I can discard these virtual regions.
-    }
-
-    const MAX_VRMBPT = 5;
-    const X_LENGTH = Region.X_LENGTH;
-    const Y_LENGTH = Region.Y_LENGTH;
-    const Z_LENGTH = Region.Z_LENGTH;
-
-    if(IsNeeded){
-      this.WorkerGeometryDataGenerator.postMessage({
-        "Request": "GenerateVirtualGeometryData",
-        "RegionX": CurrentRegion.RegionX,
-        "RegionY": CurrentRegion.RegionY,
-        "RegionZ": CurrentRegion.RegionZ,
-        "Depth": CurrentRegion.Depth,
-        "RegionData": CurrentRegion.RegionData,
-        "SharedData": CurrentRegion.SharedData,
-        "IntHeightMap": IntHeightMap
-      });
-    } else if(CurrentRegion.RegionData){ //GD is not needed, dispose it.
-      this.LoadManager.RecycleSharedArrayBuffer(CurrentRegion.RegionData.buffer);
-      CurrentRegion.RegionData = null;
-      CurrentRegion.SharedData[REGION_SD.DATA_ATTACHED] = 0;
-    }
-  }
-
-  //Transfer geometry data to main thread.
-  VirtualStage5(Data){
-    const SharedData = Data.SharedData;
-
-    if(SharedData[REGION_SD.UNLOAD_TIME] >= 0) return;
-    SharedData[REGION_SD.LOADING_STAGE] = 5;
-
-    const Identifier = Data.RegionX + "," + Data.RegionY + "," + Data.RegionZ;
-    const Depth = Data.Depth;
-    const CurrentRegion = this.VirtualRegions[Depth][Identifier];
-
-    this.LoadManager.RecycleSharedArrayBuffer(CurrentRegion.RegionData.buffer);
-    CurrentRegion.RegionData = null;
-    SharedData[REGION_SD.DATA_ATTACHED] = 0;
-
-    const Opaque = Data.Opaque;
-    const Transparent = Data.Transparent;
-    self.postMessage(Object.assign(Data, {
-      "Request": "SaveVirtualSDAndGeometryData" //Just changes the request name.
-    }), [
-      Opaque.Positions.buffer,
-      Transparent.Positions.buffer,
-      Opaque.Normals.buffer,
-      Transparent.Normals.buffer,
-      Opaque.UVs.buffer,
-      Transparent.UVs.buffer,
-      Opaque.VertexAOs.buffer,
-      Transparent.VertexAOs.buffer
-    ]); //Need to transfer all of the contained buffers!
   }
 };

@@ -132,7 +132,7 @@ export function GetHeight(X, Z){
   Result *= 1 - SmoothShoreWeighting(Result);
   Result /= .5;
 
-  return (Result - 400.) / 2.;
+  return Result / 2;// + Math.floor((X + Z) / 100.) * 64.;
 };
 
 export function ReSeed(NewSeed){

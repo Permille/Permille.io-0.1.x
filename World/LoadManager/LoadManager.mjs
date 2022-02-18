@@ -33,14 +33,19 @@ export default class LoadManager{
     this.GPUData8 = Data.GPUData8;
     this.GPUData64 = Data.GPUData64;
     this.GPUTypes = Data.GPUTypes;
-    this.SegmentAllocation = Data.SegmentAllocation;
     this.FreeSegments = [];
-    for(let i = 0, Length = this.SegmentAllocation.length; i < Length; ++i) this.FreeSegments.push(i);
+    for(let i = 0; i < 16384; ++i) this.FreeSegments.push(i);
+    self.EventHandler.GetFreeSegments = function(){
+      self.postMessage({
+        "Request": "GetFreeSegments",
+        "Segments": this.FreeSegments.length
+      });
+    }.bind(this);
     //WARNING: This reference is NOT safe! ONLY INDEX THIS WITH .LoadManager.Data64SegmentAllocations!!!
     this.Data64SegmentAllocations = new Array(8*8*8*8).fill().map(function(){return []});
     this.Data64SegmentIndices = new Uint8Array(8*8*8*8);
     this.FreeGPUData64 = [];
-    for(let i = 0; i < 512; ++i) this.FreeGPUData64.push(i);
+    for(let i = 0; i < 4096; ++i) this.FreeGPUData64.push(i);
 
     this.RegionLoader = new RegionLoader(this);
     this.GPURegionDataLoader = new GPURegionDataLoader(this);

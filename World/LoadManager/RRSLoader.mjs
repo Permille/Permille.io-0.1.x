@@ -32,7 +32,7 @@ export default class RRSLoader{
       const CurrentBatch = this.LoadRegions();
 
       if(CurrentBatch !== -1){ //-1 means that no regions were requested because everything was already loaded.
-        const FinishedBatchPromise = new DeferredPromise({"Timeout": 2000});
+        const FinishedBatchPromise = new DeferredPromise({"Timeout": 5000});
         this.LoadManager.RegionLoader.Events.AddEventListener("FinishedLoadingBatch", function (FinishedBatch){
           if(CurrentBatch === FinishedBatch) FinishedBatchPromise.resolve();
         });
@@ -40,7 +40,7 @@ export default class RRSLoader{
         try{
           await FinishedBatchPromise;
         } catch(e){
-          console.warn("Batch generation took longer than 2000ms: while this might be due to a stalled thread, everything is probably still okay.");
+          console.warn("Batch generation took longer than 5000ms: while this might be due to a stalled thread, everything is probably still okay.");
         }
         console.timeEnd();
       }
@@ -57,8 +57,8 @@ export default class RRSLoader{
     this.GPUData8[Index8] = 0x80000000;
   }
 
-  DeallocateGPUData64(GPULocation64, x64, y64, z64){
-    const Index64 = (x64 << 6) | (y64 << 3) | z64;
+  DeallocateGPUData64(GPULocation64, Depth, x64, y64, z64){
+    const Index64 = (Depth << 9) | (x64 << 6) | (y64 << 3) | z64;
     while(this.LoadManager.Data64SegmentAllocations[Index64].length > 0){
       this.LoadManager.FreeSegments.push(this.LoadManager.Data64SegmentAllocations[Index64].pop());
     }
@@ -124,7 +124,7 @@ export default class RRSLoader{
                 for(let i = 0; i < 512; ++i){
                   DeallocateData8(Location64, i >> 6, (i >> 3) & 7, i & 7);
                 }
-                DeallocateData64(Location64, rx64, ry64, rz64); //Free Data64 reference
+                DeallocateData64(Location64, rx64, ry64, rz64, Depth); //Free Data64 reference
                 //The Data1 and VoxelData references shouldn't matter, as they will probably get overwritten upon reallocation.
               }
               if((GPUInfo64 & 0x8000) === 0){ //GPUData64 actually exists so it can be unloaded
@@ -132,7 +132,7 @@ export default class RRSLoader{
                 for(let i = 0; i < 512; ++i){
                   this.DeallocateGPUData8(GPULocation64, i >> 6, (i >> 3) & 7, i & 7);
                 }
-                this.DeallocateGPUData64(GPULocation64, rx64, ry64, rz64); //Also handles segment deallocation
+                this.DeallocateGPUData64(GPULocation64, Depth, rx64, ry64, rz64); //Also handles segment deallocation
               }
             } else{ //Move Data64 references
               const TIndex64 = (Depth << 9) | (tx64 << 6) | (ty64 << 3) | tz64;
@@ -164,19 +164,20 @@ export default class RRSLoader{
 
   LoadRegions(){
     const RequestedRegions = [];
-    for(let rx64 = 0; rx64 < 8; rx64++) for(let ry64 = 0; ry64 < 8; ry64++) for(let rz64 = 0; rz64 < 8; rz64++){
-      const Index = (rx64 << 6) | (ry64 << 3) | rz64;
-      const State = this.Data64[Index] >> 12;
-      if((State & 0b0011) === 0b0000){ //This means that it's not started loading.
+    for(let Depth = 0; Depth < 8; ++Depth) for(let rx64 = 0; rx64 < 8; rx64++) for(let ry64 = 0; ry64 < 8; ry64++) for(let rz64 = 0; rz64 < 8; rz64++){
+      const Index = (Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64;
+      const State = (this.Data64[Index] >> 12) & 3;
+      if(State === 0){ //This means that it's not started loading.
         this.Data64[Index] = (this.Data64[Index] & ~(0b0011 << 12)) | (0b0001 << 12); //Set state to 0bXX01 (Started loading)
-        const RegionX = rx64 + this.Data64Offset[0];
-        const RegionY = ry64 + this.Data64Offset[1];
-        const RegionZ = rz64 + this.Data64Offset[2];
-        RequestedRegions.push({RegionX, RegionY, RegionZ});
+        const RegionX = rx64 + this.Data64Offset[Depth * 3 + 0];
+        const RegionY = ry64 + this.Data64Offset[Depth * 3 + 1];
+        const RegionZ = rz64 + this.Data64Offset[Depth * 3 + 2];
+        RequestedRegions.push([Depth, RegionX, RegionY, RegionZ]);
       }
     }
-    for(const {RegionX, RegionY, RegionZ} of RequestedRegions){
-      this.LoadManager.RegionLoader.Stage1(RegionX, RegionY, RegionZ, this.LoadingBatch, RequestedRegions.length);
+    for(const [Depth, RegionX, RegionY, RegionZ] of RequestedRegions){
+      if(Depth === 0) this.LoadManager.RegionLoader.Stage1(RegionX, RegionY, RegionZ, this.LoadingBatch, RequestedRegions.length);
+      else this.LoadManager.RegionLoader.VirtualStage1(RegionX, RegionY, RegionZ, Depth, this.LoadingBatch, RequestedRegions.length);
       //I need to pass the batch size (last parameter) so that I know when the batch has finished loading.
     }
     if(RequestedRegions.length > 0) return this.LoadingBatch++;

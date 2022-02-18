@@ -30,19 +30,10 @@ export default class GPURegionDataLoader{
     const GPUTypes = this.LoadManager.GPUTypes;
     const Data64SegmentAllocations = this.LoadManager.Data64SegmentAllocations;
     const Data64SegmentIndices = this.LoadManager.Data64SegmentIndices;
-    for(let x64 = 1; x64 < 7; x64++) for(let y64 = 1; y64 < 7; y64++) for(let z64 = 1; z64 < 7; z64++){
-      const Index64 = (x64 << 6) | (y64 << 3) | z64;
+    for(let Depth = 0; Depth < 8; ++Depth) for(let x64 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
+      const Index64 = (Depth << 9) | (x64 << 6) | (y64 << 3) | z64;
       const Info64 = Data64[Index64];
       if(((Info64 >> 15) & 1) !== 0 || ((Info64 >> 14) & 1) === 0) continue; //Is empty, or doesn't need GPU update
-      if(((Info64 >> 18) & 1) !== 0){ //Propagate update
-        Data64[Index64] &= ~(1 << 18);
-        Data64[((x64 - 1) << 6) | (y64 << 3) | z64] |= 1 << 14;
-        Data64[((x64 + 1) << 6) | (y64 << 3) | z64] |= 1 << 14;
-        Data64[(x64 << 6) | ((y64 - 1) << 3) | z64] |= 1 << 14;
-        Data64[(x64 << 6) | ((y64 + 1) << 3) | z64] |= 1 << 14;
-        Data64[(x64 << 6) | (y64 << 3) | (z64 - 1)] |= 1 << 14;
-        Data64[(x64 << 6) | (y64 << 3) | (z64 + 1)] |= 1 << 14;
-      }
       Data64[Index64] &= ~(1 << 14); //Toggle GPU update to false
       const Location64 = Info64 & 0x0fff;
       const RequiredIndex8 = new Set;
@@ -72,9 +63,12 @@ export default class GPURegionDataLoader{
             [x8, y8, z8 + 1]
           ]){
             const dx64 = x64 + Math.floor(dx8 / 8.);
+            if(dx64 < 0 || dx64 > 7) continue;
             const dy64 = y64 + Math.floor(dy8 / 8.);
+            if(dy64 < 0 || dy64 > 7) continue;
             const dz64 = z64 + Math.floor(dz8 / 8.);
-            const dIndex64 = ((dx64 & 7) << 6) | ((dy64 & 7) << 3) | (dz64 & 7);
+            if(dz64 < 0 || dz64 > 7) continue;
+            const dIndex64 = (Depth << 9) | ((dx64 & 7) << 6) | ((dy64 & 7) << 3) | (dz64 & 7);
             if((Data64[dIndex64] & 0x8000) !== 0){
               if(((Data64[dIndex64] >> 16) & 1) === 1){ //Unloaded
                 if(!Required) continue;
@@ -115,7 +109,7 @@ export default class GPURegionDataLoader{
         if(!RequiredIndex8.has(Index8)) continue;
         //These are now going to get their data saved
         let GPUDataLocation1 = null;
-        const Index = Data64SegmentIndices[Index64];
+        const Index = Data64SegmentIndices[Index64]; //TODO: Don't have to do this for uniform data!!!###########
         if(Index === 16){
           const SegmentLocationStart = this.AllocateSegment(Index64);
           GPUDataLocation1 = SegmentLocationStart << 4;

@@ -9,8 +9,8 @@ export default class World{
   constructor(){
     this.Events = new Listenable;
 
-    this.VoxelTypes = new Uint16Array(new SharedArrayBuffer(2 * 512*2048*256)); //512 MB
-    this.Data1 = new Uint8Array(new SharedArrayBuffer(2 * 64*2048*256)); //64 MB
+    this.VoxelTypes = new Uint16Array(new SharedArrayBuffer(2 * 512*512*512));
+    this.Data1 = new Uint8Array(new SharedArrayBuffer(2 * 64*512*512)); //64 MB
     // (it's actually supposed to be 256*2048*256 to be full-size, but that including types would probably start wasting storage).
     // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
 
@@ -21,23 +21,22 @@ export default class World{
     this.Data8.fill(0x80000000);
 
     this.GPUData1 = new Uint8Array(new SharedArrayBuffer(64 * 512 * 512));
-    this.GPUData8 = new Uint32Array(new SharedArrayBuffer(4 * 512 * 512));
+    this.GPUData8 = new Uint32Array(new SharedArrayBuffer(4 * 8 * 512 * 512));
     this.GPUData64 = new Uint16Array(new SharedArrayBuffer(2 * 8 * 8 * 8 * 8));
     this.GPUTypes = new Uint16Array(new SharedArrayBuffer(2 * 512 * 512 * 512));
-    this.SegmentAllocation = new Uint16Array(new SharedArrayBuffer(2 * 32 * 512));
 
     this.GPUData64.fill(0x8000);
     this.GPUData8.fill(0x80000000);
 
 
     this.AllocationIndex = new Uint32Array(new SharedArrayBuffer(8)); //First slot is for allocation, second is for deallocation
-    this.AllocationArray = new Uint32Array(new SharedArrayBuffer(4 * 262144)); //Stores available Data8 slots
-    for(let i = 0, Length = 262144; i < Length; ++i) this.AllocationArray[i] = i; //Initialise allocation array
+    this.AllocationArray = new Uint32Array(new SharedArrayBuffer(4 * 262144)); //Stores available Data8 slots that have data (so not blank ones)
+    for(let i = 0; i < 262144; ++i) this.AllocationArray[i] = i; //Initialise allocation array
 
     //Same thing but for allocation of 64s
     this.AllocationIndex64 = new Uint16Array(new SharedArrayBuffer(4));
-    this.AllocationArray64 = new Uint16Array(new SharedArrayBuffer(2 * this.Data64.length));
-    for(let i = 0, Length = this.Data64.length; i < Length; ++i) this.AllocationArray64[i] = i;
+    this.AllocationArray64 = new Uint16Array(new SharedArrayBuffer(2 * 4096));
+    for(let i = 0, Length = 4096; i < Length; ++i) this.AllocationArray64[i] = i;
 
     this.Data64Offset = new Int32Array(new SharedArrayBuffer(96));
 

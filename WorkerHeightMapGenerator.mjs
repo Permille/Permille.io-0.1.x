@@ -69,6 +69,7 @@ EventHandler.GenerateHeightMap = function(Data){
   Requests++;
   const RegionX = Data.RegionX;
   const RegionZ = Data.RegionZ;
+  const Factor = 2 ** Data.Depth;
 
   const FloatHeightMap = new Float32Array(64 * 64);
   const FloatTemperatureMap = new Float32Array(64 * 64);
@@ -82,9 +83,9 @@ EventHandler.GenerateHeightMap = function(Data){
 
   for(let X = RegionX * 64, rX = 0, Stride = 0; rX < XLength; X++, rX++){
     for(let Z = RegionZ * 64, rZ = 0; rZ < ZLength; Z++, rZ++){
-      const Height = GetHeight(X, Z);
+      const Height = GetHeight(X * Factor, Z * Factor);
       FloatHeightMap[Stride] = Height;
-      FloatTemperatureMap[Stride++] = (Simplex.simplex2(64 * X / 1000, 64 * Z / 1000) / 2 + .5);
+      FloatTemperatureMap[Stride++] = (Simplex.simplex2(Factor * X / 1000, Factor * Z / 1000) / 2 + .5);
       if(MinHeight > Height) MinHeight = Height;
       if(MaxHeight < Height) MaxHeight = Height;
     }
@@ -101,7 +102,7 @@ EventHandler.GenerateHeightMap = function(Data){
         const SlopeX = Math.abs(FloatHeightMap[(CurrentX + AverageLength - 1) * 64 + CurrentZ] - Height);
         const SlopeZ = Math.abs(FloatHeightMap[CurrentX * 64 + AverageLength + CurrentZ - 1] - Height);
         const Slope = Math.max(SlopeX, SlopeZ); //TODO: Make a better slope calculation.
-        FloatSlopeMap[Stride++] = Slope;
+        FloatSlopeMap[Stride++] = Slope / Factor;
       }
     }
   }

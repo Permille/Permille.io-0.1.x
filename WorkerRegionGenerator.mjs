@@ -57,34 +57,34 @@ let AllocationIndex, AllocationArray;
 let AllocationIndex64, AllocationArray64;
 let Data64Offset;
 
-function AllocateData8(StartIndex8, x8, y8, z8) {
-  const Index = Atomics.add(AllocationIndex, 0, 1) & 262143;
+function AllocateData8(StartIndex8, x8, y8, z8){
+  const Index = Atomics.add(AllocationIndex, 0, 1) & 0x0003ffff;
   const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
   Data8[(StartIndex8 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location | 0x40000000;
   return Location;
 }
 
-function AllocateData64(x64, y64, z64){
-  x64 -= Data64Offset[0];
-  y64 -= Data64Offset[1];
-  z64 -= Data64Offset[2];
+function AllocateData64(x64, y64, z64, Depth){
+  //x64 -= Data64Offset[Depth * 3 + 0];
+  //y64 -= Data64Offset[Depth * 3 + 1];
+  //z64 -= Data64Offset[Depth * 3 + 2];
   //Need to set coordinates within boundaries
-  const Index = Atomics.add(AllocationIndex64, 0, 1) & 511;
+  const Index = Atomics.add(AllocationIndex64, 0, 1) & 4095;
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
 
-  Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset any previous location, and set first bit to 0 to mark existence.
-  Data64[(x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0b1000111111111111; //Reset any previous location, and set first bit to 0 to mark existence.
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
   return Location64;
 }
 
-function DeallocateData64(Location64, x64, y64, z64){
-  x64 -= Data64Offset[0];
-  y64 -= Data64Offset[1];
-  z64 -= Data64Offset[2];
-  const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 511; //Indexing 1 for deallocation.
+function DeallocateData64(Location64, x64, y64, z64, Depth){
+  //x64 -= Data64Offset[Depth * 3 + 0];
+  //y64 -= Data64Offset[Depth * 3 + 1];
+  //z64 -= Data64Offset[Depth * 3 + 2];
+  const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 4095; //Indexing 1 for deallocation.
   Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
-  Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset previous location and existence marker.
-  Data64[(x64 << 6) | (y64 << 3) | z64] |= 0b1000000000000000; //Set existence marker to indicate that it's empty.
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0b1000111111111111; //Reset previous location and existence marker.
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] |= 0b1000000000000000; //Set existence marker to indicate that it's empty.
 }
 
 EventHandler.InitialiseBlockRegistry = function(Data){
@@ -178,10 +178,8 @@ EventHandler.GenerateRegionData = function(Data){
   const SlopeMap = Data.SlopeMap;
   const TemperatureMap = Data.TemperatureMap;
 
-  let UniformType = undefined;
-  let IsEntirelySolid = true;
 
-  const Location64 = AllocateData64(RegionX, RegionY, RegionZ);
+  const Location64 = AllocateData64(rx64, ry64, rz64, 0);
 
   const x1Offset = RegionX * 64;
   const y1Offset = RegionY * 64;
@@ -237,14 +235,20 @@ EventHandler.GenerateRegionData = function(Data){
     }
     //Now, since something was actually written to the temp buffer, write it to the Data1 buffer:
     const Location8 = AllocateData8(Location64, x8, y8, z8); //This automatically registers the Data8
-    VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
-    Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
+    try {
+
+      VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
+      Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
+    } catch(e){
+      console.log(Location8);
+      debugger;
+    }
   }
   const Index64 = (rx64 << 6) | (ry64 << 3) | rz64;
   if(Data64[Index64] & 0x8000) console.log(Data64[Index64]);
 
   if(!WrittenTo64){
-    DeallocateData64(Location64, RegionX, RegionY, RegionZ);
+    DeallocateData64(Location64, rx64, ry64, rz64, 0);
   }
 
 
@@ -262,24 +266,21 @@ EventHandler.GenerateRegionData = function(Data){
 };
 
 EventHandler.GenerateVirtualRegionData = function(Data){
-  const Depth = Data.Depth;
   const RegionX = Data.RegionX;
   const RegionY = Data.RegionY;
   const RegionZ = Data.RegionZ;
+  const Depth = Data.Depth;
 
-  if(Data.SharedData[REGION_SD.UNLOAD_TIME] >= 0){
-    if(OwnQueueSize) OwnQueueSize[0]--;
-    return;
-  }
+  const rx64 = RegionX - Data64Offset[Depth * 3 + 0];
+  const ry64 = RegionY - Data64Offset[Depth * 3 + 1];
+  const rz64 = RegionZ - Data64Offset[Depth * 3 + 2];
+
   Requests++;
 
-  const FACTOR = 2 ** (1 + Data.Depth);
-  const X_SCALE = Region.X_LENGTH * FACTOR;
-  const Y_SCALE = Region.Y_LENGTH * FACTOR;
-  const Z_SCALE = Region.Z_LENGTH * FACTOR;
-  const SIDE_LENGTH_SQUARED = Region.X_LENGTH * Region.Z_LENGTH;
-  const RegionData = Data.RegionData;
-  const IntHeightMap = Data.IntHeightMap;
+  const Factor = 2 ** Data.Depth;
+  const XScale = 64 * Factor;
+  const YScale = 64 * Factor;
+  const ZScale = 64 * Factor;
 
   const AirID = MainBlockRegistry.GetBlockByIdentifier("primary:air").ID;
   const GrassID = MainBlockRegistry.GetBlockByIdentifier("default:grass").ID;
@@ -292,19 +293,31 @@ EventHandler.GenerateVirtualRegionData = function(Data){
   const SlopeMap = Data.SlopeMap;
   const TemperatureMap = Data.TemperatureMap;
 
-  let UniformType = undefined;
-  let IsEntirelySolid = true;
+  const Location64 = AllocateData64(rx64, ry64, rz64, Depth);
+  const Index64 = (Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64;
 
-  for(let X = RegionX * X_SCALE, rX = 0, Stride = 0; rX < Region.X_LENGTH; X += FACTOR, rX++){
-    for(let Z = RegionZ * Z_SCALE, rZ = 0; rZ < Region.Z_LENGTH; Z += FACTOR, rZ++){
-      const Height = Math.floor(HeightMap[Stride] / FACTOR) * FACTOR;
-      const Slope = SlopeMap[Stride];
-      IntHeightMap[Stride++] = Math.min(Math.max((Height / FACTOR) - RegionY * Region.Y_LENGTH, -128), 127);
-      for(let Y = RegionY * Y_SCALE, rY = 0; rY < Region.Y_LENGTH; Y += FACTOR, rY++){
+  if(Data64[Index64] & 0x8000) console.log("Allocation: " + Data64[Index64]);
+
+  let WrittenTo64 = false;
+  for(let x8 = 0; x8 < 8; ++x8) for(let y8 = 0; y8 < 8; ++y8) for(let z8 = 0; z8 < 8; ++z8){
+    const Index8 = (Location64 << 9) | (x8 << 6) | (y8 << 3) | z8;
+    TempDataBuffer.set(EmptyDataBuffer, 0);
+    TempTypeBuffer.set(EmptyTypeBuffer, 0);
+    let WrittenTo8 = false;
+    let UniformType = -1;
+    let HasUniformType = -1;
+    for(let x1 = 0; x1 < 8; ++x1) for(let z1 = 0; z1 < 8; ++z1){
+      const XPos64 = (x8 << 3) | x1;
+      const ZPos64 = (z8 << 3) | z1;
+      const MapIndex = (XPos64 << 6) | ZPos64;
+      const Height = Math.floor(HeightMap[MapIndex] / Factor) * Factor;
+      const Slope = SlopeMap[MapIndex];
+      for(let y1 = 0; y1 < 8; ++y1){
         let Type;
+        const Y = (RegionY * 64 + y8 * 8 + y1) * Factor;
         if(Height > Y){
           if(Slope < 4 - Height / 350) Type = GrassID;
-          else if(Slope < 5.5570110493301 - Height / 350) Type = RockID;
+          else if(Slope < 5.5570110493302 - Height / 350) Type = RockID;
           else Type = Rock1ID;
         }
         else{
@@ -314,16 +327,55 @@ EventHandler.GenerateVirtualRegionData = function(Data){
             Type = AirID;
           }
         }
-        if(UniformType !== false){
-          if(UniformType === undefined) UniformType = Type;
-          else if(Type !== UniformType) UniformType = false;
+        if(Type !== UniformType){
+          UniformType = Type;
+          HasUniformType++;
         }
-
-        RegionData[rX * Region.Z_LENGTH * Region.Y_LENGTH + rY * Region.Z_LENGTH + rZ] = Type;
-        if(IsEntirelySolid && (Type === 0 || Type === 4)) IsEntirelySolid = false;
+        if(Type !== 0) WrittenTo8 = true;
+        TempDataBuffer[(x1 << 6) | (y1 << 3) | z1] = Type;
+        if(Type !== 0){ //For now, this just checks against air, but it will be more complicated than that...
+          TempTypeBuffer[(x1 << 3) | y1] |= 0 << z1 * 2;
+        } else TempTypeBuffer[(x1 << 3) | y1] |= 1 << z1;
       }
     }
+    if(!WrittenTo8) continue;
+    WrittenTo64 = true;
+    if(HasUniformType === 0){ //Means that it has a uniform type, and can be compressed.
+      Data8[Index8] = (1 << 28);    //Mark Data8 region as uniform type
+      Data8[Index8] |= UniformType; //Set uniform type in first 16 bits
+      Data8[Index8] |= (1 << 30);   //Mark it as updated to be sent to the gpu (this is usually done in AllocateData8 function)
+      continue;
+    }
+    //Now, since something was actually written to the temp buffer, write it to the Data1 buffer:
+    const Location8 = AllocateData8(Location64, x8, y8, z8); //This automatically registers the Data8
+    VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
+    Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
   }
+
+
+  if(Data64[Index64] & 0x8000) console.log(Data64[Index64]);
+
+  if(!WrittenTo64){
+    DeallocateData64(Location64, rx64, ry64, rz64, Depth);
+  }
+
+  Data64[Index64] = (Data64[Index64] & ~(0b0011 << 12)) | (0b0010 << 12); //Set state to 0bXX10 (finished terrain loading)
+  Data64[Index64] |= (1 << 14);
+
+  if(OwnQueueSize) OwnQueueSize[0]--;
+
+
+  self.postMessage({
+    "Request": "GeneratedRegionData",
+    "RegionX": Data.RegionX,
+    "RegionY": Data.RegionY,
+    "RegionZ": Data.RegionZ,
+    "Depth": Data.Depth,
+    "LoadingBatch": Data.LoadingBatch
+  });
+
+  return;
+  /*
 
   const Paster = function(x, y, z, BlockType){
     if(BlockType === 0) return;
@@ -402,8 +454,7 @@ EventHandler.GenerateVirtualRegionData = function(Data){
     "RegionY": Data.RegionY,
     "RegionZ": Data.RegionZ,
     "RegionData": RegionData,
-    "IntHeightMap": IntHeightMap,
     "CommonBlock": CommonBlock,
     "IsEntirelySolid": IsEntirelySolid
-  });
+  });*/
 };

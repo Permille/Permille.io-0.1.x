@@ -48,7 +48,7 @@ export default class WorkerLoadingPipelineHandler{
           break;
         }
         default:{
-          throw new Error("Handler doesn't exist.");
+          this.Events.FireEventListeners(Request, Event.data);
         }
       }
     }.bind(this));

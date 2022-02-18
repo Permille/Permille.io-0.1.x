@@ -11,6 +11,7 @@ export default class RegionUnloader{
     this.AllocationArray = LoadManager.AllocationArray;
 
     void function Load(){
+      return;
       self.setTimeout(Load.bind(this), 10);
       this.UnloadRegions();
     }.bind(this)();
@@ -18,7 +19,7 @@ export default class RegionUnloader{
   UnloadData64(x64, y64, z64){
     const Index64 = (x64 << 6) | (y64 << 3) | z64;
     if(((this.Data64[Index64] >> 15) & 1) === 1 || ((this.Data64[Index64] >> 17) & 1) === 1) return; //Is all air or is unloadable
-    const DeallocIndex = Atomics.add(this.AllocationIndex64, 1, 1) & 511; //Indexing 1 for deallocation.
+    const DeallocIndex = Atomics.add(this.AllocationIndex64, 1, 1) & 4095; //Indexing 1 for deallocation.
     const Location64 = this.Data64[Index64] & 0x0fff;
     for(let i = 0; i < 512; ++i) this.DeallocateData8((Location64 << 9) | i)
     Atomics.store(this.AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
@@ -35,6 +36,7 @@ export default class RegionUnloader{
     this.Data8[Index8] = 0x80000000;
   }
   UnloadRegions(){
+    return;
     const Data64 = this.LoadManager.Data64;
     const Data8 = this.LoadManager.Data8;
     const Data1 = this.LoadManager.Data1;

@@ -45,7 +45,7 @@ class Application{
 
     this.Main = new Main;
     this.Main.RegisterDependencies();
-    this.Debug = new Debug;
+    //this.Debug = new Debug;
   }
 }
 window.Application = Application;

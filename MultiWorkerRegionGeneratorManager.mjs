@@ -29,7 +29,7 @@ class WorkerRegionGenerator{
 
     this.Worker.addEventListener("message", function(Event){
       if(Event.data.Request !== "Skipped") self.postMessage(Event.data); //"SaveRegionData", "SaveVirtualRegionData", "UnloadedRegionError", "UnloadedVirtualRegionError"
-      if(Event.data.Request === "GeneratedRegionData"){
+      if(true || Event.data.Request === "GeneratedRegionData"){
         const LoadingBatch = Event.data.LoadingBatch;
         BatchItemsDone[LoadingBatch] ||= 0;
         BatchItemsDone[LoadingBatch]++;
@@ -184,5 +184,6 @@ EventHandler.GenerateRegionData = function(Data){
 };
 
 EventHandler.GenerateVirtualRegionData = function(Data){
+  BatchItemsSent[Data.LoadingBatch] ||= Data.BatchSize;
   QueueWorkerTask(Data);
 };

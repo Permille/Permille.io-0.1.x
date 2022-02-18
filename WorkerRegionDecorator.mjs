@@ -57,29 +57,51 @@ let AllocationIndex, AllocationArray;
 let AllocationIndex64, AllocationArray64;
 let Data64Offset;
 
-let Data8Length = 262144;
-let Data8Mod = 262143;
-
 const EmptyData1 = new Uint8Array(64).fill(0b11111111); //Empty
 const EmptyVoxelTypes = new Uint16Array(512); //Air
 
 function AllocateData8(Location64, x8, y8, z8) {
-  const Index = Atomics.add(AllocationIndex, 0, 1) & Data8Mod;
+  const Index = Atomics.add(AllocationIndex, 0, 1) & 0x0003ffff;
   const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
-  Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location | 0x40000000;
+  Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location | 0x40000000; //GPU update
   Data1.set(EmptyData1, Location << 6);
   VoxelTypes.set(EmptyVoxelTypes, Location << 9);
   return Location;
 }
 
 function AllocateData64(x64, y64, z64){
-  const Index = Atomics.add(AllocationIndex64, 0, 1) & 511;
+  const Index = Atomics.add(AllocationIndex64, 0, 1) & 4095;
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
   if(Location64 === 65535) debugger;
-
-  Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000000111111111; //Reset any previous location, and set first bit to 0 to mark existence.
-  Data64[(x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
+  const Index64 = (x64 << 6) | (y64 << 3) | z64;
+  if(((Data64[Index64] >> 16) & 1) === 1){ //Region was unloaded... well, that's a slight problem...
+    Data64[Index64] &= ~(1 << 16); //Unflag unloaded
+    Data64[Index64] |= 1 << 17;    //Make unloadable
+    Data64[Index64] &= ~(3 << 12); //Reset loading state
+  }
+  Data64[Index64] &=~0b1000111111111111; //Reset any previous location, and set first bit to 0 to mark existence.
+  Data64[Index64] |= Location64; //This is the StartIndex8 used in the other function.
+  Data64[Index64] |= 1 << 14; //Set GPU update to true
   return Location64;
+}
+
+function DeallocateData8(Index8){
+  const Location = Data8[Index8];
+  if((Location & 0x80000000) !== 0) return;
+  const DeallocIndex = Atomics.add(AllocationIndex, 1, 1) & 0x0003ffff;
+  Atomics.store(AllocationArray, DeallocIndex, Location);
+  Data8[Index8] = 0x80000000;
+}
+
+function UnloadData64(x64, y64, z64){
+  const Index64 = (x64 << 6) | (y64 << 3) | z64;
+  if(((Data64[Index64] >> 15) & 1) === 1 || ((Data64[Index64] >> 17) & 1) === 1) return; //Is all air or is unloadable
+  const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 4095; //Indexing 1 for deallocation.
+  const Location64 = Data64[Index64] & 0x0fff;
+  for(let i = 0; i < 512; ++i) DeallocateData8((Location64 << 9) | i)
+  Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
+  Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000111111111111; //Reset previous location and existence marker.
+  Data64[(x64 << 6) | (y64 << 3) | z64] |=0b11000000000000000; //Set unloaded and inexistence markers.
 }
 
 EventHandler.InitialiseBlockRegistry = function(Data){
@@ -131,7 +153,6 @@ EventHandler.DecorateRegion = function(Data){
   const Index64 = (rx64 << 6) | (ry64 << 3) | rz64;
   const ModifiedData64 = new Set([Index64]); //Add current region to modification set (so it's uploaded to the gpu)
   Data64[Index64] &= ~(1 << 14); //Suppress updates while region is being modified. This will be set at the end.
-
   const SetBlock = function(X, Y, Z, BlockType){
     if(BlockType === 0) return;
     const ix64 = rx64 + (X >> 6);
@@ -139,17 +160,24 @@ EventHandler.DecorateRegion = function(Data){
     const iz64 = rz64 + (Z >> 6);
     const Index64 = (ix64 << 6) | (iy64 << 3) | iz64;
     ModifiedData64.add(Index64);
-    let Location64 = Data64[Index64];
-
+    let Info64 = Data64[Index64];
+    let Location64 = Info64 & 0x0fff;
     //I could probably remove this check by allocating it beforehand, and deallocating it if nothing was written to it
-    if((Location64 & 0x8000) !== 0) Location64 = AllocateData64(ix64, iy64, iz64);
-
-    Location64 &= 0x01ff; //Remove metadata and just get location
+    if((Info64 & 0x8000) !== 0) Location64 = AllocateData64(ix64, iy64, iz64);
+    Data64[Index64] |= 0x4000;
+    Data64[Index64] &= ~(1 << 15);
     const Index8 = (Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7);
-    let Location8 = Data8[Index8];
-    if((Location8 & 0x80000000) !== 0) Location8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
-    Location8 &= 0x0003ffff;
-    Data8[Index8] |= 0x40000000; //Looks like this has to be done every time.
+    let Info8 = Data8[Index8];
+    if((Info8 & 0x80000000) !== 0) Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+    else if((Info8 & 0x10000000) !== 0){ //Uniform type, have to decompress
+      const UniformType = Info8 & 0x0000ffff;
+      Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+      const Location8 = Info8 & 0x0003ffff;
+      for(let i = 0; i < 512; ++i) VoxelTypes[(Location8 << 9) | i] = UniformType;
+      for(let i = 0; i < 64; ++i) Data1[(Location8 << 6) | i] = 0;
+    }
+    const Location8 = Info8 & 0x0003ffff;
+    Data8[Index8] |= 0x40000000; //Looks like this has to be done every time. (GPU update)
     const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
     Data1[Index] &= ~(1 << (Z & 7)); //Sets it to 0, which means subdivide (full)
     VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;
@@ -162,7 +190,7 @@ EventHandler.DecorateRegion = function(Data){
 
     const Random = RandomValue(X + RegionX * 64, 0, Z + RegionZ * 64);
 
-    if((RegionY + 1) * 64 > PasteHeight && PasteHeight > RegionY * 64){
+    if((RegionY + 1) * 64 > PasteHeight && PasteHeight >= RegionY * 64){
       if(Random > Temperature / 2) continue;
       if(PasteHeight < 0) continue;
       const Y = PasteHeight - RegionY * 64;
@@ -173,9 +201,8 @@ EventHandler.DecorateRegion = function(Data){
       //SetBlock(X, PasteHeight - RegionY * 64, Z, 5);
     }
   }
-  for(const Index64 of ModifiedData64) Data64[Index64] = Data64[Index64] | (1 << 14); //Request update (Finished stage 3)
+  for(const Index64 of ModifiedData64) Data64[Index64] |= (1 << 14); //Request update (Finished stage 3)
   if(OwnQueueSize) OwnQueueSize[0]--;
-
   self.postMessage({
     "Request": "Finished",
     RegionX,

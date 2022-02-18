@@ -28,7 +28,7 @@ export default class Raymarcher{
     this.VoxelTypesTex.format = THREE.RedIntegerFormat;
     this.VoxelTypesTex.type = THREE.UnsignedShortType;
     this.VoxelTypesTex.minFilter = this.VoxelTypesTex.magFilter = THREE.NearestFilter;
-    this.VoxelTypesTex.unpackAlignment = 8;
+    this.VoxelTypesTex.unpackAlignment = 1;
     this.VoxelTypesTex.needsUpdate = true;
 
 
@@ -37,11 +37,11 @@ export default class Raymarcher{
     this.Tex1.format = THREE.RedIntegerFormat;
     this.Tex1.type = THREE.UnsignedByteType;
     this.Tex1.minFilter = this.Tex1.magFilter = THREE.NearestFilter;
-    this.Tex1.unpackAlignment = 8;
+    this.Tex1.unpackAlignment = 1;
     this.Tex1.needsUpdate = true;
 
 
-    this.Tex8 = new THREE.DataTexture3D(this.GPUData8, 1, 512, 512);
+    this.Tex8 = new THREE.DataTexture3D(this.GPUData8, 8, 512, 512);
     this.Tex8.internalFormat = "R32UI";
     this.Tex8.format = THREE.RedIntegerFormat;
     this.Tex8.type = THREE.UnsignedIntType;
@@ -184,11 +184,11 @@ export default class Raymarcher{
         }
         uint GetLocation8(int Location64, vec3 RayPosFloor){
           ivec3 mRayPosFloor = (ivec3(RayPosFloor) >> 3) & 7; //Gets location within 8
-          int Pos8XYZ = (mRayPosFloor.x << 6) | (mRayPosFloor.y << 3) | mRayPosFloor.z;
-          return texelFetch(iTex8, ivec3(0, Pos8XYZ, Location64), 0).r;
+          int Pos8XYZ = ((Location64 & 7) << 6) | (mRayPosFloor.x << 3) | mRayPosFloor.y;
+          return texelFetch(iTex8, ivec3(mRayPosFloor.z, Pos8XYZ, Location64 >> 3), 0).r;
         }
         int GetType1(int Location8, vec3 RayPosFloor, out int Colour){
-          if(RayPosFloor.x < 0. || RayPosFloor.y < 0. || RayPosFloor.z < 0. || RayPosFloor.x > 511. || RayPosFloor.y > 511. || RayPosFloor.z > 511.) return 0;
+          //if(RayPosFloor.x < 0. || RayPosFloor.y < 0. || RayPosFloor.z < 0. || RayPosFloor.x > 511. || RayPosFloor.y > 511. || RayPosFloor.z > 511.) return 0;
           ivec3 mRayPosFloor = ivec3(RayPosFloor) & 7; //Gets location within 1
           int Pos1XY = (mRayPosFloor.x << 3) | mRayPosFloor.y;
           
@@ -214,7 +214,7 @@ export default class Raymarcher{
         int GetTypeDirectly(vec3 RayPosFloor){
           int Location64 = GetLocation64(RayPosFloor);
           if((Location64 & 0x8000) != 0) return 49151;
-          uint Location8 = GetLocation8(Location64 & 0x01ff, RayPosFloor);
+          uint Location8 = GetLocation8(Location64 & 0x0fff, RayPosFloor);
           if((Location8 & 0x80000000u) != 0u) return 49151;
           int Colour;
           GetType1(int(Location8 & 0x3fffffffu), RayPosFloor, Colour);
@@ -223,7 +223,7 @@ export default class Raymarcher{
         int GetMaskDirectly(vec3 RayPosFloor){
           int Location64 = GetLocation64(RayPosFloor);
           if((Location64 & 0x8000) != 0) return 1;
-          uint Location8 = GetLocation8(Location64 & 0x01ff, RayPosFloor);
+          uint Location8 = GetLocation8(Location64 & 0x0fff, RayPosFloor);
           if((Location8 & 0x80000000u) != 0u) return 1;
           return GetType1(int(Location8 & 0x3fffffffu), RayPosFloor);
         }
@@ -380,7 +380,7 @@ export default class Raymarcher{
               }
               case 2:{ //64
                 int Result = GetLocation64(TrueRayPosFloor);
-                Location64 = Result & 0x01ff;
+                Location64 = Result & 0x0fff;
                 VoxelState = Result >> 15; //Get whether it exists
                 break;
               }
@@ -483,8 +483,8 @@ export default class Raymarcher{
       //TODO: This still causes small lag spikes when updating.
       //Possible fixes: spread out updates, merge nearby segments, etc
       const UpdatedData64 = [];
-      for(let x64 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
-        const Index64 = (x64 << 6) | (y64 << 3) | z64;
+      for(let Depth = 0; Depth < 8; ++Depth) for(let x64 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
+        const Index64 = (Depth << 9) | (x64 << 6) | (y64 << 3) | z64;
         if(((this.GPUData64[Index64] >> 14) & 1) === 1) UpdatedData64.push(Index64);
       }
 

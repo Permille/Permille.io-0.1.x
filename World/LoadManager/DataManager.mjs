@@ -9,7 +9,7 @@ export function DeallocateData8Init(Data8, AllocationIndex, AllocationArray){
     const Location = Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8];
     if((Location & (1 << 31)) !== 0) return;
     if((Location & (1 << 28)) === 0) { //Is not of uniform type
-      const DeallocIndex = Atomics.add(AllocationIndex, 1, 1) & 262143;
+      const DeallocIndex = Atomics.add(AllocationIndex, 1, 1) & 0x0003ffff;
       Atomics.store(AllocationArray, DeallocIndex, Location);
     }
     Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = 0x80000000;
@@ -17,10 +17,10 @@ export function DeallocateData8Init(Data8, AllocationIndex, AllocationArray){
 };
 
 export function DeallocateData64Init(Data64, AllocationIndex64, AllocationArray64){
-  return function(Location64, x64, y64, z64){
-    if((Data64[(x64 << 6) | (y64 << 3) | z64] & 0x8000) !== 0) return;
-    const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 511; //Indexing 1 for deallocation.
+  return function(Location64, x64, y64, z64, Depth){
+    if((Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] & 0x8000) !== 0) return;
+    const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 4095; //Indexing 1 for deallocation.
     Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
-    Data64[(x64 << 6) | (y64 << 3) | z64] = 0b1000000000000000;
+    Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] = 0b1000000000000000;
   };
 };

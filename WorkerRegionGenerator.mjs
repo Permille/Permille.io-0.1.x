@@ -113,10 +113,9 @@ EventHandler.ShareQueueSize = function(Data){
 
 EventHandler.SaveDistancedPointMap = function(Data){
   console.time();
-  ScaledDistancedPointMap["-1"] = Data.DistancedPointMap;
-  const OriginalDPM = ScaledDistancedPointMap["-1"];
+  ScaledDistancedPointMap[0] = Data.DistancedPointMap;
   let Width = 8;
-  let Depth = 0;
+  let Depth = 1;
   do{
     ScaledDistancedPointMap[Depth] = {};
     const CurrentSDPM = ScaledDistancedPointMap[Depth];
@@ -351,7 +350,72 @@ EventHandler.GenerateVirtualRegionData = function(Data){
     VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
     Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
   }
+  const SetBlock = function(X, Y, Z, BlockType){
+    if(BlockType === 0 || X < 0 || Y < 0 || Z < 0 || X > 63 || Y > 63 || Z > 63) return;
 
+    const Index8 = (Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7);
+    let Info8 = Data8[Index8];
+    if((Info8 & 0x80000000) !== 0){
+      Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+      for(let i = 0; i < 64; ++i) Data1[((Info8 & 0x0003ffff) << 6) | i] = 255; //Clear Data1
+    }
+    else if((Info8 & 0x10000000) !== 0){ //Uniform type, have to decompress
+      const UniformType = Info8 & 0x0000ffff;
+      Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+      const Location8 = Info8 & 0x0003ffff;
+      for(let i = 0; i < 512; ++i) VoxelTypes[(Location8 << 9) | i] = UniformType;
+      for(let i = 0; i < 64; ++i) Data1[(Location8 << 6) | i] = 0;
+    }
+    const Location8 = Info8 & 0x0003ffff;
+    Data8[Index8] |= 0x40000000; //Looks like this has to be done every time. (GPU update)
+    const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
+    Data1[Index] &= ~(1 << (Z & 7)); //Sets it to 0, which means subdivide (full)
+    VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;
+  };
+
+  if(Depth < 4){
+    const Width = 8 / Factor;
+    const SDPM6 = ScaledDistancedPointMap[Depth][6][((RegionX & (Width - 1)) * Width) | (RegionZ & (Width - 1))];
+    for(const Point of SDPM6){
+      const RNG = RandomValue(Point.X + RegionX * Factor * 64, 0, Point.X + RegionZ * Factor * 64);
+      const OriginalX = Point.X;
+      const OriginalZ = Point.Z;
+      const X = Math.round(OriginalX / Factor - .5);
+      const Z = Math.round(OriginalZ / Factor - .5);
+      const Temperature = TemperatureMap[(X << 6) | Z];
+
+      if(RNG > Temperature / 2.) continue;
+      if(Depth === 4 && RandomValue(OriginalX, 0, OriginalZ) > .25) continue;
+
+      const PasteHeight = Math.floor(HeightMap[(X << 6) | Z]) / Factor;
+      if(PasteHeight < 0) continue;
+      if(!((RegionY + 1) * 64 > PasteHeight && PasteHeight > RegionY * 64 - 32)) continue;
+
+      WrittenTo64 = true;
+      const TreeRNG = RandomValue(Point.X + RegionX * Factor * 64, 1, Point.X + RegionZ * Factor * 64);
+      //Notice how for ^^ the Y value is 1, this is so that a different random value is generated.
+      const Tree = Math.floor(TreeRNG * Structures.length);
+      Structures[Tree].Selection.DirectPaste(X, PasteHeight - RegionY * 64, Z, Factor, MainBlockRegistry, SetBlock);
+
+      if(Depth > 1 && PasteHeight > RegionY * 64 && PasteHeight < (RegionY + 1) * 64){
+        if(PasteHeight < 0 || PasteHeight >= 64) continue; //TODO: Wtf?#######################
+        const Height = Math.floor(HeightMap[(X << 6) | Z] / Factor) - RegionY * 64 + 1;
+        SetBlock(X, Height, Z, LeavesID);
+      }
+    }
+  } else if(false){
+    for(let X = 0; X < 64; ++X) for(let Z = 0; Z < 64; ++Z){
+      const RNG = RandomValue(X, 1, Z);
+      const Temperature = TemperatureMap[(X << 6) | Z];
+      if(RNG > Temperature / 2.) continue;
+
+      const PasteHeight = Math.floor(HeightMap[(X << 6) | Z] / Factor) - RegionY * 64;
+      if(PasteHeight < 0 || PasteHeight >= 64) continue;
+
+      WrittenTo64 = true;
+      SetBlock(X, PasteHeight, Z, LeavesID);
+    }
+  }
 
   if(Data64[Index64] & 0x8000) console.log(Data64[Index64]);
 

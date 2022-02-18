@@ -96,7 +96,15 @@ export class Main{
         const Utilisation = ((AllocationIndex[0] - AllocationIndex[1]) & (Size8 - 1)) / Size8;
         const Utilisation64 = ((AllocationIndex64[0] - AllocationIndex64[1]) & (Size64 - 1)) / Size64;
         return `Buffer utilisation: 8: ${Math.round(Utilisation * 1e5) / 1e3}%, 64: ${Math.round(Utilisation64 * 1e5) / 1e3}%`;
-      }
+      }, function(){
+        const AllocationIndex = Application.Main.World.AllocationIndex;
+        let LastUtilisation = -1;
+        let Time = 0;
+        return function(){
+          if(LastUtilisation !== (LastUtilisation = AllocationIndex[0] - AllocationIndex[1])) Time = window.performance.now();
+          return `Last update: ${Math.round(Time)}`;
+        }
+      }()
     ]);
     Main.MLE.Init.Done(Main.Identifier);
   }

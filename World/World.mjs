@@ -9,8 +9,10 @@ export default class World{
   constructor(){
     this.Events = new Listenable;
 
-    this.VoxelTypes = new Uint16Array(new SharedArrayBuffer(2 * 512*512*512));
-    this.Data1 = new Uint8Array(new SharedArrayBuffer(2 * 64*512*512)); //64 MB
+    this.Data8Size = 524288;
+
+    this.VoxelTypes = new Uint16Array(new SharedArrayBuffer(2 * 512*this.Data8Size));
+    this.Data1 = new Uint8Array(new SharedArrayBuffer(2 * 64*this.Data8Size)); //64 MB
     // (it's actually supposed to be 256*2048*256 to be full-size, but that including types would probably start wasting storage).
     // it's unlikely that the entire buffer will be used anyway, and I can always add functionality to expand it if and when required.
 
@@ -30,8 +32,8 @@ export default class World{
 
 
     this.AllocationIndex = new Uint32Array(new SharedArrayBuffer(8)); //First slot is for allocation, second is for deallocation
-    this.AllocationArray = new Uint32Array(new SharedArrayBuffer(4 * 262144)); //Stores available Data8 slots that have data (so not blank ones)
-    for(let i = 0; i < 262144; ++i) this.AllocationArray[i] = i; //Initialise allocation array
+    this.AllocationArray = new Uint32Array(new SharedArrayBuffer(4 * this.Data8Size)); //Stores available Data8 slots that have data (so not blank ones)
+    for(let i = 0; i < this.Data8Size; ++i) this.AllocationArray[i] = i; //Initialise allocation array
 
     //Same thing but for allocation of 64s
     this.AllocationIndex64 = new Uint16Array(new SharedArrayBuffer(4));

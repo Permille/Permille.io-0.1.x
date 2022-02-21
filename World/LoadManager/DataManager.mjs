@@ -9,7 +9,7 @@ export function DeallocateData8Init(Data8, AllocationIndex, AllocationArray){
     const Location = Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8];
     if((Location & (1 << 31)) !== 0) return;
     if((Location & (1 << 28)) === 0) { //Is not of uniform type
-      const DeallocIndex = Atomics.add(AllocationIndex, 1, 1) & 0x0003ffff;
+      const DeallocIndex = Atomics.add(AllocationIndex, 1, 1) & (AllocationArray.length - 1);
       Atomics.store(AllocationArray, DeallocIndex, Location);
     }
     Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = 0x80000000;

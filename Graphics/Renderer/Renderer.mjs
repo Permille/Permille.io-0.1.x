@@ -226,40 +226,34 @@ const CloudFragmentShader = `
     return col;
   }
   
-  vec3 RotateX(vec3 v, float a){
-    mat3 RotationMatrix = mat3(1., 0.,     0.,
-                               0., cos(a),-sin(a),
-                               0., sin(a), cos(a));
-    return v * RotationMatrix;
+  mat3 RotateX(float a){
+    float c = cos(a);
+    float s = sin(a);
+    return mat3(1.,0.,0.,
+                0., c,-s,
+                0., s, c);
   }
-  vec3 RotateY(vec3 v, float a){
-    mat3 RotationMatrix = mat3(cos(a), 0., sin(a),
-                               0.,     1., 0.,
-                              -sin(a), 0., cos(a));
-    return v * RotationMatrix;
+  mat3 RotateY(float a){
+    float c = cos(a);
+    float s = sin(a);
+    return mat3(c, 0., s,
+               0., 1.,0.,
+               -s, 0., c);
+  }
+  mat3 RotateZ(float a){
+    float c = cos(a);
+    float s = sin(a);
+    return mat3(c, s,0.,
+               -s, c,0.,
+               0.,0.,1.);
   }
   
   void MainImage(out vec4 fragColor, in vec2 fragCoord){
-    vec2 uv = fragCoord.xy / iResolution.xy;
-    uv.x *= iResolution.x / iResolution.y;
-    
-    //https://discourse.threejs.org/t/getting-screen-coords-in-shadermaterial-shaders/23783/2
-    vec2 ScreenCoords = vPosition.xy;
-    ScreenCoords.x *= iResolution.x / iResolution.y;
-    ScreenCoords /= vPosition.w;
-    ScreenCoords.xy *= iScalingFactor;
-    
-    vec3 EyeProjection = vec3(ScreenCoords, 1.);
-    
-    vec3 RayDirection = normalize(RotateY(RotateX(EyeProjection, iRotation.x), iRotation.y));
-    
-    vec3 CurrentPosition = iPosition;
-    
-    vec3 Vector = vec3(0., 1., 0.);
-    
-    CurrentPosition.y = 0.;
+    vec2 uv = (fragCoord.xy * 2. - iResolution.xy) / iResolution.y;
+    vec3 RayOrigin = iPosition;
+    vec3 RayDirection = normalize(vec3(uv, .8)) * RotateX(-iRotation.x) * RotateY(-iRotation.y);
   
-    fragColor = vec4(linear_to_srgb(render(CurrentPosition, RayDirection)), 1);
+    fragColor = vec4(linear_to_srgb(render(RayOrigin, RayDirection)), 1);
     
     return;
   }
@@ -349,6 +343,7 @@ export default class Renderer{
     this.SimplexTexture.wrapR = THREE.RepeatWrapping; //z
     this.SimplexTexture.minFilter = this.SimplexTexture.magFilter = THREE.LinearFilter;
     this.SimplexTexture.unpackAlignment = 1;
+    this.SimplexTexture.needsUpdate = true;
 
     this.BackgroundMaterial = new THREE.ShaderMaterial({
       "side": THREE.DoubleSide,
@@ -456,11 +451,12 @@ export default class Renderer{
     this.Camera.rotation.order = "YXZ"; //?
   }
   Render(){
+    this.Events.FireEventListeners("BeforeRender");
     this.RenderTime = window.performance.now() - this.LastRender;
     this.LastRender = window.performance.now();
 
     this.BackgroundRenderer.clear();
-    //this.BackgroundRenderer.render(this.BackgroundScene, this.BackgroundCamera);
+    this.BackgroundRenderer.render(this.BackgroundScene, this.BackgroundCamera);
 
     this.Renderer.setRenderTarget(this.ScaledTarget); //For whatever reason, I need to do this no matter whether I'm upscaling so I don't get weird errors...
     if(this.UseScaledTarget){

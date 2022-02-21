@@ -51,5 +51,10 @@ export default class LoadManager{
     this.GPURegionDataLoader = new GPURegionDataLoader(this);
     this.RegionUnloader = new RegionUnloader(this);
     this.RRSLoader = new RRSLoader(this);
+
+    void function Load() {
+      self.setTimeout(Load.bind(this), 1000);
+      console.log(this.FreeSegments.length);
+    }.bind(this)();
   }
 };

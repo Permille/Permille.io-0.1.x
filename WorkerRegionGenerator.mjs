@@ -8,6 +8,13 @@ import * as DataManager from "./World/LoadManager/DataManager.mjs";
 
 ReSeed(17); //This is for pasting trees..
 
+class NoData8Exception extends Error {
+  constructor() {
+    super("Ran out of Data8 memory.");
+    this.name = "NoData8Exception";
+  }
+}
+
 let Requests = 0;
 let RequestsWhenLastGC = 0;
 let RequestsWhenLastCheck = 0;
@@ -58,8 +65,12 @@ let AllocationIndex64, AllocationArray64;
 let Data64Offset;
 
 function AllocateData8(StartIndex8, x8, y8, z8){
-  const Index = Atomics.add(AllocationIndex, 0, 1) & 0x0003ffff;
+  const Index = Atomics.add(AllocationIndex, 0, 1) & (AllocationArray.length - 1);
   const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
+  if(Location === 2147483647){
+    Atomics.sub(AllocationIndex, 0, 1);
+    throw new NoData8Exception;
+  }
   Data8[(StartIndex8 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location | 0x40000000;
   return Location;
 }
@@ -75,6 +86,16 @@ function AllocateData64(x64, y64, z64, Depth){
   Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0b1000111111111111; //Reset any previous location, and set first bit to 0 to mark existence.
   Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
   return Location64;
+}
+
+function DeallocateData8(Index8){
+  const Location = Data8[Index8];
+  if((Location & 0x80000000) !== 0) return;
+  if((Location & 0x10000000) === 0){ //Doesn't have uniform type, so has to deallocate Data1 and VoxelTypes memory
+    const DeallocIndex = Atomics.add(AllocationIndex, 1, 1) & (AllocationArray.length - 1);
+    Atomics.store(AllocationArray, DeallocIndex, Location);
+  }
+  Data8[Index8] = 0x80000000;
 }
 
 function DeallocateData64(Location64, x64, y64, z64, Depth){
@@ -134,7 +155,7 @@ EventHandler.SaveDistancedPointMap = function(Data){
           for(const Point of PreviousDensity[(X + dx) * Width + Z + dz]){
             const PointX = Point.X;
             const PointZ = Point.Z;
-            CurrentDensity[Identifier].push({"X": 32 * (2 ** (Depth)) * dx + PointX, "Z": 32 * (2 ** (Depth)) * dz + PointZ});
+            CurrentDensity[Identifier].push({"X": (64 << (Depth - 1)) * dx + PointX, "Z": (64 << (Depth - 1)) * dz + PointZ});
           }
         }
       }
@@ -184,6 +205,7 @@ EventHandler.GenerateRegionData = function(Data){
   const y1Offset = RegionY * 64;
   const z1Offset = RegionZ * 64;
 
+  const Index64 = (rx64 << 6) | (ry64 << 3) | rz64;
   let WrittenTo64 = false;
   for(let x8 = 0; x8 < 8; ++x8) for(let y8 = 0; y8 < 8; ++y8) for(let z8 = 0; z8 < 8; ++z8){
     const Index8 = (Location64 << 9) | (x8 << 6) | (y8 << 3) | z8;
@@ -233,17 +255,27 @@ EventHandler.GenerateRegionData = function(Data){
       continue;
     }
     //Now, since something was actually written to the temp buffer, write it to the Data1 buffer:
-    const Location8 = AllocateData8(Location64, x8, y8, z8); //This automatically registers the Data8
+    let Location8;
     try {
-
-      VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
-      Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
-    } catch(e){
-      console.log(Location8);
-      debugger;
+      Location8 = AllocateData8(Location64, x8, y8, z8); //This automatically registers the Data8
+    } catch(Error){
+      if(Error instanceof NoData8Exception){
+        Data64[Index64] &= ~(0b0011 << 12); //Set state to 0
+        for(let i = 0; i < 512; ++i){
+          const Index8 = (Location64 << 9) | i;
+          DeallocateData8(Index8);
+        }
+        DeallocateData64(Location64, rx64, ry64, rz64, 0);
+        if(OwnQueueSize) OwnQueueSize[0]--;
+        return self.postMessage({
+          "Request": "NoData8"
+        });
+      } else throw Error;
     }
+
+    VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
+    Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
   }
-  const Index64 = (rx64 << 6) | (ry64 << 3) | rz64;
   if(Data64[Index64] & 0x8000) console.log(Data64[Index64]);
 
   if(!WrittenTo64){
@@ -297,134 +329,140 @@ EventHandler.GenerateVirtualRegionData = function(Data){
 
   if(Data64[Index64] & 0x8000) console.log("Allocation: " + Data64[Index64]);
 
-  let WrittenTo64 = false;
-  for(let x8 = 0; x8 < 8; ++x8) for(let y8 = 0; y8 < 8; ++y8) for(let z8 = 0; z8 < 8; ++z8){
-    const Index8 = (Location64 << 9) | (x8 << 6) | (y8 << 3) | z8;
-    TempDataBuffer.set(EmptyDataBuffer, 0);
-    TempTypeBuffer.set(EmptyTypeBuffer, 0);
-    let WrittenTo8 = false;
-    let UniformType = -1;
-    let HasUniformType = -1;
-    for(let x1 = 0; x1 < 8; ++x1) for(let z1 = 0; z1 < 8; ++z1){
-      const XPos64 = (x8 << 3) | x1;
-      const ZPos64 = (z8 << 3) | z1;
-      const MapIndex = (XPos64 << 6) | ZPos64;
-      const Height = Math.floor(HeightMap[MapIndex] / Factor) * Factor;
-      const Slope = SlopeMap[MapIndex];
-      for(let y1 = 0; y1 < 8; ++y1){
-        let Type;
-        const Y = (RegionY * 64 + y8 * 8 + y1) * Factor;
-        if(Height > Y){
-          if(Slope < 4 - Height / 350) Type = GrassID;
-          else if(Slope < 5.5570110493302 - Height / 350) Type = RockID;
-          else Type = Rock1ID;
-        }
-        else{
-          if(Height < 0 && Y < 0){
-            Type = WaterID;
-          } else{
-            Type = AirID;
+  try {
+    let WrittenTo64 = false;
+    for (let x8 = 0; x8 < 8; ++x8) for (let y8 = 0; y8 < 8; ++y8) for (let z8 = 0; z8 < 8; ++z8) {
+      const Index8 = (Location64 << 9) | (x8 << 6) | (y8 << 3) | z8;
+      TempDataBuffer.set(EmptyDataBuffer, 0);
+      TempTypeBuffer.set(EmptyTypeBuffer, 0);
+      let WrittenTo8 = false;
+      let UniformType = -1;
+      let HasUniformType = -1;
+      for (let x1 = 0; x1 < 8; ++x1) for (let z1 = 0; z1 < 8; ++z1) {
+        const XPos64 = (x8 << 3) | x1;
+        const ZPos64 = (z8 << 3) | z1;
+        const MapIndex = (XPos64 << 6) | ZPos64;
+        const Height = Math.floor(HeightMap[MapIndex] / Factor) * Factor;
+        const Slope = SlopeMap[MapIndex];
+        for (let y1 = 0; y1 < 8; ++y1) {
+          let Type;
+          const Y = (RegionY * 64 + y8 * 8 + y1) * Factor;
+          if (Height > Y) {
+            if (Slope < 4 - Height / 350) Type = GrassID;
+            else if (Slope < 5.5570110493302 - Height / 350) Type = RockID;
+            else Type = Rock1ID;
+          } else {
+            if (Height < 0 && Y < 0) {
+              Type = WaterID;
+            } else {
+              Type = AirID;
+            }
           }
+          if (Type !== UniformType) {
+            UniformType = Type;
+            HasUniformType++;
+          }
+          if (Type !== 0) WrittenTo8 = true;
+          TempDataBuffer[(x1 << 6) | (y1 << 3) | z1] = Type;
+          if (Type !== 0) { //For now, this just checks against air, but it will be more complicated than that...
+            TempTypeBuffer[(x1 << 3) | y1] |= 0 << z1 * 2;
+          } else TempTypeBuffer[(x1 << 3) | y1] |= 1 << z1;
         }
-        if(Type !== UniformType){
-          UniformType = Type;
-          HasUniformType++;
-        }
-        if(Type !== 0) WrittenTo8 = true;
-        TempDataBuffer[(x1 << 6) | (y1 << 3) | z1] = Type;
-        if(Type !== 0){ //For now, this just checks against air, but it will be more complicated than that...
-          TempTypeBuffer[(x1 << 3) | y1] |= 0 << z1 * 2;
-        } else TempTypeBuffer[(x1 << 3) | y1] |= 1 << z1;
+      }
+      if (!WrittenTo8) continue;
+      WrittenTo64 = true;
+      if (HasUniformType === 0) { //Means that it has a uniform type, and can be compressed.
+        Data8[Index8] = (1 << 28);    //Mark Data8 region as uniform type
+        Data8[Index8] |= UniformType; //Set uniform type in first 16 bits
+        Data8[Index8] |= (1 << 30);   //Mark it as updated to be sent to the gpu (this is usually done in AllocateData8 function)
+        continue;
+      }
+      //Now, since something was actually written to the temp buffer, write it to the Data1 buffer:
+      const Location8 = AllocateData8(Location64, x8, y8, z8); //This automatically registers the Data8
+      VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
+      Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
+    }
+    const SetBlock = function (X, Y, Z, BlockType) {
+      if (BlockType === 0 || X < 0 || Y < 0 || Z < 0 || X > 63 || Y > 63 || Z > 63) return;
+
+      const Index8 = (Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7);
+      let Info8 = Data8[Index8];
+      if ((Info8 & 0x80000000) !== 0) {
+        Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+        for (let i = 0; i < 64; ++i) Data1[((Info8 & 0x00ffffff) << 6) | i] = 255; //Clear Data1
+      } else if ((Info8 & 0x10000000) !== 0) { //Uniform type, have to decompress
+        const UniformType = Info8 & 0x0000ffff;
+        Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+        const Location8 = Info8 & 0x00ffffff;
+        for (let i = 0; i < 512; ++i) VoxelTypes[(Location8 << 9) | i] = UniformType;
+        for (let i = 0; i < 64; ++i) Data1[(Location8 << 6) | i] = 0;
+      }
+      const Location8 = Info8 & 0x00ffffff;
+      Data8[Index8] |= 0x40000000; //Looks like this has to be done every time. (GPU update)
+      const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
+      Data1[Index] &= ~(1 << (Z & 7)); //Sets it to 0, which means subdivide (full)
+      VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;
+    };
+
+    if (Depth < 4) {
+      const Width = 8 / Factor;
+      const SDPM6 = ScaledDistancedPointMap[Depth][6][((RegionX & (Width - 1)) * Width) | (RegionZ & (Width - 1))];
+      for (const Point of SDPM6) {
+        const RNG = RandomValue(Point.X + RegionX * Factor * 64, 0, Point.Z + RegionZ * Factor * 64);
+        const OriginalX = Point.X;
+        const OriginalZ = Point.Z;
+        const X = Math.round(OriginalX / Factor - .5);
+        const Z = Math.round(OriginalZ / Factor - .5);
+        const Temperature = TemperatureMap[(X << 6) | Z];
+
+        if (RNG > Temperature / 2.) continue;
+        if(Depth === 3 && RNG > Temperature / 3.) continue;
+
+        const PasteHeight = Math.floor(HeightMap[(X << 6) | Z]) / Factor;
+        if (PasteHeight < 0) continue;
+        if (!((RegionY + 1) * 64 > PasteHeight && PasteHeight > RegionY * 64 - 32)) continue;
+
+        WrittenTo64 = true;
+        const TreeRNG = RandomValue(Point.X + RegionX * Factor * 64, 1, Point.X + RegionZ * Factor * 64);
+        //Notice how for ^^ the Y value is 1, this is so that a different random value is generated.
+        const Tree = Math.floor(TreeRNG * Structures.length);
+        Structures[Tree].Selection.DirectPaste(X, PasteHeight - RegionY * 64, Z, Factor, MainBlockRegistry, SetBlock);
+      }
+    } else {
+      for (let X = 0; X < 64; ++X) for (let Z = 0; Z < 64; ++Z) {
+        const RNG = RandomValue(X, 1, Z);
+        const Temperature = TemperatureMap[(X << 6) | Z];
+        if (RNG > Temperature / 2.) continue;
+
+        const PasteHeight = Math.floor(HeightMap[(X << 6) | Z] / Factor) - RegionY * 64;
+        if (PasteHeight < 0 || PasteHeight >= 64) continue;
+
+        WrittenTo64 = true;
+        SetBlock(X, PasteHeight, Z, LeavesID);
       }
     }
-    if(!WrittenTo8) continue;
-    WrittenTo64 = true;
-    if(HasUniformType === 0){ //Means that it has a uniform type, and can be compressed.
-      Data8[Index8] = (1 << 28);    //Mark Data8 region as uniform type
-      Data8[Index8] |= UniformType; //Set uniform type in first 16 bits
-      Data8[Index8] |= (1 << 30);   //Mark it as updated to be sent to the gpu (this is usually done in AllocateData8 function)
-      continue;
+
+    if (Data64[Index64] & 0x8000) console.log(Data64[Index64]);
+
+    if (!WrittenTo64) {
+      DeallocateData64(Location64, rx64, ry64, rz64, Depth);
     }
-    //Now, since something was actually written to the temp buffer, write it to the Data1 buffer:
-    const Location8 = AllocateData8(Location64, x8, y8, z8); //This automatically registers the Data8
-    VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
-    Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
-  }
-  const SetBlock = function(X, Y, Z, BlockType){
-    if(BlockType === 0 || X < 0 || Y < 0 || Z < 0 || X > 63 || Y > 63 || Z > 63) return;
 
-    const Index8 = (Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7);
-    let Info8 = Data8[Index8];
-    if((Info8 & 0x80000000) !== 0){
-      Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
-      for(let i = 0; i < 64; ++i) Data1[((Info8 & 0x0003ffff) << 6) | i] = 255; //Clear Data1
-    }
-    else if((Info8 & 0x10000000) !== 0){ //Uniform type, have to decompress
-      const UniformType = Info8 & 0x0000ffff;
-      Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
-      const Location8 = Info8 & 0x0003ffff;
-      for(let i = 0; i < 512; ++i) VoxelTypes[(Location8 << 9) | i] = UniformType;
-      for(let i = 0; i < 64; ++i) Data1[(Location8 << 6) | i] = 0;
-    }
-    const Location8 = Info8 & 0x0003ffff;
-    Data8[Index8] |= 0x40000000; //Looks like this has to be done every time. (GPU update)
-    const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
-    Data1[Index] &= ~(1 << (Z & 7)); //Sets it to 0, which means subdivide (full)
-    VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;
-  };
-
-  if(Depth < 4){
-    const Width = 8 / Factor;
-    const SDPM6 = ScaledDistancedPointMap[Depth][6][((RegionX & (Width - 1)) * Width) | (RegionZ & (Width - 1))];
-    for(const Point of SDPM6){
-      const RNG = RandomValue(Point.X + RegionX * Factor * 64, 0, Point.X + RegionZ * Factor * 64);
-      const OriginalX = Point.X;
-      const OriginalZ = Point.Z;
-      const X = Math.round(OriginalX / Factor - .5);
-      const Z = Math.round(OriginalZ / Factor - .5);
-      const Temperature = TemperatureMap[(X << 6) | Z];
-
-      if(RNG > Temperature / 2.) continue;
-      if(Depth === 4 && RandomValue(OriginalX, 0, OriginalZ) > .25) continue;
-
-      const PasteHeight = Math.floor(HeightMap[(X << 6) | Z]) / Factor;
-      if(PasteHeight < 0) continue;
-      if(!((RegionY + 1) * 64 > PasteHeight && PasteHeight > RegionY * 64 - 32)) continue;
-
-      WrittenTo64 = true;
-      const TreeRNG = RandomValue(Point.X + RegionX * Factor * 64, 1, Point.X + RegionZ * Factor * 64);
-      //Notice how for ^^ the Y value is 1, this is so that a different random value is generated.
-      const Tree = Math.floor(TreeRNG * Structures.length);
-      Structures[Tree].Selection.DirectPaste(X, PasteHeight - RegionY * 64, Z, Factor, MainBlockRegistry, SetBlock);
-
-      if(Depth > 1 && PasteHeight > RegionY * 64 && PasteHeight < (RegionY + 1) * 64){
-        if(PasteHeight < 0 || PasteHeight >= 64) continue; //TODO: Wtf?#######################
-        const Height = Math.floor(HeightMap[(X << 6) | Z] / Factor) - RegionY * 64 + 1;
-        SetBlock(X, Height, Z, LeavesID);
+    Data64[Index64] = (Data64[Index64] & ~(0b0011 << 12)) | (0b0010 << 12); //Set state to 0bXX10 (finished terrain loading)
+    Data64[Index64] |= (1 << 14);
+  } catch(Error){
+    if(Error instanceof NoData8Exception){
+      Data64[Index64] &= ~(0b0011 << 12); //Set state to 0
+      for(let i = 0; i < 512; ++i){
+        const Index8 = (Location64 << 9) | i;
+        DeallocateData8(Index8);
       }
-    }
-  } else if(false){
-    for(let X = 0; X < 64; ++X) for(let Z = 0; Z < 64; ++Z){
-      const RNG = RandomValue(X, 1, Z);
-      const Temperature = TemperatureMap[(X << 6) | Z];
-      if(RNG > Temperature / 2.) continue;
-
-      const PasteHeight = Math.floor(HeightMap[(X << 6) | Z] / Factor) - RegionY * 64;
-      if(PasteHeight < 0 || PasteHeight >= 64) continue;
-
-      WrittenTo64 = true;
-      SetBlock(X, PasteHeight, Z, LeavesID);
-    }
+      DeallocateData64(Location64, rx64, ry64, rz64, 0);
+      return self.postMessage({
+        "Request": "NoData8"
+      });
+    } else throw Error;
   }
-
-  if(Data64[Index64] & 0x8000) console.log(Data64[Index64]);
-
-  if(!WrittenTo64){
-    DeallocateData64(Location64, rx64, ry64, rz64, Depth);
-  }
-
-  Data64[Index64] = (Data64[Index64] & ~(0b0011 << 12)) | (0b0010 << 12); //Set state to 0bXX10 (finished terrain loading)
-  Data64[Index64] |= (1 << 14);
 
   if(OwnQueueSize) OwnQueueSize[0]--;
 
@@ -437,88 +475,4 @@ EventHandler.GenerateVirtualRegionData = function(Data){
     "Depth": Data.Depth,
     "LoadingBatch": Data.LoadingBatch
   });
-
-  return;
-  /*
-
-  const Paster = function(x, y, z, BlockType){
-    if(BlockType === 0) return;
-    if(x < 0 || x >= 32 || y < 0 || y >= 64 || z < 0 || z >= 32) return;
-    RegionData[x * 2048 + y * 32 + z] = BlockType;
-  };
-
-  const Scale = 2 ** (Depth + 1);
-
-  if(Depth <= 3){
-    const Width = 16 / (2 ** (Depth + 1));
-    const SDPM6 = ScaledDistancedPointMap[Depth][6][(RegionX & (Width - 1)) * Width + (RegionZ & (Width - 1))]; //Change this later.
-
-    for(const Point of SDPM6){
-      const RNG = RandomValue(Point.X + RegionX * Scale * 32, 0, Point.Z + RegionZ * Scale * 32);
-
-      const OriginalX = Point.X;
-      const OriginalZ = Point.Z;
-
-      const X = Math.round(Point.X / Scale - 0.5);
-      const Z = Math.round(Point.Z / Scale - 0.5); //The -0.5 is so the values are in range [0, 31]
-
-      const Temperature = TemperatureMap[X * 32 + Z];
-
-      if(RNG > Temperature / 2) continue;
-
-      if(Depth === 3 && RandomValue(Point.X, 0, Point.Z) > 0.25) continue;
-
-      const PasteHeight = Math.floor(HeightMap[X * 32 + Z] / Scale);
-      if(PasteHeight < 0) continue;
-      if((RegionY + 1) * 64 > PasteHeight && PasteHeight > RegionY * 64 - 32){
-        IsEntirelySolid = false;
-        UniformType = false;
-        //                             Important: the Y vvv value is 1 as to generate a different hash than for the temperature.
-        const Tree = (RandomValue(X + RegionX * 32, 1, Z + RegionZ * 32) * Structures.length) >> 0;
-        Structures[Tree].Selection.DirectPaste(X, PasteHeight - RegionY * 64, Z, Scale, MainBlockRegistry, Paster);
-
-        if(Depth > 1 && PasteHeight > RegionY * 64 && PasteHeight < (RegionY + 1) * 64){
-          const Height = Math.floor(HeightMap[X * 32 + Z] / Scale) - RegionY * 64 + 1;
-          if(PasteHeight < 0 || PasteHeight >= 64) continue;
-
-          RegionData[X * 2048 + Height * 32 + Z] = LeavesID;
-        }
-      }
-    }
-  } else{
-    for(let i = 0; i < 60 * (Depth + 1); i++){
-      const X = Math.floor(Math.random() * 32);
-      const Z = Math.floor(Math.random() * 32);
-
-      const RNG = RandomValue(X, 0, Z); //Don't really care.
-
-      const Temperature = TemperatureMap[X * 32 + Z];
-
-      if(RNG > Temperature / 2) continue;
-
-      const PasteHeight = Math.floor(HeightMap[X * 32 + Z] / Scale);
-      if(PasteHeight > RegionY * 64 && PasteHeight < (RegionY + 1) * 64){
-        const Height = Math.floor(HeightMap[X * 32 + Z] / Scale) - RegionY * 64;// + 1;
-        if(PasteHeight < 0 || PasteHeight >= 64) continue;
-
-        RegionData[X * 2048 + Height * 32 + Z] = LeavesID;
-      }
-    }
-  }
-
-  let CommonBlock = -1;
-  if(UniformType !== false) CommonBlock = UniformType;
-
-  if(OwnQueueSize) OwnQueueSize[0]--;
-
-  self.postMessage({
-    "Request": "SaveVirtualRegionData",
-    "Depth": Depth,
-    "RegionX": Data.RegionX,
-    "RegionY": Data.RegionY,
-    "RegionZ": Data.RegionZ,
-    "RegionData": RegionData,
-    "CommonBlock": CommonBlock,
-    "IsEntirelySolid": IsEntirelySolid
-  });*/
 };

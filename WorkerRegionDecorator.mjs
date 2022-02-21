@@ -3,6 +3,13 @@ import REGION_SD from "./World/RegionSD.mjs";
 import BlockRegistry from "./Block/BlockRegistry.mjs";
 import SVM from "./Libraries/SVM/SVM.mjs";
 
+class NoData8Exception extends Error {
+  constructor() {
+    super("Ran out of Data8 memory.");
+    this.name = "NoData8Exception";
+  }
+}
+
 let Requests = 0;
 let RequestsWhenLastGC = 0;
 let RequestsWhenLastCheck = 0;
@@ -61,8 +68,12 @@ const EmptyData1 = new Uint8Array(64).fill(0b11111111); //Empty
 const EmptyVoxelTypes = new Uint16Array(512); //Air
 
 function AllocateData8(Location64, x8, y8, z8) {
-  const Index = Atomics.add(AllocationIndex, 0, 1) & 0x0003ffff;
+  const Index = Atomics.add(AllocationIndex, 0, 1) & (AllocationArray.length - 1);
   const Location = Atomics.exchange(AllocationArray, Index, 2147483647); //Probably doesn't need to be atomic. Setting 2147483647 to mark location as invalid.
+  if(Location === 2147483647){
+    Atomics.sub(AllocationIndex, 0, 1);
+    throw new NoData8Exception;
+  }
   Data8[(Location64 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location | 0x40000000; //GPU update
   Data1.set(EmptyData1, Location << 6);
   VoxelTypes.set(EmptyVoxelTypes, Location << 9);
@@ -88,7 +99,7 @@ function AllocateData64(x64, y64, z64){
 function DeallocateData8(Index8){
   const Location = Data8[Index8];
   if((Location & 0x80000000) !== 0) return;
-  const DeallocIndex = Atomics.add(AllocationIndex, 1, 1) & 0x0003ffff;
+  const DeallocIndex = Atomics.add(AllocationIndex, 1, 1) & (AllocationArray.length - 1);
   Atomics.store(AllocationArray, DeallocIndex, Location);
   Data8[Index8] = 0x80000000;
 }
@@ -168,15 +179,25 @@ EventHandler.DecorateRegion = function(Data){
     Data64[Index64] &= ~(1 << 15);
     const Index8 = (Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7);
     let Info8 = Data8[Index8];
-    if((Info8 & 0x80000000) !== 0) Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
-    else if((Info8 & 0x10000000) !== 0){ //Uniform type, have to decompress
-      const UniformType = Info8 & 0x0000ffff;
-      Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
-      const Location8 = Info8 & 0x0003ffff;
-      for(let i = 0; i < 512; ++i) VoxelTypes[(Location8 << 9) | i] = UniformType;
-      for(let i = 0; i < 64; ++i) Data1[(Location8 << 6) | i] = 0;
+    try {
+      if ((Info8 & 0x80000000) !== 0) Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+      else if ((Info8 & 0x10000000) !== 0) { //Uniform type, have to decompress
+        const UniformType = Info8 & 0x0000ffff;
+        Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+        const Location8 = Info8 & 0x00ffffff;
+        for (let i = 0; i < 512; ++i) VoxelTypes[(Location8 << 9) | i] = UniformType;
+        for (let i = 0; i < 64; ++i) Data1[(Location8 << 6) | i] = 0;
+      }
+    } catch(Error){
+      if(Error instanceof NoData8Exception){
+        console.error("Ran out of Data8 while decorating region.");
+        if(OwnQueueSize) OwnQueueSize[0]--;
+        return self.postMessage({
+          "Request": "NoData8"
+        });
+      } else throw Error;
     }
-    const Location8 = Info8 & 0x0003ffff;
+    const Location8 = Info8 & 0x00ffffff;
     Data8[Index8] |= 0x40000000; //Looks like this has to be done every time. (GPU update)
     const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
     Data1[Index] &= ~(1 << (Z & 7)); //Sets it to 0, which means subdivide (full)
@@ -191,7 +212,7 @@ EventHandler.DecorateRegion = function(Data){
     const Random = RandomValue(X + RegionX * 64, 0, Z + RegionZ * 64);
 
     if((RegionY + 1) * 64 > PasteHeight && PasteHeight >= RegionY * 64){
-      if(Random > Temperature / 2) continue;
+      if(Random > Temperature / 2.) continue;
       if(PasteHeight < 0) continue;
       const Y = PasteHeight - RegionY * 64;
       //if(Random < 0.97) continue;

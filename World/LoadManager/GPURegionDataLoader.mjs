@@ -45,7 +45,7 @@ export default class GPURegionDataLoader{
         if((Info8 & 0x40000000) !== 0){
           let Required = false;
           if((Info8 & 0x10000000) === 0){ //Does not have uniform type
-            const StartLocation1 = (Info8 & 0x0003ffff) << 6;
+            const StartLocation1 = (Info8 & 0x00ffffff) << 6;
             for (let i = StartLocation1; i < StartLocation1 + 64; ++i) { //TODO: Also check surroundings.
               if (Data1[i] !== 0) { //This means that at least one of the blocks isn't solid, meaning that it has to be added.
                 Required = true;
@@ -133,7 +133,7 @@ export default class GPURegionDataLoader{
             GPUTypes[GPUTypesStart | i] = Type;
           }
         } else{ //Not uniform type, has saved data, copy it over
-          const Location8 = Data8[Index8] & 0x0003ffff;
+          const Location8 = Data8[Index8] & 0x00ffffff;
           const Data1Start = Location8 << 6;
           const VoxelTypesStart = Location8 << 9;
           for(let i = 0; i < 64; ++i){ //TODO: change this to .set if possible, https://stackoverflow.com/a/35563895

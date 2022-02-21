@@ -1,4 +1,5 @@
 import * as THREE from "../../Libraries/Three/Three.js";
+import Simplex from "../../Simplex.js";
 
 export default class Raymarcher{
   constructor(World, Renderer){
@@ -77,11 +78,13 @@ export default class Raymarcher{
         iTex1: {value: this.Tex1},
         iTex8: {value: this.Tex8},
         iTex64: {value: this.Tex64},
+        iOffset64: {value: this.World.Data64Offset, "type": "iv"},
         iColour: {value: this.Renderer.ScaledTarget.texture},
         iDepth: {value: this.Renderer.ScaledTarget.depthTexture},
         iRenderSize: {value: 1.},
         iIsFirstPass: {value: true},
         iUpscalingKernelSize: {value: 4.},
+        iSimplexTexture: {value: this.SimplexTexture},
         FOV: {value: 110}
       },
       "transparent": true,
@@ -120,6 +123,7 @@ export default class Raymarcher{
         uniform mediump usampler3D iVoxelTypesTex;
         uniform sampler2D iColour;
         uniform sampler2D iDepth;
+        uniform ivec3 iOffset64[8];
         uniform bool iIsFirstPass;
         uniform float iUpscalingKernelSize;
         uniform float iRenderSize;
@@ -127,6 +131,7 @@ export default class Raymarcher{
         
         const float InDegrees = .01745329;
         const float PI = 3.14159;
+        
         
         mat3 RotateX(float a){
           float c = cos(a);
@@ -150,15 +155,13 @@ export default class Raymarcher{
                      0.,0.,1.);
         }
         
+        
         //Voxel grid hierarchy implementation
         //Based on abje's octree tracer: https://www.shadertoy.com/view/4sVfWw
-        const float MAX_DISTANCE = 1250.;
+        const float MAX_DISTANCE = 42000.;
         const float MAX_ROUGHNESS_DISTANCE = 30.;
         const int MAX_DETAIL = 2;
         const int MIN_DETAIL = -2;
-        
-        const float SCALE = 8.; //Only works for powers of 2
-        const int POWER = int(log2(SCALE));
         
         const float Log16385 = log(16385.);
         
@@ -178,9 +181,12 @@ export default class Raymarcher{
           return fract(1223.34 * sin(dot(v,vec3(18.111, 13.252, 17.129))));
         }
         
-        int GetLocation64(vec3 RayPosFloor){
-          ivec3 mRayPosFloor = ivec3(RayPosFloor) >> 6; //Divides by 64. (gets location within 64, don't need to mod because this is the texture size)
-          return int(texelFetch(iTex64, mRayPosFloor.zyx, 0).r);
+        int GetLocation64(vec3 RayPosFloor, uint Depth){
+          ivec3 mRayPosFloor = ivec3(RayPosFloor) >> (6u + Depth); //Divides by 64 (times the LOD level). (gets location within 64, don't need to mod because this is the texture size)
+          ivec3 Position = mRayPosFloor.zyx - iOffset64[Depth].zyx;
+          if(Position.x < 0 || Position.y < 0 || Position.z < 0 || Position.x > 7 || Position.y > 7 || Position.z > 7) return -1;
+          Position.z += int(Depth) * 8; //Select correct LOD level
+          return int(texelFetch(iTex64, Position, 0).r);
         }
         uint GetLocation8(int Location64, vec3 RayPosFloor){
           ivec3 mRayPosFloor = (ivec3(RayPosFloor) >> 3) & 7; //Gets location within 8
@@ -212,7 +218,7 @@ export default class Raymarcher{
           return int((texelFetch(iTex1, iRayPosFloor, 0).r >> Offset) & 1u);
         }
         int GetTypeDirectly(vec3 RayPosFloor){
-          int Location64 = GetLocation64(RayPosFloor);
+          int Location64 = GetLocation64(RayPosFloor, 0u);
           if((Location64 & 0x8000) != 0) return 49151;
           uint Location8 = GetLocation8(Location64 & 0x0fff, RayPosFloor);
           if((Location8 & 0x80000000u) != 0u) return 49151;
@@ -221,17 +227,16 @@ export default class Raymarcher{
           return Colour;
         }
         int GetMaskDirectly(vec3 RayPosFloor){
-          int Location64 = GetLocation64(RayPosFloor);
+          int Location64 = GetLocation64(RayPosFloor, 0u);
           if((Location64 & 0x8000) != 0) return 1;
           uint Location8 = GetLocation8(Location64 & 0x0fff, RayPosFloor);
           if((Location8 & 0x80000000u) != 0u) return 1;
           return GetType1(int(Location8 & 0x3fffffffu), RayPosFloor);
         }
-        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, vec3 RayOrigin){
-          float Distance = length(RayPosFloor - RayOrigin);
+        int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, float Distance){
           if(Level > -2) return 0;
           //if(Distance > (MAX_ROUGHNESS_DISTANCE + 25.)) return 2;
-          float Unloading = max((length(RayOrigin - floor(RayPosFloor)) - 25.) / MAX_ROUGHNESS_DISTANCE, 0.);
+          float Unloading = max((Distance - 25.) / MAX_ROUGHNESS_DISTANCE, 0.);
           
           vec3 Intermediate = fract(RayPosFloor) - .4995;
           bvec3 RayPosSides = greaterThanEqual(abs(Intermediate), vec3(7./16.));
@@ -276,42 +281,23 @@ export default class Raymarcher{
           return 2;
         }
         
-        void mainImage(out vec4 fragColor, in vec2 fragCoord){
-          vec2 uv = (fragCoord.xy * 2. - iResolution.xy) / iResolution.y;
-          vec3 RayOrigin = iPosition;
-          vec3 TrueRayOrigin = RayOrigin;
-          vec3 RayDirection = normalize(vec3(uv, .8)) * RotateX(iRotation.x) * RotateY(iRotation.y);
-          vec3 RayDirectionSign = sign(RayDirection);
+        vec4 Raytrace(vec3 RayOrigin, vec3 RayDirection, float Distance, uint Depth, int Steps){
+          float Factor = float(1 << Depth);
           
+          vec3 TrueRayOrigin = RayOrigin;
+          vec3 RayDirectionSign = sign(RayDirection);
           vec3 Mask = vec3(0.);
           vec3 Mask1 = vec3(0.);
           bool ExitLevel = false;
+          bool NextLODLevel = false;
           int Level = MAX_DETAIL;
-          float Size = pow(SCALE, float(MAX_DETAIL));
-          float Distance = 0.;
+          float Size = pow(8., float(MAX_DETAIL)) * Factor;
           bool HitVoxel = false;
           
-          vec3 Colour = vec3(0.);
+          vec4 Colour = vec4(0.);
           int VoxelType = 0;
           
           vec3 s = vec3(0.);
-          
-          if(!iIsFirstPass){
-            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / iUpscalingKernelSize * iRenderSize);
-            Colour = texelFetch(iColour, ScaledCoordinates, 0).rgb; //Backup colour in case nothing is hit
-            float Depth = DecodeLogarithmicDepth(texelFetch(iDepth, ScaledCoordinates, 0).r);//intBitsToFloat((Converted.x << 24) | (Converted.y << 16) | (Converted.z << 8) | Converted.w);
-            
-            vec3 NewOffset = RayOrigin;
-            for(int i = 0; i < 20 && Depth > 0.; ++i){
-              Depth = Depth / 1.02 - .25 * float(2 * i + 1);
-              NewOffset = RayOrigin + max(0., Depth) * RayDirection;
-              if(GetMaskDirectly(NewOffset) == 1) break;
-            }
-            Distance = length(RayOrigin - NewOffset);
-            RayOrigin = NewOffset;
-            //fragColor.y = Distance / 255.;
-            //return;
-          }
           
           vec3 RayOriginOffset = floor(RayOrigin / Size) * Size;
           RayOrigin -= RayOriginOffset;
@@ -323,17 +309,38 @@ export default class Raymarcher{
           int Location64 = 0;
           int Location8 = 0;
           
-          int Max = iIsFirstPass ? 400 : 20;//Improves framerate substantially (280 -> 360)
-          
-          for(int i = 0; i < Max && Distance < MAX_DISTANCE && !HitVoxel; ++i){
-            //s.r++;
+          int Max = iIsFirstPass ? 400 : 420;//Improves framerate substantially (280 -> 360)
+          for(int i = 0; i < Max && Distance < MAX_DISTANCE && !HitVoxel && Depth < 8u; ++i){
+            //s.x++;
+            if(NextLODLevel || i > int(Depth) * 40 + 120 && Depth < 7u){
+              NextLODLevel = false;
+              Depth++;
+              Factor = float(1 << Depth);
+              
+              RayOrigin = RayPosFloor + RayPosFract + RayOriginOffset;
+              TrueRayOrigin = RayOrigin;
+              
+              ExitLevel = false;
+              Level = MAX_DETAIL;
+              Size = pow(8., float(Level)) * Factor;
+              HitVoxel = false;
+              
+              RayOriginOffset = floor(RayOrigin / Size) * Size;
+              RayOrigin -= RayOriginOffset;
+              
+              RayPosFloor = floor(RayOrigin / Size) * Size; //Voxel coordinate
+              RayPosFract = RayOrigin - RayPosFloor; //Sub-voxel coordinate                   
+              LastRayPosFloor = RayPosFloor;
+            }
             while(ExitLevel){
               Level++;
-              Size *= SCALE;
-              vec3 NewRayPosFloor = floor(RayPosFloor/Size) * Size;
-              RayPosFract += RayPosFloor - NewRayPosFloor;
-              RayPosFloor = NewRayPosFloor;
-              ExitLevel = Level < MAX_DETAIL && floor(RayPosFloor/Size/SCALE) != floor(LastRayPosFloor/Size/SCALE); //This is for when we go up by multiple levels at once (e.g. 2->0)
+              for(int i = 0; i < 3; ++i){
+                Size *= 2.;
+                vec3 NewRayPosFloor = floor(RayPosFloor/Size) * Size;
+                RayPosFract += RayPosFloor - NewRayPosFloor;
+                RayPosFloor = NewRayPosFloor;
+              }
+              ExitLevel = Level < MAX_DETAIL && floor(RayPosFloor/Size/8.) != floor(LastRayPosFloor/Size/8.); //This is for when we go up by multiple levels at once (e.g. 2->0)
             }
             
             vec3 TrueRayPosFloor = RayPosFloor + RayOriginOffset;
@@ -342,44 +349,55 @@ export default class Raymarcher{
             switch(Level){
               case -1:
               case -2:{
-                VoxelState = GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, TrueRayOrigin);
+                VoxelState = Depth == 0u ? GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, Distance) : 2;
                 break;
               }
               case 0:{
-                VoxelState = GetType1(Location8, TrueRayPosFloor, VoxelType);//GetType1Test(TrueRayPosFloor, VoxelType);//
+                //Colour = vec3(1.);
+                VoxelState = GetType1(Location8, TrueRayPosFloor / Factor, VoxelType);//GetType1Test(TrueRayPosFloor, VoxelType);//
                 //Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + vec3(0.45, 0., 0.95));
-                switch(VoxelType){
+                if(VoxelState == 0) switch(VoxelType){
                   case 1:{
-                    Colour = vec3(.1, .8, .2);//vec3(.133, .335, .898);//
+                    Colour = vec4(.1, .8, .2, 1.);//vec3(.133, .335, .898);//
                     break;
                   }
                   case 2:{
-                    Colour = vec3(.4, .4, .4);
+                    Colour = vec4(.4, .4, .4, 1.);
                     break;
                   }
                   case 3:{
-                    Colour = vec3(.2, .2, .2);
+                    Colour = vec4(.2, .2, .2, 1.);
+                    break;
+                  }
+                  case 4:{
+                    Colour = vec4(.133, .60, .62, 1.);
                     break;
                   }
                   case 8:{
-                    Colour = vec3(.1, .6, .25);
+                    Colour = vec4(.1, .6, .25, 1.);
                     break;
                   }
                   case 9:{
-                    Colour = vec3(.5, .2, .05);
+                    Colour = vec4(.5, .2, .05, 1.);
                     break;
                   }
                 }
                 break;
               }
               case 1:{
-                uint Result = GetLocation8(Location64, TrueRayPosFloor);
+                uint Result = GetLocation8(Location64, TrueRayPosFloor / Factor);
                 VoxelState = int(Result >> 31);
                 Location8 = int(Result & 0x3fffffffu);
                 break;
               }
               case 2:{ //64
-                int Result = GetLocation64(TrueRayPosFloor);
+                int Result;
+                Result = GetLocation64(TrueRayPosFloor, Depth);
+                
+                if(Result == -1){
+                  NextLODLevel = true;
+                }
+                
                 Location64 = Result & 0x0fff;
                 VoxelState = Result >> 15; //Get whether it exists
                 break;
@@ -390,7 +408,7 @@ export default class Raymarcher{
               case 0:{ //Subdivide
                 if(Level > MIN_DETAIL){
                   Level--;
-                  for(int j = 0; j < POWER; ++j){ //Not sure how to unroll this loop without weird artefacts...
+                  for(int j = 0; j < 3; ++j){
                     Size /= 2.;
                     vec3 Step = step(vec3(Size), RayPosFract) * Size;
                     RayPosFloor += Step;
@@ -413,38 +431,53 @@ export default class Raymarcher{
                 LastRayPosFloor = RayPosFloor;
                 RayPosFloor += Step;
                 
-                ExitLevel = Level < MAX_DETAIL && floor(RayPosFloor/Size/SCALE) != floor(LastRayPosFloor/Size/SCALE); //Check if the edge of the level has been reached
+                ExitLevel = Level < MAX_DETAIL && floor(RayPosFloor/Size/8.) != floor(LastRayPosFloor/Size/8.); //Check if the edge of the level has been reached
                 break;
               }
               case 2: HitVoxel = true;
             }
           }
+          if(HitVoxel){
+            Colour.xyz *= 1. - Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .15;
+            Colour.xyz *= length(Mask * vec3(.75, 1., .5));
+          }
+          else Colour = vec4(0.25, .25, .25, 0.);
           
-          float fLevel = float(Level) + 4.;
-          if(HitVoxel) Colour *= 1. - Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .15;
-          //Colour *= normalize(vec3(sin(fLevel) * .5 + .5, cos(fLevel * 1.7) * .5 + .5, sin(fLevel + 1.) * .5 + .5));
-          fragColor = vec4(s / 50. + Colour * length(Mask * vec3(.75, 1., .5)), 1.);
+          if(true || iIsFirstPass){
+            gl_FragDepth = EncodeLogarithmicDepth(Distance);
+          }
+          return Colour + vec4(s / 200., 0.);
+        }
+        
+        void mainImage(out vec4 fragColor, in vec2 fragCoord){
+          vec2 uv = (fragCoord.xy * 2. - iResolution.xy) / iResolution.y;
+          vec3 RayOrigin = iPosition;
+          vec3 RayDirection = normalize(vec3(uv, .8)) * RotateX(iRotation.x) * RotateY(iRotation.y);
+          vec4 Colour;
+          float Distance = 0.;
+          
+          if(!iIsFirstPass){
+            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / iUpscalingKernelSize * iRenderSize);
+            Colour = texelFetch(iColour, ScaledCoordinates, 0).rgba; //Backup colour in case nothing is hit
+            float Depth = DecodeLogarithmicDepth(texelFetch(iDepth, ScaledCoordinates, 0).r);//intBitsToFloat((Converted.x << 24) | (Converted.y << 16) | (Converted.z << 8) | Converted.w);
+            
+            vec3 NewOffset = RayOrigin + Depth * RayDirection * .8;
+            /*for(int i = 0; i < 10 && Depth > 0.; ++i){
+              Depth = Depth / 1.02 - .25 * float(2 * i + 1);
+              NewOffset = RayOrigin + max(0., Depth) * RayDirection;
+              //if(GetMaskDirectly(NewOffset) == 1) break;
+            }*/
+            Distance = length(RayOrigin - NewOffset);
+            RayOrigin = NewOffset;
+          }
+          
+          Colour = Raytrace(RayOrigin, RayDirection, Distance, 0u, 0);
+          if(Colour.a == 0.) discard;
+          fragColor = Colour;
           
           /*if(iIsFirstPass){
-            fragColor = vec4(0., 0., mod(Distance / 256., 1.), mod(Distance, 1.));
-          } else{
-            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / 3.);
-            vec4 Result = texelFetch(iDepth, ScaledCoordinates, 0);
-            fragColor += Result.z / 16.;// + Result.w;
-          }*/
-          if(iIsFirstPass){
             gl_FragDepth = EncodeLogarithmicDepth(Distance);
-            /*int IntDistance = floatBitsToInt(Distance);
-            vec4 Depth = vec4(ivec4(IntDistance >> 24, (IntDistance >> 16) & 255, (IntDistance >> 8) & 255, IntDistance & 255));
-            fragColor = Depth / 256.;*/
-          }
-          else{
-            //fragColor += Depth;//mod(Depth, 1.);
-            //if(TextureDepth == 255) fragColor -= .4;
-          }
-          /*uint TextureDepth = texelFetch(iDepth, ivec2(0), 0).r;
-          if(iIsFirstPass) fragColor = vec4(0.5);
-          else if(TextureDepth > 50u) fragColor = vec4(0.);*/
+          }*/
         }
         
         void main(){
@@ -469,16 +502,12 @@ export default class Raymarcher{
     Mesh.frustumCulled = false;
     this.Scene.add(Mesh);
 
-    let Iteration = 0;
-    const Step = 3;
-
-    void function Update(){
-      window.setTimeout(Update.bind(this), 5.);
-      this.UpdateUniforms();
-    }.bind(this)();
+    Application.Main.Renderer.Events.AddEventListener("BeforeRender", this.UpdateUniforms.bind(this));
 
     void function AnimationFrame(){
       (window.requestIdleCallback ?? window.requestAnimationFrame)(AnimationFrame.bind(this), {"timeout": 400});
+      this.Material.uniforms.iOffset64.needsUpdate = true;
+      this.Tex64.needsUpdate = true;
 
       //TODO: This still causes small lag spikes when updating.
       //Possible fixes: spread out updates, merge nearby segments, etc
@@ -509,8 +538,8 @@ export default class Raymarcher{
         //The if is there because if the size is greater than 10, most likely only part of the Data64 has been updated (due to segment distribution)
       }
 
-      this.Tex64.needsUpdate = true;
       this.Tex8.needsUpdate = true; //This might be too much effort to selectively update (and also has weird artefacts)
+
 
       for(const SegmentLocation of UpdatedSegments){ //This is not sending individual segments, but entire columns
         //const YOffset = (SegmentLocation & 31) << 4;

@@ -69,7 +69,7 @@ export default class RRSLoader{
 
   UpdateData64Offset(){ //This is kinda messy but it works
     const PlayerX = this.PlayerPosition[0];
-    const PlayerY = 0;//this.PlayerPosition[1];
+    const PlayerY = this.PlayerPosition[1];
     const PlayerZ = this.PlayerPosition[2];
 
     let Changed = false;
@@ -78,10 +78,10 @@ export default class RRSLoader{
 
     for(let Depth = 0; Depth < 8; ++Depth){
       const Size = 64 << Depth;
-      //TODO: I'll need to use a different method of moving the center (like the original RRS), but this works for now...
-      const ScaledX = Math.floor(PlayerX / Size);
-      const ScaledY = Math.floor(PlayerY / Size);
-      const ScaledZ = Math.floor(PlayerZ / Size);
+
+      const ScaledX = Math.floor(PlayerX / Size) - 4;
+      const ScaledY = Math.floor(PlayerY / Size) - 4;
+      const ScaledZ = Math.floor(PlayerZ / Size) - 4;
 
       if(ScaledX - this.Data64Offset[Depth * 3 + 0] !== 0) Changed = true;
       if(ScaledY - this.Data64Offset[Depth * 3 + 1] !== 0) Changed = true;

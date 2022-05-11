@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Inspector</title>
+        <link rel="stylesheet" href="../../IncludeEscape.css" />
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <nav>
+            <ul>
+                <li>General Information</li>
+                <li class="Selected">Statistics</li>
+                <li>World Inspector</li>
+                <li>Settings</li>
+                <li>Help</li>
+            </ul>
+        </nav>
+        <main id="GeneralInformation" hidden>
+            <h1 class="Title">General Information</h1>
+            <h2 class="SectionTitle">Device Information</h2>
+            <table>
+                <tbody>
+                    <tr><td>Device memory</td><td>navigator.deviceMemory</td></tr>
+                    <tr><td>Hardware concurrency</td><td>navigator.hardwareConcurrency</td></tr>
+                    <tr><td>GPU and renderer</td><td>discord</td></tr>
+                    <tr><td>User agent</td><td>discord</td></tr>
+                    <tr><td>Resolution</td><td>1920x1080</td></tr>
+                </tbody>
+            </table>
+            <h2 class="SectionTitle">Buffers</h2>
+            <table>
+                <tbody>
+                    <tr><td>Data64 size</td><td>123</td></tr>
+                    <tr><td>Data64 utilisation</td><td>123</td></tr>
+                    <tr><td>Data8 size</td><td>123</td></tr>
+                    <tr><td>Data8 utilisation</td><td>123</td></tr>
+                    <tr><td>Data1 size</td><td>123</td></tr>
+                    <tr><td>Data1 utilisation</td><td>123</td></tr>
+                    <tr><td>Data1 coverage</td><td>123</td></tr>
+                    <tr><td>VoxelTypes size</td><td>123</td></tr>
+                    <tr><td>VoxelTypes utilisation</td><td>123</td></tr>
+                    <tr><td>VoxelTypes coverage</td><td>123</td></tr>
+                    <tr><td>GPUData64 size</td><td>123</td></tr>
+                    <tr><td>GPUData64 utilisation</td><td>123</td></tr>
+                    <tr><td>GPUData8 size</td><td>123</td></tr>
+                    <tr><td>GPUData8 utilisation</td><td>123</td></tr>
+                    <tr><td>GPUData1 size</td><td>123</td></tr>
+                    <tr><td>GPUData1 utilisation</td><td>123</td></tr>
+                    <tr><td>GPUData1 coverage</td><td>123</td></tr>
+                    <tr><td>GPUVoxelTypes size</td><td>123</td></tr>
+                    <tr><td>GPUVoxelTypes utilisation</td><td>123</td></tr>
+                    <tr><td>GPUVoxelTypes coverage</td><td>123</td></tr>
+                </tbody>
+            </table>
+        </main>
+        <main id="Statistics">
+            <h1 class="Title">Statistics</h1>
+            <p>Uptime: <ins>00:01:23</ins></p>
+            <section class="Graphs">
+                <!--<div style="--opaque: #663399; --transparent: #6633997f; --less-transparent: #663399bf;">
+                    <h1>FPS</h1>
+                    <div class="SettingsImage"></div>
+                    <div class="SettingsAndGraphWrapper">
+                        <p><ins data-unit=" fps">60</ins></p>
+                        <div class="SettingsMenu">
+                            <form>
+                                <p>Update frequency</p>
+                                <input class="Slider" type="range" name="Range" min="0" max="8" value="0" oninput="this.form.Input.value = this.value || 0;" step="1">
+                                <input class="TextInput" type="number" name="Input" value="0" oninput="this.form.Range.value = this.value || 0;" step="any">
+                            </form>
+                            <form>
+                                <p>History length</p>
+                                <input class="Slider" type="range" name="Range" min="0" max="8" value="0" oninput="this.form.Input.value = this.value || 0;" step="1">
+                                <input class="TextInput" type="number" name="Input" value="0" oninput="this.form.Range.value = this.value || 0;" step="any">
+                            </form>
+                            <form>
+                                <p>Max value</p>
+                                <input class="Slider" type="range" name="Range" min="0" max="8" value="0" oninput="this.form.Input.value = this.value || 0;" step="1">
+                                <input class="TextInput" type="number" name="Input" value="0" oninput="this.form.Range.value = this.value || 0;" step="any">
+                            </form>
+                            <form>
+                                <p>Min value</p>
+                                <input class="Slider" type="range" name="Range" min="0" max="8" value="0" oninput="this.form.Input.value = this.value || 0;" step="1">
+                                <input class="TextInput" type="number" name="Input" value="0" oninput="this.form.Range.value = this.value || 0;" step="any">
+                            </form>
+                            Show alert when... > 300
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 220">
+                            <defs>
+                                <clipPath id="GraphClipPath">
+                                    <path d="M 0 0 L 400 0 L 400 200 L 0 200" />
+                                </clipPath>
+                            </defs>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(0, 20)">
+                                    <line x1="-5" x2="400" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="5" x="-8" text-anchor="end" fill="#ffffff">450</text>
+                                </g>
+                                <g transform="translate(0, 60)">
+                                    <line x1="-5" x2="400" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="5" x="-8" text-anchor="end" fill="#ffffff">400</text>
+                                </g>
+                                <g transform="translate(0, 100)">
+                                    <line x1="-5" x2="400" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="5" x="-8" text-anchor="end" fill="#ffffff">350</text>
+                                </g>
+                                <g transform="translate(0, 140)">
+                                    <line x1="-5" x2="400" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="5" x="-8" text-anchor="end" fill="#ffffff">300</text>
+                                </g>
+                                <g transform="translate(0, 180)">
+                                    <line x1="-5" x2="400" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="5" x="-8" text-anchor="end" fill="#ffffff">250</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(25, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">17:44:20</text>
+                                </g>
+                                <g transform="translate(85, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">17:44:30</text>
+                                </g>
+                                <g transform="translate(145, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">17:44:40</text>
+                                </g>
+                                <g transform="translate(205, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">17:44:50</text>
+                                </g>
+                                <g transform="translate(265, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">17:45:00</text>
+                                </g>
+                                <g transform="translate(325, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">17:45:10</text>
+                                </g>
+                                <g transform="translate(385, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".2" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">17:45:20</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40,0)" clip-path="url(#GraphClipPath)">
+                                <path stroke="rebeccapurple" stroke-width="3" fill="rebeccapurple" fill-opacity=".5" d="M -100 200 L 0 50 L 10 30 L 20 24 L 30 5 L 40 19 L 50 54 L 60 48 L 70 68 L 80 64 L 90 51 L 100 55 L 110 66 L 120 62 L 130 61 L 140 59 L 150 46 L 160 38 L 170 33 L 180 45 L 190 27 L 200 23 L 210 36 L 220 54 L 230 51 L 240 100 L 250 92 L 260 98 L 270 141 L 280 160 L 290 153 L 300 172 L 310 189 L 320 166 L 330 163 L 340 174 L 350 159 L 360 133 L 370 135 L 380 128 L 390 134 L 400 141 L 500 200" />
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+
+
+                <div>
+                    <h1>GPU upload rate</h1>
+                    <div class="SettingsImage"></div>
+                    <div class="SettingsAndGraphWrapper">
+                        <div class="SettingsMenu">
+                            hi
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 220">
+                            <defs>
+                                <clipPath id="GraphClipPath">
+                                    <path d="M 0 0 L 400 0 L 400 200 L 0 200" />
+                                </clipPath>
+                            </defs>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(0, 20)">
+                                    <line x1="-5" x2="400" stroke="#ffffff" stroke-opacity=".5" stroke-width="2"/>
+                                    <text dy="5" x="-8" text-anchor="end" fill="#ffffff">455.5</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(25, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".5" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">455.5</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40,0)" clip-path="url(#GraphClipPath)">
+                                <path stroke="#0fcf3f" stroke-width="3" fill="#0fcf3f" fill-opacity=".5" d="M -100 200 L 0 50 L 10 30 L 20 24 L 30 5 L 40 19 L 50 54 L 60 48 L 70 68 L 80 64 L 90 51 L 100 55 L 110 66 L 120 62 L 130 61 L 140 59 L 150 46 L 160 38 L 170 33 L 180 45 L 190 27 L 200 23 L 210 36 L 220 54 L 230 51 L 240 100 L 250 92 L 260 98 L 270 141 L 280 160 L 290 153 L 300 172 L 310 189 L 320 166 L 330 163 L 340 174 L 350 159 L 360 133 L 370 135 L 380 128 L 390 134 L 400 141 L 500 200" />
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+
+
+
+                <div>
+                    <h1>Region batch time</h1>
+                    <div class="SettingsImage"></div>
+                    <div class="SettingsAndGraphWrapper">
+                        <p><ins data-unit="ms">481</ins></p>
+                        <div class="SettingsMenu">
+                            hi
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 220">
+                            <defs>
+                                <clipPath id="GraphClipPath">
+                                    <path d="M 0 0 L 400 0 L 400 200 L 0 200" />
+                                </clipPath>
+                            </defs>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(0, 20)">
+                                    <line x1="-5" x2="400" stroke="#ffffff" stroke-opacity=".5" stroke-width="2"/>
+                                    <text dy="5" x="-8" text-anchor="end" fill="#ffffff">455.5</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(25, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".5" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">455.5</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40,0)" clip-path="url(#GraphClipPath)">
+                                <path stroke="#00afff" stroke-width="3" fill="#00afff" fill-opacity=".5" d="M -100 200 L 0 50 L 10 30 L 20 24 L 30 5 L 40 19 L 50 54 L 60 48 L 70 68 L 80 64 L 90 51 L 100 55 L 110 66 L 120 62 L 130 61 L 140 59 L 150 46 L 160 38 L 170 33 L 180 45 L 190 27 L 200 23 L 210 36 L 220 54 L 230 51 L 240 100 L 250 92 L 260 98 L 270 141 L 280 160 L 290 153 L 300 172 L 310 189 L 320 166 L 330 163 L 340 174 L 350 159 L 360 133 L 370 135 L 380 128 L 390 134 L 400 141 L 500 200" />
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+
+
+                <div>
+                    <h1>Region batch size</h1>
+                    <div class="SettingsImage"></div>
+                    <div class="SettingsAndGraphWrapper">
+                        <p><ins>128 regions</ins></p>
+                        <div class="SettingsMenu">
+                            hi
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 220">
+                            <defs>
+                                <clipPath id="GraphClipPath">
+                                    <path d="M 0 0 L 400 0 L 400 200 L 0 200" />
+                                </clipPath>
+                            </defs>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(0, 20)">
+                                    <line x1="-5" x2="400" stroke="#ffffff" stroke-opacity=".5" stroke-width="2"/>
+                                    <text dy="5" x="-8" text-anchor="end" fill="#ffffff">455.5</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(25, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".5" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">455.5</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40,0)" clip-path="url(#GraphClipPath)">
+                                <path stroke="hsl(163,50%,50%)" stroke-width="3" fill="hsl(163,50%,50%)" fill-opacity=".5" d="M -100 200 L 0 50 L 10 30 L 20 24 L 30 5 L 40 19 L 50 54 L 60 48 L 70 68 L 80 64 L 90 51 L 100 55 L 110 66 L 120 62 L 130 61 L 140 59 L 150 46 L 160 38 L 170 33 L 180 45 L 190 27 L 200 23 L 210 36 L 220 54 L 230 51 L 240 100 L 250 92 L 260 98 L 270 141 L 280 160 L 290 153 L 300 172 L 310 189 L 320 166 L 330 163 L 340 174 L 350 159 L 360 133 L 370 135 L 380 128 L 390 134 L 400 141 L 500 200" />
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+
+
+                <div>
+                    <h1>Non-air Data64s</h1>
+                    <div class="SettingsImage"></div>
+                    <div class="SettingsAndGraphWrapper">
+                        <div class="SettingsMenu">
+                            hi
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 220">
+                            <defs>
+                                <clipPath id="GraphClipPath">
+                                    <path d="M 0 0 L 400 0 L 400 200 L 0 200" />
+                                </clipPath>
+                            </defs>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(0, 20)">
+                                    <line x1="-5" x2="400" stroke="#ffffff" stroke-opacity=".5" stroke-width="2"/>
+                                    <text dy="5" x="-8" text-anchor="end" fill="#ffffff">455.5</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40, 0)">
+                                <g transform="translate(25, 0)">
+                                    <line y2="205" stroke="#ffffff" stroke-opacity=".5" stroke-width="2"/>
+                                    <text dy="18" y="200" text-anchor="middle" fill="#ffffff">455.5</text>
+                                </g>
+                            </g>
+                            <g transform="translate(40,0)" clip-path="url(#GraphClipPath)">
+                                <path stroke="#2f009f" stroke-width="3" fill="#2f009f" fill-opacity=".5" d="M -100 200 L 0 50 L 10 30 L 20 24 L 30 5 L 40 19 L 50 54 L 60 48 L 70 68 L 80 64 L 90 51 L 100 55 L 110 66 L 120 62 L 130 61 L 140 59 L 150 46 L 160 38 L 170 33 L 180 45 L 190 27 L 200 23 L 210 36 L 220 54 L 230 51 L 240 100 L 250 92 L 260 98 L 270 141 L 280 160 L 290 153 L 300 172 L 310 189 L 320 166 L 330 163 L 340 174 L 350 159 L 360 133 L 370 135 L 380 128 L 390 134 L 400 141 L 500 200" />
+                            </g>
+                        </svg>
+                    </div>
+                </div>-->
+            </section>
+        </main>
+    </body>
+</html>

@@ -7,7 +7,7 @@ if(false && self.gc) void function CollectGarbage(){
 }();
 
 self.EventHandler = {};
-let MainLoadManager;
+self.MainLoadManager = null;
 
 self.Settings = {
   "VirtualRegionDepths": 7,
@@ -19,5 +19,5 @@ self.onmessage = function(Event){
 };
 
 EventHandler.SaveStuff = function(Data){
-  MainLoadManager = new LoadManager(Data);
+  self.MainLoadManager = new LoadManager(Data);
 };

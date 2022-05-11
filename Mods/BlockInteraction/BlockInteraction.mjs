@@ -92,19 +92,19 @@ export class Main{
 
   }
   static BreakBlock(){
-    let RaycastResult = Application.Main.Game.World.Raycast(6);
+    let RaycastResult = Application.Main.World.Raycast(6);
     if(RaycastResult != null){
-      Application.Main.Game.World.SetBlock(RaycastResult.X, RaycastResult.Y, RaycastResult.Z, 0);
+      Application.Main.World.SetBlock(RaycastResult.X, RaycastResult.Y, RaycastResult.Z, 0);
     }
   }
   static SetBlock(){
-    let RaycastResult = Application.Main.Game.World.Raycast(6);
+    let RaycastResult = Application.Main.World.Raycast(6);
     if(RaycastResult != null){
-      Application.Main.Game.World.SetBlock(RaycastResult.X + RaycastResult.Face[0], RaycastResult.Y + RaycastResult.Face[1], RaycastResult.Z + RaycastResult.Face[2], Main.States.PickedBlock);
+      Application.Main.World.SetBlock(RaycastResult.X + RaycastResult.Face[0], RaycastResult.Y + RaycastResult.Face[1], RaycastResult.Z + RaycastResult.Face[2], Main.States.PickedBlock);
     }
   }
   static PickBlock(){
-    let RaycastResult = Application.Main.Game.World.Raycast(512, null, null, [0]);
+    let RaycastResult = Application.Main.World.Raycast(512, null, null, [0]);
     if(RaycastResult !== null) Main.States.PickedBlock = RaycastResult.BlockType;
   }
 }

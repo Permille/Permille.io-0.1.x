@@ -6,3 +6,4 @@ export * as Chat from "./../Mods/Chat/Chat.mjs";
 export * as Menu from "./../Mods/Menu/Menu.mjs";
 //export * as Map from "./../Mods/Map/Map.mjs";
 export * as SVM from "./../Mods/SVM/SVM.mjs";
+export * as Inspector from "./../Mods/Inspector/Inspector.mjs";

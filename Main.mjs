@@ -1,6 +1,4 @@
 import Renderer from "./Graphics/Renderer/Renderer.mjs";
-import GeometryDataAdder from "./Graphics/Renderer/GeometryDataAdder.mjs";
-import {Region, VirtualRegion} from "./World/Region.mjs";
 import World from "./World/World.mjs";
 import ModLoadingEngine from "./ModLoader/ModLoadingEngine.mjs";
 import GameControlHandler from "./Controls/GameControlHandler.mjs";
@@ -9,8 +7,6 @@ import GamePointerLockHandler from "./Controls/GamePointerLockHandler.mjs";
 import ControlManager from "./Controls/ControlManager.mjs";
 import BlockRegistry from "./Block/BlockRegistry.mjs";
 import WorkerLoadingPipelineHandler from "./BackgroundTasks/WorkerLoadingPipelineHandler.mjs";
-import REGION_SD from "./World/RegionSD.mjs";
-import MainThreadUnloader from "./World/MainThreadUnloader.mjs";
 import Raymarcher from "./Graphics/Renderer/Raymarcher.mjs";
 import Debug from "./Debug.mjs";
 import DeferredPromise from "./Libraries/DeferredPromise.mjs";
@@ -18,8 +14,8 @@ import DeferredPromise from "./Libraries/DeferredPromise.mjs";
 setTimeout(function(){Application.Initialise();});
 
 class Application{
-  static Version = "0.1.10";
-  static Build = 56;
+  static Version = "0.1.10.1";
+  static Build = 57;
   static Variation = 0;
   static Revision = 0;
 
@@ -54,33 +50,71 @@ ModLoadingEngine.Application = Application;
 class Main{
   constructor(){
     document.getElementById("LoadingFilesMessage").remove();
-    this.Structures = [{
-      "FilePath": "./Structures/bo3/Oak03.bo3",
-      "Offset": {
-        "X": -2,
-        "Y": 0,
-        "Z": -2
+    this.SharedDebugData = new Float64Array(new SharedArrayBuffer(8192));
+    this.Structures = [
+      /*{
+        "FilePath": "./Structures/bo3/Oak03.bo3",
+        "Offset": {
+          "X": -2,
+          "Y": 0,
+          "Z": -2
+        },
+        "Frequency": 5
       },
-      "Frequency": 20
-    },
-    {
-      "FilePath": "./Structures/bo3/Oak02.bo3",
-      "Offset": {
-        "X": 0,
-        "Y": 0,
-        "Z": 0
+      {
+        "FilePath": "./Structures/bo3/Oak02.bo3",
+        "Offset": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+        },
+        "Frequency": 9
       },
-      "Frequency": 40
-    },
-    {
-      "FilePath": "./Structures/bo3/Oak01.bo3",
-      "Offset": {
-        "X": 0,
-        "Y": 0,
-        "Z": -1
+      {
+        "FilePath": "./Structures/bo3/Oak01.bo3",
+        "Offset": {
+          "X": 0,
+          "Y": 0,
+          "Z": -1
+        },
+        "Frequency": 6
+      },*/
+      {
+        "FilePath": "./Structures/bo3/Spruce01.bo3",
+        "Offset": {"X": 0, "Y": 0, "Z": 0},
+        "Frequency": 9
       },
-      "Frequency": 30
-    }];
+      {
+        "FilePath": "./Structures/bo3/Spruce02.bo3",
+        "Offset": {"X": 0, "Y": 0, "Z": 0},
+        "Frequency": 9
+      },
+      {
+        "FilePath": "./Structures/bo3/Spruce03.bo3",
+        "Offset": {"X": 0, "Y": 0, "Z": 0},
+        "Frequency": 9
+      },
+      {
+        "FilePath": "./Structures/bo3/Spruce04.bo3",
+        "Offset": {"X": 0, "Y": 0, "Z": 0},
+        "Frequency": 9
+      },
+      {
+        "FilePath": "./Structures/bo3/Spruce05.bo3",
+        "Offset": {"X": 0, "Y": 0, "Z": 0},
+        "Frequency": 9
+      },
+      {
+        "FilePath": "./Structures/bo3/Spruce06.bo3",
+        "Offset": {"X": 0, "Y": 0, "Z": 0},
+        "Frequency": 9
+      },
+      {
+        "FilePath": "./Structures/bo3/Spruce07.bo3",
+        "Offset": {"X": 0, "Y": 0, "Z": 0},
+        "Frequency": 9
+      }
+    ];
     (Debug.DEBUG_LEVEL <= Debug.DEBUG_LEVELS.INFO) && console.time("Initialisation");
   }
   async RegisterDependencies(){

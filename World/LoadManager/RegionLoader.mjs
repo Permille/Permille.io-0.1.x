@@ -13,7 +13,7 @@ export default class RegionLoader{
       RegionX &= 15;
       RegionZ &= 15;
 
-      const RNG = RandomPointGenerator(RegionX * 8 + RegionZ);
+      const RNG = RandomPointGenerator(RegionX * 8 + RegionZ + 1); //The +1 is because the random point generator fails with seed 0.
       const Points = [];
       for(let i = 0; i < 30; i++){
         const X = Math.floor(RNG.next().value * 64);
@@ -44,7 +44,7 @@ export default class RegionLoader{
     }
 
     function* PointGenerator(RegionX, RegionZ, Density){
-      const RNG = RandomPointGenerator((RegionX & 7) * 8 + (RegionZ & 7));
+      const RNG = RandomPointGenerator((RegionX & 7) * 8 + (RegionZ & 7) + 1); //The +1 is because the random point generator fails with seed 0.
       const DensityObject = RandomPointMap[Density];
 
       const Points = [];
@@ -333,18 +333,18 @@ export default class RegionLoader{
     for(let rx64 = 1; rx64 < 7; rx64++) for(let ry64 = 1; ry64 < 7; ry64++){
       RegionIterator: for(let rz64 = 1; rz64 < 7; rz64++) {
         const MainIndex = (rx64 << 6) | (ry64 << 3) | rz64;
-        const LoadState = (this.Data64[MainIndex] >> 12) & 0b0011; //The first bit indicates whether it's empty or not
-        if(LoadState !== 0b10){ //TODO: Or if it's empty, or if has a single voxel type
+        const LoadState = (this.Data64[MainIndex] >> 19) & 7;
+        if(LoadState !== 2){ //TODO: Or if it's empty, or if it has a single voxel type
           continue;
         }
 
         for(let dx64 = rx64 - 1; dx64 < rx64 + 2; dx64++) for(let dz64 = rz64 - 1; dz64 < rz64 + 2; dz64++){
           for(let dy64 = ry64 - 1; dy64 < ry64 + 2; dy64++){
-            const LoadState = (this.Data64[(dx64 << 6) | (dy64 << 3) | dz64] >> 12) & 0b0011;
-            if(LoadState < 0b10) continue RegionIterator; //This might not actually be that important
+            const LoadState = (this.Data64[(dx64 << 6) | (dy64 << 3) | dz64] >> 19) & 7;
+            if(LoadState < 2) continue RegionIterator; //This might not actually be that important
           }
         }
-        this.Data64[MainIndex] = (this.Data64[MainIndex] & ~(0b0011 << 12)) | (0b0011 << 12); //Set state to 0bXX11 (Started stage 3)
+        this.Data64[MainIndex] = (this.Data64[MainIndex] & ~(7 << 19)) | (3 << 19); //Set state to 3 (Started stage 3)
 
 
         const RegionX = this.Data64Offset[0] + rx64;

@@ -2,6 +2,11 @@ import * as THREE from "../../Libraries/Three/Three.js";
 import Simplex from "../../Simplex.js";
 
 export default class Raymarcher{
+  static LOW_RES_PASS = 0;
+  static FULL_RES_INITIAL_PASS = 1;
+  static FULL_RES_INITIAL_BYPASS_PASS = 2;
+  static SHADOW_PASS = 3;
+  static FULL_RES_FINAL_PASS = 4;
   constructor(World, Renderer){
     this.World = World;
     this.Renderer = Renderer;
@@ -81,14 +86,21 @@ export default class Raymarcher{
         iOffset64: {value: this.World.Data64Offset, "type": "iv"},
         iColour: {value: this.Renderer.ScaledTarget.texture},
         iDepth: {value: this.Renderer.ScaledTarget.depthTexture},
+        iShadowColour: {value: this.Renderer.ShadowTarget.texture},
         iRenderSize: {value: 1.},
-        iIsFirstPass: {value: true},
-        iUpscalingKernelSize: {value: 4.},
-        iSimplexTexture: {value: this.SimplexTexture},
-        FOV: {value: 110}
+        iPassID: {value: 0},
+        iUpscalingKernelSize: {value: 2},
+        iSunPosition: {value: new THREE.Vector3(0., 0., 0.)},
+        FOV: {value: 110},
+        iShadowTargetSize: {value: new THREE.Vector2(0., 0.)},
+        iMaxShadowSteps: {value: 150},
+        iShadowExponent: {value: 0.85},
+        iShadowMultiplier: {value: 2.4},
+        iShadowDarkness: {value: 0.5},
+        iFogFactor: {value: 0.00002}
       },
       "transparent": true,
-      "blending": THREE.NoBlending,
+      "blending": THREE.NormalBlending,
       "alphaTest": 1.,
       "depthTest": true,
       "depthWrite": true, //#######################
@@ -123,10 +135,24 @@ export default class Raymarcher{
         uniform mediump usampler3D iVoxelTypesTex;
         uniform sampler2D iColour;
         uniform sampler2D iDepth;
+        uniform sampler2D iShadowColour;
         uniform ivec3 iOffset64[8];
-        uniform bool iIsFirstPass;
+        uniform int iPassID;
         uniform float iUpscalingKernelSize;
         uniform float iRenderSize;
+        uniform vec3 iSunPosition;
+        uniform vec2 iShadowTargetSize;
+        uniform int iMaxShadowSteps;
+        uniform float iShadowExponent;
+        uniform float iShadowMultiplier;
+        uniform float iShadowDarkness;
+        uniform float iFogFactor;
+        
+        #define LOW_RES_PASS 0
+        #define FULL_RES_INITIAL_PASS 1
+        #define FULL_RES_INITIAL_BYPASS_PASS 2
+        #define SHADOW_PASS 3
+        #define FULL_RES_FINAL_PASS 4
         
         
         const float InDegrees = .01745329;
@@ -159,18 +185,19 @@ export default class Raymarcher{
         //Voxel grid hierarchy implementation
         //Based on abje's octree tracer: https://www.shadertoy.com/view/4sVfWw
         const float MAX_DISTANCE = 42000.;
-        const float MAX_ROUGHNESS_DISTANCE = 30.;
+        const float MAX_ROUGHNESS_DISTANCE = 10.;
+        const float MAX_ROUGHNESS_FALLOFF = 30.;
         const int MAX_DETAIL = 2;
         const int MIN_DETAIL = -2;
         
-        const float Log16385 = log(16385.);
+        const float Log42000 = log(42000.);
         
         float EncodeLogarithmicDepth(float Depth){
-          return log(Depth + 1.) / Log16385;
+          return log(Depth + 1.) / Log42000;
         }
         
         float DecodeLogarithmicDepth(float Depth){
-          return exp(Depth * Log16385) - 1.;
+          return exp(Depth * Log42000) - 1.;
         }
         
         float Random(vec4 v){
@@ -181,12 +208,35 @@ export default class Raymarcher{
           return fract(1223.34 * sin(dot(v,vec3(18.111, 13.252, 17.129))));
         }
         
+        
+        float rand(vec2 n) { 
+          return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+        }
+        
+        float noise(vec2 p){
+          vec2 ip = floor(p);
+          vec2 u = fract(p);
+          u = u*u*(3.0-2.0*u);
+          
+          float res = mix(
+            mix(rand(ip),rand(ip+vec2(1.0,0.0)),u.x),
+            mix(rand(ip+vec2(0.0,1.0)),rand(ip+vec2(1.0,1.0)),u.x),u.y);
+          return res*res;
+        }
+        
+        vec3 positivefract(vec3 x){
+          return x - floor(x);
+        }
+        
+        
         int GetLocation64(vec3 RayPosFloor, uint Depth){
           ivec3 mRayPosFloor = ivec3(RayPosFloor) >> (6u + Depth); //Divides by 64 (times the LOD level). (gets location within 64, don't need to mod because this is the texture size)
           ivec3 Position = mRayPosFloor.zyx - iOffset64[Depth].zyx;
           if(Position.x < 0 || Position.y < 0 || Position.z < 0 || Position.x > 7 || Position.y > 7 || Position.z > 7) return -1;
           Position.z += int(Depth) * 8; //Select correct LOD level
-          return int(texelFetch(iTex64, Position, 0).r);
+          int Info64 = int(texelFetch(iTex64, Position, 0).r);
+          if(((Info64 >> 13) & 1) == 0) return -1;
+          else return Info64;
         }
         uint GetLocation8(int Location64, vec3 RayPosFloor){
           ivec3 mRayPosFloor = (ivec3(RayPosFloor) >> 3) & 7; //Gets location within 8
@@ -219,11 +269,21 @@ export default class Raymarcher{
         }
         int GetTypeDirectly(vec3 RayPosFloor){
           int Location64 = GetLocation64(RayPosFloor, 0u);
-          if((Location64 & 0x8000) != 0) return 49151;
+          if((Location64 & 0x8000) != 0) return 0; //49151
           uint Location8 = GetLocation8(Location64 & 0x0fff, RayPosFloor);
-          if((Location8 & 0x80000000u) != 0u) return 49151;
+          if((Location8 & 0x80000000u) != 0u) return 0; //49151
           int Colour;
           GetType1(int(Location8 & 0x3fffffffu), RayPosFloor, Colour);
+          return Colour;
+        }
+        int GetTypeDirectly(vec3 RayPosFloor, uint Depth){
+          int Location64 = GetLocation64(RayPosFloor, Depth);
+          if((Location64 & 0x8000) != 0) return 0; //49151
+          float Size = float(1 << Depth);
+          uint Location8 = GetLocation8(Location64 & 0x0fff, RayPosFloor / Size);
+          if((Location8 & 0x80000000u) != 0u) return 0; //49151
+          int Colour;
+          GetType1(int(Location8 & 0x3fffffffu), RayPosFloor / Size, Colour);
           return Colour;
         }
         int GetMaskDirectly(vec3 RayPosFloor){
@@ -236,7 +296,7 @@ export default class Raymarcher{
         int GetRoughnessMap(vec3 RayPosFloor, int Type, int Level, float Distance){
           if(Level > -2) return 0;
           //if(Distance > (MAX_ROUGHNESS_DISTANCE + 25.)) return 2;
-          float Unloading = max((Distance - 25.) / MAX_ROUGHNESS_DISTANCE, 0.);
+          float Unloading = max((Distance - MAX_ROUGHNESS_DISTANCE) / MAX_ROUGHNESS_FALLOFF, 0.);
           
           vec3 Intermediate = fract(RayPosFloor) - .4995;
           bvec3 RayPosSides = greaterThanEqual(abs(Intermediate), vec3(7./16.));
@@ -281,14 +341,16 @@ export default class Raymarcher{
           return 2;
         }
         
-        vec4 Raytrace(vec3 RayOrigin, vec3 RayDirection, float Distance, uint Depth, int Steps){
+        
+        
+        float CalculateShadowIntensity(vec3 RayOrigin, vec3 RayDirection, uint Depth, float MainRayDistance){
+          
           float Factor = float(1 << Depth);
           
           vec3 TrueRayOrigin = RayOrigin;
           vec3 RayDirectionSign = sign(RayDirection);
           vec3 Mask = vec3(0.);
           vec3 Mask1 = vec3(0.);
-          bool ExitLevel = false;
           bool NextLODLevel = false;
           int Level = MAX_DETAIL;
           float Size = pow(8., float(MAX_DETAIL)) * Factor;
@@ -309,79 +371,34 @@ export default class Raymarcher{
           int Location64 = 0;
           int Location8 = 0;
           
-          int Max = iIsFirstPass ? 400 : 420;//Improves framerate substantially (280 -> 360)
-          for(int i = 0; i < Max && Distance < MAX_DISTANCE && !HitVoxel && Depth < 8u; ++i){
-            //s.x++;
-            if(NextLODLevel || i > int(Depth) * 40 + 120 && Depth < 7u){
+          float Distance = 0.;
+          
+          float ShadowIntensity = 0.;
+          
+          
+          for(int i = 0; i < iMaxShadowSteps; ++i){
+            if(!(ShadowIntensity < 1. && Depth < 8u)) continue;
+            if(NextLODLevel || i > int(Depth) * 100 + 500 && Depth < 7u){
               NextLODLevel = false;
               Depth++;
-              Factor = float(1 << Depth);
+              Factor *= 2.;
+              Size *= 2.;
               
               RayOrigin = RayPosFloor + RayPosFract + RayOriginOffset;
-              TrueRayOrigin = RayOrigin;
-              
-              ExitLevel = false;
-              Level = MAX_DETAIL;
-              Size = pow(8., float(Level)) * Factor;
-              HitVoxel = false;
-              
               RayOriginOffset = floor(RayOrigin / Size) * Size;
               RayOrigin -= RayOriginOffset;
               
               RayPosFloor = floor(RayOrigin / Size) * Size; //Voxel coordinate
-              RayPosFract = RayOrigin - RayPosFloor; //Sub-voxel coordinate                   
-              LastRayPosFloor = RayPosFloor;
-            }
-            while(ExitLevel){
-              Level++;
-              for(int i = 0; i < 3; ++i){
-                Size *= 2.;
-                vec3 NewRayPosFloor = floor(RayPosFloor/Size) * Size;
-                RayPosFract += RayPosFloor - NewRayPosFloor;
-                RayPosFloor = NewRayPosFloor;
-              }
-              ExitLevel = Level < MAX_DETAIL && floor(RayPosFloor/Size/8.) != floor(LastRayPosFloor/Size/8.); //This is for when we go up by multiple levels at once (e.g. 2->0)
+              RayPosFract = RayOrigin - RayPosFloor; //Sub-voxel coordinate
             }
             
             vec3 TrueRayPosFloor = RayPosFloor + RayOriginOffset;
             
             int VoxelState;
             switch(Level){
-              case -1:
-              case -2:{
-                VoxelState = Depth == 0u ? GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, Distance) : 2;
-                break;
-              }
               case 0:{
-                //Colour = vec3(1.);
-                VoxelState = GetType1(Location8, TrueRayPosFloor / Factor, VoxelType);//GetType1Test(TrueRayPosFloor, VoxelType);//
-                //Colour = normalize(vec3(VoxelColour >> 11, (VoxelColour >> 5) & 32, VoxelColour & 32) + vec3(0.45, 0., 0.95));
-                if(VoxelState == 0) switch(VoxelType){
-                  case 1:{
-                    Colour = vec4(.1, .8, .2, 1.);//vec3(.133, .335, .898);//
-                    break;
-                  }
-                  case 2:{
-                    Colour = vec4(.4, .4, .4, 1.);
-                    break;
-                  }
-                  case 3:{
-                    Colour = vec4(.2, .2, .2, 1.);
-                    break;
-                  }
-                  case 4:{
-                    Colour = vec4(.133, .60, .62, 1.);
-                    break;
-                  }
-                  case 8:{
-                    Colour = vec4(.1, .6, .25, 1.);
-                    break;
-                  }
-                  case 9:{
-                    Colour = vec4(.5, .2, .05, 1.);
-                    break;
-                  }
-                }
+                VoxelState = GetType1(Location8, TrueRayPosFloor / Factor, VoxelType);
+                //if(VoxelState == 0) VoxelState = 2;
                 break;
               }
               case 1:{
@@ -402,8 +419,141 @@ export default class Raymarcher{
                 VoxelState = Result >> 15; //Get whether it exists
                 break;
               }
+              default:{ //-2 and -1
+                VoxelState = (Depth == 0u && i < 40 && Distance < .5) ? GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, Distance + MainRayDistance) : 2;
+              }
+            }
+            //VoxelState = GetType1Test(TrueRayPosFloor, VoxelType);
+            switch(VoxelState){ //Get random voxel at proper scale (Size)
+              case 0:{ //Subdivide
+                if(Level > MIN_DETAIL){
+                  Level--;
+                  for(int j = 0; j < 3; ++j){
+                    Size /= 2.;
+                    vec3 Step = step(vec3(Size), RayPosFract) * Size;
+                    RayPosFloor += Step;
+                    RayPosFract -= Step;
+                  }
+                  break; //Only break switch if the level was less than the max detail. Otherwise, pretend as if the same level is kept.
+                }
+              }
+              case 2:
+              case 1:{ //Empty
+                float HalfSize = Size / 2.;
+                vec3 Hit = -Correction * (RayDirectionSign * (RayPosFract - HalfSize) - HalfSize); //Trace ray to next voxel
+                Mask = vec3(lessThanEqual(Hit.xyz, min(Hit.yzx, Hit.zxy))); //Determine which side was hit
+                if(Level >= 0 && VoxelState != 0) Mask1 = Mask;
+                float NearestVoxelDistance = dot(Hit, Mask);
+                Distance += NearestVoxelDistance;
+                if(VoxelState == 2) ShadowIntensity += NearestVoxelDistance * iShadowMultiplier / (0.0001 + pow(Distance, iShadowExponent));
+                vec3 Step = Mask * RayDirectionSign * Size;
+                
+                RayPosFract += RayDirection * NearestVoxelDistance - Step;
+                
+                LastRayPosFloor = RayPosFloor;
+                RayPosFloor += Step;
+                
+                while(Level < MAX_DETAIL && floor(RayPosFloor/Size/8.) != floor(LastRayPosFloor/Size/8.)){
+                  Level++;
+                  for(int i = 0; i < 3; ++i){
+                    Size *= 2.;
+                    vec3 NewRayPosFloor = floor(RayPosFloor/Size) * Size;
+                    RayPosFract += RayPosFloor - NewRayPosFloor;
+                    RayPosFloor = NewRayPosFloor;
+                  }
+                }
+                break;
+              }
+            }
+          }
+          
+          /*for(int i = 0; i < 500; ++i){
+            if(GetTypeDirectly(TrueRayOrigin + (float(i) * .1 + .4) * RayDirection, 0u) != 0) return 1.;
+          }*/
+          return ShadowIntensity;
+        }
+        
+        struct RayTraceResult{
+          vec4 Colour;
+          float Distance;
+          bool HitVoxel;
+        };
+        
+        RayTraceResult Raytrace(vec3 RayOrigin, vec3 RayDirection, float Distance, uint Depth, vec4 Distances){
+          float Factor = float(1 << Depth);
+          
+          vec3 TrueRayOrigin = RayOrigin;
+          vec3 RayDirectionSign = sign(RayDirection);
+          vec3 Mask = vec3(0.);
+          vec3 Mask1 = vec3(0.);
+          bool NextLODLevel = false;
+          int Level = MAX_DETAIL;
+          float Size = pow(8., float(MAX_DETAIL)) * Factor;
+          bool HitVoxel = false;
+          
+          vec4 Colour = vec4(0.);
+          int VoxelType = 0;
+          
+          vec3 s = vec3(0.);
+          
+          vec3 RayOriginOffset = floor(RayOrigin / Size) * Size;
+          RayOrigin -= RayOriginOffset;
+          
+          vec3 RayPosFloor = floor(RayOrigin / Size) * Size; //Voxel coordinate
+          vec3 RayPosFract = RayOrigin - RayPosFloor; //Sub-voxel coordinate                   
+          vec3 LastRayPosFloor = RayPosFloor;
+          vec3 Correction = 1./max(abs(RayDirection), 1e-4);
+          int Location64 = 0;
+          int Location8 = 0;
+          
+          int Max = iPassID == LOW_RES_PASS || iPassID == FULL_RES_INITIAL_BYPASS_PASS ? 1500 : 75;
+          for(int i = 0; i < Max && Distance < MAX_DISTANCE && !HitVoxel && Depth < 8u; ++i){
+            if(NextLODLevel || i > int(Depth) * 100 + 500 && Depth < 7u){
+              NextLODLevel = false;
+              Depth++;
+              Factor *= 2.;
+              Size *= 2.;
+              
+              RayOrigin = RayPosFloor + RayPosFract + RayOriginOffset;
+              RayOriginOffset = floor(RayOrigin / Size) * Size;
+              RayOrigin -= RayOriginOffset;
+              
+              RayPosFloor = floor(RayOrigin / Size) * Size; //Voxel coordinate
+              RayPosFract = RayOrigin - RayPosFloor; //Sub-voxel coordinate
             }
             
+            vec3 TrueRayPosFloor = RayPosFloor + RayOriginOffset;
+            
+            int VoxelState;
+            switch(Level){
+              case 0:{
+                VoxelState = GetType1(Location8, TrueRayPosFloor / Factor, VoxelType);//GetType1Test(TrueRayPosFloor, VoxelType);//
+                //VoxelState = GetType1Test(TrueRayPosFloor, VoxelType);//GetType1(Location8, TrueRayPosFloor / Factor, VoxelType);//
+                break;
+              }
+              case 1:{
+                uint Result = GetLocation8(Location64, TrueRayPosFloor / Factor);
+                VoxelState = int(Result >> 31);
+                Location8 = int(Result & 0x3fffffffu);
+                break;
+              }
+              case 2:{ //64
+                int Result;
+                Result = GetLocation64(TrueRayPosFloor, Depth);
+                
+                if(Result == -1){
+                  NextLODLevel = true;
+                }
+                
+                Location64 = Result & 0x0fff;
+                VoxelState = Result >> 15; //Get whether it exists
+                break;
+              }
+              default:{ //-2 and -1
+                VoxelState = Depth == 0u ? GetRoughnessMap(TrueRayPosFloor, VoxelType, Level, Distance) : 2;
+              }
+            }
+            //VoxelState = GetType1Test(TrueRayPosFloor, VoxelType);
             switch(VoxelState){ //Get random voxel at proper scale (Size)
               case 0:{ //Subdivide
                 if(Level > MIN_DETAIL){
@@ -421,7 +571,7 @@ export default class Raymarcher{
                 float HalfSize = Size / 2.;
                 vec3 Hit = -Correction * (RayDirectionSign * (RayPosFract - HalfSize) - HalfSize); //Trace ray to next voxel
                 Mask = vec3(lessThanEqual(Hit.xyz, min(Hit.yzx, Hit.zxy))); //Determine which side was hit
-                if(Level >= 0) Mask1 = Mask;
+                if(Level >= 0 && VoxelState != 0) Mask1 = Mask;
                 float NearestVoxelDistance = dot(Hit, Mask);
                 Distance += NearestVoxelDistance;
                 vec3 Step = Mask * RayDirectionSign * Size;
@@ -431,53 +581,215 @@ export default class Raymarcher{
                 LastRayPosFloor = RayPosFloor;
                 RayPosFloor += Step;
                 
-                ExitLevel = Level < MAX_DETAIL && floor(RayPosFloor/Size/8.) != floor(LastRayPosFloor/Size/8.); //Check if the edge of the level has been reached
+                while(Level < MAX_DETAIL && floor(RayPosFloor/Size/8.) != floor(LastRayPosFloor/Size/8.)){
+                  Level++;
+                  for(int i = 0; i < 3; ++i){
+                    Size *= 2.;
+                    vec3 NewRayPosFloor = floor(RayPosFloor/Size) * Size;
+                    RayPosFract += RayPosFloor - NewRayPosFloor;
+                    RayPosFloor = NewRayPosFloor;
+                  }
+                }
                 break;
               }
               case 2: HitVoxel = true;
             }
           }
-          if(HitVoxel){
-            Colour.xyz *= 1. - Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .15;
-            Colour.xyz *= length(Mask * vec3(.75, 1., .5));
-          }
-          else Colour = vec4(0.25, .25, .25, 0.);
           
-          if(true || iIsFirstPass){
-            gl_FragDepth = EncodeLogarithmicDepth(Distance);
+          
+          if(Level < 0 && Mask != Mask1){  //Hit roughness side
+            Mask *= 1. - max((Distance - 25.) / MAX_ROUGHNESS_DISTANCE, 0.01);
           }
-          return Colour + vec4(s / 200., 0.);
+          if(HitVoxel){
+            switch(VoxelType){
+              case 1:{
+                Colour = vec4(70./256., 109./256., 53./256., 1.);//vec3(.133, .335, .898);//
+                //Colour += vec4(vec3(-.5) * vec3(0.07, 0.2, 0.02), 0.);
+                break;
+              }
+              case 2:{
+                Colour = vec4(.45, .45, .45, 1.);
+                break;
+              }
+              case 3:{
+                Colour = vec4(.28, .28, .28, 1.);
+                break;
+              }
+              case 4:{
+                Colour = vec4(30./256., 153./256., 163./256., 1.);
+                break;
+              }
+              case 6:{
+                Colour = vec4(46./256., 73./256., 46./256., 1.);
+                break;
+              }
+              case 7:{
+                Colour = vec4(59./256., 38./256., 16./256., 1.);
+                break;
+              }
+              case 8:{
+                Colour = vec4(72./256., 104./256., 28./256., 1.);
+                break;
+              }
+              case 9:{
+                Colour = vec4(100./256., 71./256., 38./256., 1.);
+                break;
+              }
+            }
+            //Colour = vec4(1.);
+            Colour.xyz *= 1.075 - Random(vec4(floor((RayPosFloor + RayOriginOffset) * 16.) / 16., 0.)) * .15;
+            if(length(Mask) == 0.) Mask = vec3(.75);
+            Colour.xyz *= length(Mask * vec3(.75, 1., .5));
+            if(Mask.y != 0. && RayDirectionSign.y > 0.) Colour.xyz *= .6; //Make bottom of blocks darker
+          }
+          else Colour = vec4(.25, .25, .25, 0.);
+          
+          gl_FragDepth = EncodeLogarithmicDepth(Distance);
+          
+          //AO
+          if(Depth == 0u){
+            vec3 RayPosExact = RayPosFloor + RayOriginOffset + 1./128.;
+            /*if(GetTypeDirectly(floor(vec3(RayPosExact.x - 1., RayPosExact.y + 1., RayPosExact.z)), Depth) != 0) Colour.xyz *= fract(RayPosExact).x / 2. + .5;
+            if(GetTypeDirectly(floor(vec3(RayPosExact.x + 1., RayPosExact.y + 1., RayPosExact.z)), Depth) != 0) Colour.xyz *= fract(-RayPosExact).x / 2. + .5;
+            if(GetTypeDirectly(floor(vec3(RayPosExact.x, RayPosExact.y + 1., RayPosExact.z - 1.)), Depth) != 0) Colour.xyz *= fract(RayPosExact).z / 2. + .5;
+            if(GetTypeDirectly(floor(vec3(RayPosExact.x, RayPosExact.y + 1., RayPosExact.z + 1.)), Depth) != 0) Colour.xyz *= fract(-RayPosExact).z / 2. + .5;*/
+            
+            vec3 RayPosUnitFract = fract(RayPosExact);
+            vec3 RayPosUnitFractSquared = RayPosUnitFract * RayPosUnitFract;
+            vec3 NRayPosUnitFract = fract(-RayPosExact);
+            vec3 NRayPosUnitFractSquared = NRayPosUnitFract * NRayPosUnitFract;
+            vec3 Intermediate = RayPosUnitFract - .5;
+            vec3 FaceSign = sign(Intermediate);
+            vec3 FaceDistance = abs(Intermediate);
+            //float MaxComponent = max(max(DistanceFromCenter.x, DistanceFromCenter.y), DistanceFromCenter.z);
+            if(Mask1.x != 0.){
+              float Contributions = 0.;
+              
+              if(GetTypeDirectly(floor(vec3(RayPosExact.x + FaceSign.x, RayPosExact.y, RayPosExact.z)), Depth) != 0) Contributions += 1.;
+              bool N = GetTypeDirectly(floor(vec3(RayPosExact.x + FaceSign.x, RayPosExact.y + 1., RayPosExact.z + 0.)), Depth) != 0;
+              bool E = GetTypeDirectly(floor(vec3(RayPosExact.x + FaceSign.x, RayPosExact.y + 0., RayPosExact.z + 1.)), Depth) != 0;
+              bool S = GetTypeDirectly(floor(vec3(RayPosExact.x + FaceSign.x, RayPosExact.y - 1., RayPosExact.z + 0.)), Depth) != 0;
+              bool W = GetTypeDirectly(floor(vec3(RayPosExact.x + FaceSign.x, RayPosExact.y + 0., RayPosExact.z - 1.)), Depth) != 0;
+              if(N) Contributions += RayPosUnitFractSquared.y;
+              if(E) Contributions += RayPosUnitFractSquared.z;
+              if(S) Contributions += NRayPosUnitFractSquared.y;
+              if(W) Contributions += NRayPosUnitFractSquared.z;
+              if(!(N || E) && GetTypeDirectly(floor(vec3(RayPosExact.x + FaceSign.x, RayPosExact.y + 1., RayPosExact.z + 1.)), Depth) != 0) Contributions += RayPosUnitFractSquared.y * RayPosUnitFractSquared.z;
+              if(!(S || E) && GetTypeDirectly(floor(vec3(RayPosExact.x + FaceSign.x, RayPosExact.y - 1., RayPosExact.z + 1.)), Depth) != 0) Contributions += NRayPosUnitFractSquared.y * RayPosUnitFractSquared.z;
+              if(!(S || W) && GetTypeDirectly(floor(vec3(RayPosExact.x + FaceSign.x, RayPosExact.y - 1., RayPosExact.z - 1.)), Depth) != 0) Contributions += NRayPosUnitFractSquared.y * NRayPosUnitFractSquared.z;
+              if(!(N || W) && GetTypeDirectly(floor(vec3(RayPosExact.x + FaceSign.x, RayPosExact.y + 1., RayPosExact.z - 1.)), Depth) != 0) Contributions += RayPosUnitFractSquared.y * NRayPosUnitFractSquared.z;
+              
+              Colour.xyz *= vec3(1. - Contributions * .25);
+            }
+            else if(Mask1.y != 0.){
+              float Contributions = 0.;
+              
+              if(GetTypeDirectly(floor(vec3(RayPosExact.x, RayPosExact.y + FaceSign.y, RayPosExact.z)), Depth) != 0) Contributions += 1.;
+              bool N = GetTypeDirectly(floor(vec3(RayPosExact.x + 1., RayPosExact.y + FaceSign.y, RayPosExact.z + 0.)), Depth) != 0;
+              bool E = GetTypeDirectly(floor(vec3(RayPosExact.x + 0., RayPosExact.y + FaceSign.y, RayPosExact.z + 1.)), Depth) != 0;
+              bool S = GetTypeDirectly(floor(vec3(RayPosExact.x - 1., RayPosExact.y + FaceSign.y, RayPosExact.z + 0.)), Depth) != 0;
+              bool W = GetTypeDirectly(floor(vec3(RayPosExact.x + 0., RayPosExact.y + FaceSign.y, RayPosExact.z - 1.)), Depth) != 0;
+              if(N) Contributions += RayPosUnitFractSquared.x;
+              if(E) Contributions += RayPosUnitFractSquared.z;
+              if(S) Contributions += NRayPosUnitFractSquared.x;
+              if(W) Contributions += NRayPosUnitFractSquared.z;
+              if(!(N || E) && GetTypeDirectly(floor(vec3(RayPosExact.x + 1., RayPosExact.y + FaceSign.y, RayPosExact.z + 1.)), Depth) != 0) Contributions += RayPosUnitFractSquared.x * RayPosUnitFractSquared.z;
+              if(!(S || E) && GetTypeDirectly(floor(vec3(RayPosExact.x - 1., RayPosExact.y + FaceSign.y, RayPosExact.z + 1.)), Depth) != 0) Contributions += NRayPosUnitFractSquared.x * RayPosUnitFractSquared.z;
+              if(!(S || W) && GetTypeDirectly(floor(vec3(RayPosExact.x - 1., RayPosExact.y + FaceSign.y, RayPosExact.z - 1.)), Depth) != 0) Contributions += NRayPosUnitFractSquared.x * NRayPosUnitFractSquared.z;
+              if(!(N || W) && GetTypeDirectly(floor(vec3(RayPosExact.x + 1., RayPosExact.y + FaceSign.y, RayPosExact.z - 1.)), Depth) != 0) Contributions += RayPosUnitFractSquared.x * NRayPosUnitFractSquared.z;
+              
+              Colour.xyz *= vec3(1. - Contributions * .25);
+            }
+            else if(Mask1.z != 0.){
+              float Contributions = 0.;
+              
+              if(GetTypeDirectly(floor(vec3(RayPosExact.x, RayPosExact.y, RayPosExact.z + FaceSign.z)), Depth) != 0) Contributions += 1.;
+              bool N = GetTypeDirectly(floor(vec3(RayPosExact.x + 1., RayPosExact.y + 0., RayPosExact.z + FaceSign.z)), Depth) != 0;
+              bool E = GetTypeDirectly(floor(vec3(RayPosExact.x + 0., RayPosExact.y + 1., RayPosExact.z + FaceSign.z)), Depth) != 0;
+              bool S = GetTypeDirectly(floor(vec3(RayPosExact.x - 1., RayPosExact.y + 0., RayPosExact.z + FaceSign.z)), Depth) != 0;
+              bool W = GetTypeDirectly(floor(vec3(RayPosExact.x + 0., RayPosExact.y - 1., RayPosExact.z + FaceSign.z)), Depth) != 0;
+              if(N) Contributions += RayPosUnitFractSquared.x;
+              if(E) Contributions += RayPosUnitFractSquared.y;
+              if(S) Contributions += NRayPosUnitFractSquared.x;
+              if(W) Contributions += NRayPosUnitFractSquared.y;
+              if(!(N || E) && GetTypeDirectly(floor(vec3(RayPosExact.x + 1., RayPosExact.y + 1., RayPosExact.z + FaceSign.z)), Depth) != 0) Contributions += RayPosUnitFractSquared.x * RayPosUnitFractSquared.y;
+              if(!(S || E) && GetTypeDirectly(floor(vec3(RayPosExact.x - 1., RayPosExact.y + 1., RayPosExact.z + FaceSign.z)), Depth) != 0) Contributions += NRayPosUnitFractSquared.x * RayPosUnitFractSquared.y;
+              if(!(S || W) && GetTypeDirectly(floor(vec3(RayPosExact.x - 1., RayPosExact.y - 1., RayPosExact.z + FaceSign.z)), Depth) != 0) Contributions += NRayPosUnitFractSquared.x * NRayPosUnitFractSquared.y;
+              if(!(N || W) && GetTypeDirectly(floor(vec3(RayPosExact.x + 1., RayPosExact.y - 1., RayPosExact.z + FaceSign.z)), Depth) != 0) Contributions += RayPosUnitFractSquared.x * NRayPosUnitFractSquared.y;
+              
+              Colour.xyz *= vec3(1. - Contributions * .25);
+            }
+          }
+          vec3 ExactRayPosition = RayPosFloor + RayOriginOffset + RayPosFract;
+          if(Mask1.x != 0.) ExactRayPosition.x = round(ExactRayPosition.x);
+          else if(Mask1.y != 0.) ExactRayPosition.y = round(ExactRayPosition.y);
+          else if(Mask1.z != 0.) ExactRayPosition.z = round(ExactRayPosition.z);
+          //Colour.xyz *= .5 + .5 * clamp(1. - CalculateShadowIntensity(ExactRayPosition, iSunPosition * vec3(1., -1., 1.), Depth), 0., 1.);
+          
+          
+          return RayTraceResult(
+            Colour + vec4(s / 200., 0.),
+            Distance,
+            HitVoxel
+          );
         }
         
         void mainImage(out vec4 fragColor, in vec2 fragCoord){
           vec2 uv = (fragCoord.xy * 2. - iResolution.xy) / iResolution.y;
           vec3 RayOrigin = iPosition;
-          vec3 RayDirection = normalize(vec3(uv, .8)) * RotateX(iRotation.x) * RotateY(iRotation.y);
-          vec4 Colour;
-          float Distance = 0.;
+          vec3 RayDirection = normalize(vec3(uv, 1. / tan(FOV / 2.))) * RotateX(iRotation.x) * RotateY(iRotation.y);
           
-          if(!iIsFirstPass){
-            ivec2 ScaledCoordinates = ivec2((fragCoord.xy + 0.) / iUpscalingKernelSize * iRenderSize);
-            Colour = texelFetch(iColour, ScaledCoordinates, 0).rgba; //Backup colour in case nothing is hit
-            float Depth = DecodeLogarithmicDepth(texelFetch(iDepth, ScaledCoordinates, 0).r);//intBitsToFloat((Converted.x << 24) | (Converted.y << 16) | (Converted.z << 8) | Converted.w);
+          if(iPassID == LOW_RES_PASS || iPassID == FULL_RES_INITIAL_PASS || iPassID == FULL_RES_INITIAL_BYPASS_PASS){
+            vec4 Colour;
+            float Distance = 0.;
+            vec4 Distances = vec4(0.); //This is for the nearby distances from the scaled rendering, which will be tried out to see if one of them is closer to the hit
             
-            vec3 NewOffset = RayOrigin + Depth * RayDirection * .8;
-            /*for(int i = 0; i < 10 && Depth > 0.; ++i){
-              Depth = Depth / 1.02 - .25 * float(2 * i + 1);
-              NewOffset = RayOrigin + max(0., Depth) * RayDirection;
-              //if(GetMaskDirectly(NewOffset) == 1) break;
-            }*/
-            Distance = length(RayOrigin - NewOffset);
-            RayOrigin = NewOffset;
+            if(iPassID == FULL_RES_INITIAL_PASS){
+              ivec2 ScaledCoordinates = ivec2(fragCoord.xy / iUpscalingKernelSize * iRenderSize);
+              Colour = texelFetch(iColour, ScaledCoordinates, 0).rgba; //Backup colour in case nothing is hit
+              
+              float Depth = DecodeLogarithmicDepth(texelFetch(iDepth, ScaledCoordinates, 0).r);//intBitsToFloat((Converted.x << 24) | (Converted.y << 16) | (Converted.z << 8) | Converted.w);
+              
+              vec3 NewOffset = RayOrigin + max(0., Depth * .98 - 1.) * RayDirection;
+              
+              Distances = vec4(
+                DecodeLogarithmicDepth(texelFetch(iDepth, ivec2((fragCoord.xy / iUpscalingKernelSize + vec2(1., 0.)) * iRenderSize), 0).r),
+                DecodeLogarithmicDepth(texelFetch(iDepth, ivec2((fragCoord.xy / iUpscalingKernelSize + vec2(0., 1.)) * iRenderSize), 0).r),
+                DecodeLogarithmicDepth(texelFetch(iDepth, ivec2((fragCoord.xy / iUpscalingKernelSize - vec2(1., 0.)) * iRenderSize), 0).r),
+                DecodeLogarithmicDepth(texelFetch(iDepth, ivec2((fragCoord.xy / iUpscalingKernelSize - vec2(0., 1.)) * iRenderSize), 0).r)
+              ) * .98 - 1.;
+              
+              Distance = length(RayOrigin - NewOffset);
+              RayOrigin = NewOffset;
+            }
+            vec4 FallbackColour = Colour;
+            float InitialDistance = Distance;
+            RayTraceResult Result = Raytrace(RayOrigin, RayDirection, Distance, 0u, Distances);
+            Colour = Result.Colour;
+            float FinalDistance = Result.Distance;
+            bool HitVoxel = Result.HitVoxel;
+            if(Colour.a == 0. || !HitVoxel){
+              if(FallbackColour.a != 0. && max(max(max(Distances.x, Distances.y), Distances.z), Distances.w) < 30000.) Colour = FallbackColour;
+              else discard;
+            }
+            fragColor = Colour;
           }
-          
-          Colour = Raytrace(RayOrigin, RayDirection, Distance, 0u, 0);
-          if(Colour.a == 0.) discard;
-          fragColor = Colour;
-          
-          /*if(iIsFirstPass){
-            gl_FragDepth = EncodeLogarithmicDepth(Distance);
-          }*/
+          else if(iPassID == SHADOW_PASS){
+            vec2 Resolution = iResolution;
+            ivec2 Coordinates = ivec2(floor(vUv * iShadowTargetSize));//ivec2(floor(vUv * iShadowTargetSize * 2. - .1));//ivec2((vUv * round(iResolution / 2.) * 2. + .1) + 1.);
+            float Depth = DecodeLogarithmicDepth(texelFetch(iDepth, Coordinates, 0).r - 1. / 65536.); //FIXME: This indexes weirdly on some resolutions
+            
+            
+            
+            fragColor = vec4(CalculateShadowIntensity(RayOrigin + RayDirection * Depth, iSunPosition * vec3(1., -1., 1.), 0u, Depth));
+          } else if(iPassID == FULL_RES_FINAL_PASS){
+            fragColor = texture(iColour, fragCoord / iResolution);
+            fragColor.xyz *= (1. - iShadowDarkness) + iShadowDarkness * (1. - texture(iShadowColour, fragCoord / iResolution).xyz);
+            
+            
+            vec3 FogEffect = pow(vec3(2.71), vec3(-iFogFactor * DecodeLogarithmicDepth(texture(iDepth, fragCoord / iResolution).r)) * vec3(1., 2., 3.));
+            fragColor.rgb = FogEffect * fragColor.rgb + (1. - FogEffect);
+          }
         }
         
         void main(){
@@ -489,13 +801,30 @@ export default class Raymarcher{
     this.Renderer.Events.AddEventListener("RenderingScaledTarget", function(){
       this.Material.uniforms.iColour.value = this.DummyColourTexture;
       this.Material.uniforms.iDepth.value = this.DummyDepthTexture;
-      this.Material.uniforms.iIsFirstPass.value = true;
+
+      this.Material.uniforms.iPassID.value = Raymarcher.LOW_RES_PASS;
     }.bind(this));
-    this.Renderer.Events.AddEventListener("RenderingCanvas", function(){
+    this.Renderer.Events.AddEventListener("RenderingFullSizedTarget", function(){
       this.Material.uniforms.iColour.value = this.Renderer.ScaledTarget.texture;
       this.Material.uniforms.iDepth.value = this.Renderer.ScaledTarget.depthTexture;
 
-      this.Material.uniforms.iIsFirstPass.value = !this.Renderer.UseScaledTarget; //Is first pass if upscaling is disabled.
+      if(!this.Renderer.UseScaledTarget) this.Material.uniforms.iPassID.value = Raymarcher.FULL_RES_INITIAL_BYPASS_PASS;
+      else this.Material.uniforms.iPassID.value = Raymarcher.FULL_RES_INITIAL_PASS;
+    }.bind(this));
+    this.Renderer.Events.AddEventListener("RenderingShadowTarget", function(){
+      this.Material.uniforms.iColour.value = this.Renderer.ScaledTarget.texture;
+      if(this.Material.uniforms.iUpscalingKernelSize !== 1.) this.Material.uniforms.iDepth.value = this.Renderer.ScaledTarget.depthTexture;
+      else this.Material.uniforms.iDepth.value = this.Renderer.FullSizedTarget.depthTexture;
+      this.Material.uniforms.iShadowColour.value = null; //So a "feedback loop" doesn't form
+
+      this.Material.uniforms.iPassID.value = Raymarcher.SHADOW_PASS;
+    }.bind(this));
+    this.Renderer.Events.AddEventListener("RenderingCanvas", function(){
+      this.Material.uniforms.iColour.value = this.Renderer.FullSizedTarget.texture;
+      this.Material.uniforms.iShadowColour.value = this.Renderer.ShadowTarget.texture;
+      this.Material.uniforms.iDepth.value = this.Renderer.FullSizedTarget.depthTexture;
+
+      this.Material.uniforms.iPassID.value = Raymarcher.FULL_RES_FINAL_PASS;
     }.bind(this));
 
     const Mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2, 1, 1), this.Material);
@@ -505,7 +834,8 @@ export default class Raymarcher{
     Application.Main.Renderer.Events.AddEventListener("BeforeRender", this.UpdateUniforms.bind(this));
 
     void function AnimationFrame(){
-      (window.requestIdleCallback ?? window.requestAnimationFrame)(AnimationFrame.bind(this), {"timeout": 400});
+      window.requestAnimationFrame(AnimationFrame.bind(this));
+
       this.Material.uniforms.iOffset64.needsUpdate = true;
       this.Tex64.needsUpdate = true;
 
@@ -514,32 +844,52 @@ export default class Raymarcher{
       const UpdatedData64 = [];
       for(let Depth = 0; Depth < 8; ++Depth) for(let x64 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
         const Index64 = (Depth << 9) | (x64 << 6) | (y64 << 3) | z64;
-        if(((this.GPUData64[Index64] >> 14) & 1) === 1) UpdatedData64.push(Index64);
+        //Add to updated list only if it's fully loaded, and it needs an update.
+        if(((this.Data64[Index64] >> 19) & 7) === 7 && ((this.GPUData64[Index64] >> 14) & 1) === 1) UpdatedData64.push(Index64);
       }
 
-      if(UpdatedData64.length === 0) return;
+      if(UpdatedData64.length === 0){
+        this.Material.uniforms.iOffset64.needsUpdate = true;
+        this.Tex64.needsUpdate = true;
+        return; //These textures will also be updated for when there was an update a bit further down.
+      }
 
       const UpdatedSegments = new Set;
       for(const Index64 of UpdatedData64){
         const Info64 = this.GPUData64[Index64];
-        if((Info64 & 0x8000) !== 0) continue; //Just in case
+        const CPUInfo64 = this.Data64[Index64];
+        if((Info64 & 0x8000) !== 0){ //Is empty
+          if(((this.Data64[Index64] >> 19) & 7) === 7) this.GPUData64[Index64] |= 1 << 13; //Mark as fully uploaded if it's empty and fully loaded
+          continue;
+        }
         const Location64 = Info64 & 0x0fff;
         const StartIndex8 = Location64 << 9;
+        let MissedSegments = false;
         for(let Index8 = StartIndex8; Index8 < StartIndex8 + 512; ++Index8){
           const Info8 = this.GPUData8[Index8];
-          if((Info8 & 0x80000000) !== 0 || (Info8 & 0x40000000) === 0) continue; //Is either empty or has no changes
-          const SegmentColumn = (Info8 & 0x0003ffff) >> 9;
-          if(UpdatedSegments.size < 10 || UpdatedSegments.has(SegmentColumn)){
-            UpdatedSegments.add(SegmentColumn); //if this.UpdatedSegments.size < 10
+          if((Info8 & 0x80000000) !== 0 || (Info8 & 0x40000000) === 0) continue; //Is either empty or has no changes (no update)
+          const SegmentColumn = (Info8 & 0x0003fe00) >> 9;
+          if(UpdatedSegments.size < 6 || UpdatedSegments.has(SegmentColumn)){
+            UpdatedSegments.add(SegmentColumn); //if this.UpdatedSegments.size < 6
             this.GPUData8[Index8] &= ~(1 << 30); //Set update to false
-          }
+          } else MissedSegments = true;
         }
-        if(UpdatedSegments.size < 10) this.GPUData64[Index64] &= ~(1 << 14); //Toggle update to false
+
+        if(!MissedSegments){
+          this.GPUData64[Index64] &= ~(1 << 14); //Toggle update to false
+          this.GPUData64[Index64] |= 1 << 13; //Mark as fully uploaded
+          const GPULocation64 = this.GPUData64[Index64] & 0x0fff;
+          //int Pos8XYZ = ((Location64 & 7) << 6) | (mRayPosFloor.x << 3) | mRayPosFloor.y;
+          //return texelFetch(iTex8, ivec3(mRayPosFloor.z, Pos8XYZ, Location64 >> 3), 0).r;
+          this.Renderer.Renderer.copyTextureToTexture3D(
+            new THREE.Box3(new THREE.Vector3(0, (GPULocation64 & 7) << 6, GPULocation64 >> 3), new THREE.Vector3(7, ((GPULocation64 & 7) << 6) | 63, GPULocation64 >> 3)),
+            new THREE.Vector3(0, (GPULocation64 & 7) << 6, GPULocation64 >> 3),
+            this.Tex8,
+            this.Tex8
+          );
+        }
         //The if is there because if the size is greater than 10, most likely only part of the Data64 has been updated (due to segment distribution)
       }
-
-      this.Tex8.needsUpdate = true; //This might be too much effort to selectively update (and also has weird artefacts)
-
 
       for(const SegmentLocation of UpdatedSegments){ //This is not sending individual segments, but entire columns
         //const YOffset = (SegmentLocation & 31) << 4;
@@ -559,6 +909,11 @@ export default class Raymarcher{
           this.VoxelTypesTex
         );
       }
+
+      this.Material.uniforms.iOffset64.needsUpdate = true;
+      this.Tex64.needsUpdate = true;
+      //this.Tex8.needsUpdate = true;
+
     }.bind(this)();
   }
   SetKernelSize(Size){
@@ -573,5 +928,8 @@ export default class Raymarcher{
     this.Material.uniforms["iRotation"].value = new THREE.Vector3(this.Renderer.Camera.rotation.x, this.Renderer.Camera.rotation.y, this.Renderer.Camera.rotation.z);
     this.Material.uniforms["iPosition"].value = new THREE.Vector3(this.Renderer.Camera.position.x, this.Renderer.Camera.position.y, this.Renderer.Camera.position.z);
     this.Material.uniforms["iPosition"].needsUpdate = true;
+    this.Material.uniforms["FOV"].value = Number.parseFloat(this.Renderer.Camera.fov) * Math.PI / 180. / this.Renderer.Camera.zoom;
+    this.Material.uniforms["iSunPosition"].value = this.Renderer.BackgroundMaterial.uniforms["iSunPosition"].value;
+    this.Material.uniforms["iShadowTargetSize"].value = new THREE.Vector2(this.Renderer.ShadowTarget.width, this.Renderer.ShadowTarget.height);
   }
 };

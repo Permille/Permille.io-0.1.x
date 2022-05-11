@@ -44,7 +44,7 @@ export default class RegionUnloader{
       const Index64 = (Depth << 9 ) | (x64 << 6) | (y64 << 3) | z64;
       const Info64 = Data64[Index64];
       //Has not fully been loaded, or is completely empty, or is already unloaded, or is unloadable
-      if(((Info64 >> 12) & 3) < 3 || ((Info64 >> 15) & 1) === 1 || ((Info64 >> 16) & 1) === 1 || ((Info64 >> 17) & 1) === 1) continue;
+      if(((Info64 >> 19) & 7) < 7 || ((Info64 >> 15) & 1) === 1 || ((Info64 >> 16) & 1) === 1 || ((Info64 >> 17) & 1) === 1) continue;
       for(const [dx64, dy64, dz64] of [
         [x64, y64, z64],
         [x64 - 1, y64, z64],
@@ -56,7 +56,7 @@ export default class RegionUnloader{
       ]){
         const dIndex64 = (Depth << 9) | (dx64 << 6) | (dy64 << 3) | dz64;
         const dInfo64 = Data64[dIndex64];
-        if(((dInfo64 >> 12) & 3) < 2) continue Iterator;
+        if(((dInfo64 >> 19) & 7) < 2) continue Iterator;
         if(((dInfo64 >> 16) & 1) === 1) continue;
         if(((dInfo64 >> 15) & 1) === 1){
           Data64[Index64] |= 1 << 17; //I already know that Index64 isn't fully air, so this is fine.

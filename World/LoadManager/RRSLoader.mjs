@@ -166,9 +166,9 @@ export default class RRSLoader{
     const RequestedRegions = [];
     for(let Depth = 0; Depth < 8; ++Depth) for(let rx64 = 0; rx64 < 8; rx64++) for(let ry64 = 0; ry64 < 8; ry64++) for(let rz64 = 0; rz64 < 8; rz64++){
       const Index = (Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64;
-      const State = (this.Data64[Index] >> 12) & 3;
+      const State = (this.Data64[Index] >> 19) & 7;
       if(State === 0){ //This means that it's not started loading.
-        this.Data64[Index] = (this.Data64[Index] & ~(0b0011 << 12)) | (0b0001 << 12); //Set state to 0bXX01 (Started loading)
+        this.Data64[Index] = (this.Data64[Index] & ~(7 << 19)) | (1 << 19); //Set state to 1 (Started loading)
         const RegionX = rx64 + this.Data64Offset[Depth * 3 + 0];
         const RegionY = ry64 + this.Data64Offset[Depth * 3 + 1];
         const RegionZ = rz64 + this.Data64Offset[Depth * 3 + 2];

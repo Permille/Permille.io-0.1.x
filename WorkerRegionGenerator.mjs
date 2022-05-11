@@ -76,14 +76,12 @@ function AllocateData8(StartIndex8, x8, y8, z8){
 }
 
 function AllocateData64(x64, y64, z64, Depth){
-  //x64 -= Data64Offset[Depth * 3 + 0];
-  //y64 -= Data64Offset[Depth * 3 + 1];
-  //z64 -= Data64Offset[Depth * 3 + 2];
-  //Need to set coordinates within boundaries
   const Index = Atomics.add(AllocationIndex64, 0, 1) & 4095;
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
-
-  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0b1000111111111111; //Reset any previous location, and set first bit to 0 to mark existence.
+  //IMP/ORTANT: This sets the empty bit to not empty (1). It will have to be re-set manually if the Data64 is not deallocated. This is done because this might cause loading issues later.
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~(1 << 15);
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0b0000111111111111; //Reset any previous location.
+  //I can't just set it directly because I need to preserve the load state which should be 1 (started loading).
   Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
   return Location64;
 }
@@ -99,9 +97,6 @@ function DeallocateData8(Index8){
 }
 
 function DeallocateData64(Location64, x64, y64, z64, Depth){
-  //x64 -= Data64Offset[Depth * 3 + 0];
-  //y64 -= Data64Offset[Depth * 3 + 1];
-  //z64 -= Data64Offset[Depth * 3 + 2];
   const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 4095; //Indexing 1 for deallocation.
   Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
   Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0b1000111111111111; //Reset previous location and existence marker.
@@ -218,11 +213,14 @@ EventHandler.GenerateRegionData = function(Data){
       const XPos64 = (x8 << 3) | x1;
       const ZPos64 = (z8 << 3) | z1;
       const MapIndex = (XPos64 << 6) | ZPos64;
-      const Height = HeightMap[MapIndex];
+      const Height = Math.floor(HeightMap[MapIndex]);
       const Slope = SlopeMap[MapIndex];
       for(let y1 = 0; y1 < 8; ++y1){
         let Type;
+        const X = x1Offset + x8 * 8 + x1;
+        const Z = z1Offset + z8 * 8 + z1;
         const Y = y1Offset + y8 * 8 + y1;
+
         if(Height > Y){
           if(Slope < 4 - Height / 350) Type = GrassID;
           else if(Slope < 5.5570110493302 - Height / 350) Type = RockID;
@@ -260,7 +258,7 @@ EventHandler.GenerateRegionData = function(Data){
       Location8 = AllocateData8(Location64, x8, y8, z8); //This automatically registers the Data8
     } catch(Error){
       if(Error instanceof NoData8Exception){
-        Data64[Index64] &= ~(0b0011 << 12); //Set state to 0
+        Data64[Index64] &= ~(7 << 19); //Set stage to 0
         for(let i = 0; i < 512; ++i){
           const Index8 = (Location64 << 9) | i;
           DeallocateData8(Index8);
@@ -280,10 +278,12 @@ EventHandler.GenerateRegionData = function(Data){
 
   if(!WrittenTo64){
     DeallocateData64(Location64, rx64, ry64, rz64, 0);
+  } else{
+    Data64[Index64] &=~ (1 << 15); //Mark the Data64 as not empty (this is required because of AllocateData64 not setting the existence marker!)
   }
 
 
-  Data64[Index64] = (Data64[Index64] & ~(0b0011 << 12)) | (0b0010 << 12); //Set state to 0bXX10 (finished terrain loading)
+  Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (2 << 19); //Set stage to 2 (finished terrain loading)
 
   if(OwnQueueSize) OwnQueueSize[0]--;
 
@@ -309,16 +309,13 @@ EventHandler.GenerateVirtualRegionData = function(Data){
   Requests++;
 
   const Factor = 2 ** Data.Depth;
-  const XScale = 64 * Factor;
-  const YScale = 64 * Factor;
-  const ZScale = 64 * Factor;
 
   const AirID = MainBlockRegistry.GetBlockByIdentifier("primary:air").ID;
   const GrassID = MainBlockRegistry.GetBlockByIdentifier("default:grass").ID;
   const RockID = MainBlockRegistry.GetBlockByIdentifier("default:rock").ID;
   const Rock1ID = MainBlockRegistry.GetBlockByIdentifier("default:rock1").ID;
   const WaterID = MainBlockRegistry.GetBlockByIdentifier("default:water").ID;
-  const LeavesID = MainBlockRegistry.GetBlockByIdentifier("default:oak_leaves").ID;
+  const LeavesID = MainBlockRegistry.GetBlockByIdentifier("default:leaves").ID;
 
   const HeightMap = Data.HeightMap;
   const SlopeMap = Data.SlopeMap;
@@ -347,6 +344,8 @@ EventHandler.GenerateVirtualRegionData = function(Data){
         for (let y1 = 0; y1 < 8; ++y1) {
           let Type;
           const Y = (RegionY * 64 + y8 * 8 + y1) * Factor;
+          const X = (RegionX * 64 + x8 * 8 + x1) * Factor;
+          const Z = (RegionZ * 64 + z8 * 8 + z1) * Factor;
           if (Height > Y) {
             if (Slope < 4 - Height / 350) Type = GrassID;
             else if (Slope < 5.5570110493302 - Height / 350) Type = RockID;
@@ -383,7 +382,7 @@ EventHandler.GenerateVirtualRegionData = function(Data){
       Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
     }
     const SetBlock = function (X, Y, Z, BlockType) {
-      if (BlockType === 0 || X < 0 || Y < 0 || Z < 0 || X > 63 || Y > 63 || Z > 63) return;
+      if (BlockType === 0 || X < 0 || Y < 0 || Z < 0 || X >= 64 || Y >= 64 || Z >= 64) return;
 
       const Index8 = (Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7);
       let Info8 = Data8[Index8];
@@ -409,18 +408,21 @@ EventHandler.GenerateVirtualRegionData = function(Data){
       const SDPM6 = ScaledDistancedPointMap[Depth][6][((RegionX & (Width - 1)) * Width) | (RegionZ & (Width - 1))];
       for (const Point of SDPM6) {
         const RNG = RandomValue(Point.X + RegionX * Factor * 64, 0, Point.Z + RegionZ * Factor * 64);
+        const Random2 = RandomValue(Point.X + RegionX * Factor * 64, 3, Point.Z + RegionZ * Factor * 64);
         const OriginalX = Point.X;
         const OriginalZ = Point.Z;
         const X = Math.round(OriginalX / Factor - .5);
         const Z = Math.round(OriginalZ / Factor - .5);
         const Temperature = TemperatureMap[(X << 6) | Z];
+        const Slope = Data.SlopeMap[(X << 6) | Z];
 
-        if (RNG > Temperature / 2.) continue;
+        if(RNG > Temperature / 2.) continue;
         if(Depth === 3 && RNG > Temperature / 3.) continue;
 
         const PasteHeight = Math.floor(HeightMap[(X << 6) | Z]) / Factor;
         if (PasteHeight < 0) continue;
         if (!((RegionY + 1) * 64 > PasteHeight && PasteHeight > RegionY * 64 - 32)) continue;
+        if(Random2 < HeightMap[(X << 6) | Z] / 1000. || Random2 * 2 < Slope) continue;
 
         WrittenTo64 = true;
         const TreeRNG = RandomValue(Point.X + RegionX * Factor * 64, 1, Point.X + RegionZ * Factor * 64);
@@ -432,7 +434,9 @@ EventHandler.GenerateVirtualRegionData = function(Data){
       for (let X = 0; X < 64; ++X) for (let Z = 0; Z < 64; ++Z) {
         const RNG = RandomValue(X, 1, Z);
         const Temperature = TemperatureMap[(X << 6) | Z];
-        if (RNG > Temperature / 2.) continue;
+        const Slope = Data.SlopeMap[(X << 6) | Z];
+        if(RNG > Temperature / 2.) continue;
+        if(RNG < HeightMap[(X << 6) | Z] / 1000. || RNG * 2 < Slope) continue;
 
         const PasteHeight = Math.floor(HeightMap[(X << 6) | Z] / Factor) - RegionY * 64;
         if (PasteHeight < 0 || PasteHeight >= 64) continue;
@@ -446,13 +450,15 @@ EventHandler.GenerateVirtualRegionData = function(Data){
 
     if (!WrittenTo64) {
       DeallocateData64(Location64, rx64, ry64, rz64, Depth);
+    } else{
+      Data64[Index64] &=~ (1 << 15); //Mark the Data64 as not empty (this is required because of AllocateData64 not setting the existence marker!)
     }
 
-    Data64[Index64] = (Data64[Index64] & ~(0b0011 << 12)) | (0b0010 << 12); //Set state to 0bXX10 (finished terrain loading)
+    Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (7 << 19); //Set state to 7 (finished loading)
     Data64[Index64] |= (1 << 14);
   } catch(Error){
     if(Error instanceof NoData8Exception){
-      Data64[Index64] &= ~(0b0011 << 12); //Set state to 0
+      Data64[Index64] &= ~(7 << 19); //Set state to 0
       for(let i = 0; i < 512; ++i){
         const Index8 = (Location64 << 9) | i;
         DeallocateData8(Index8);

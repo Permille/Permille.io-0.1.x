@@ -78,7 +78,7 @@ export default class MapView{
       else throw new Error("[MapView] Unknown worker request: " + Event.data.Request);
     }.bind(this));
 
-    Application.Main.Game.World.Events.AddEventListener("SeedUpdate", function(Seed){
+    Application.Main.World.Events.AddEventListener("SeedUpdate", function(Seed){
       for(const Identifier in this.Tiles) this.UnloadTile(Identifier);
       for(const PeakID in this.Peaks) delete this.Peaks[PeakID];
 

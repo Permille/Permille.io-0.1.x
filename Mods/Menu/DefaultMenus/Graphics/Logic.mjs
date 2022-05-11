@@ -14,6 +14,49 @@ export default class Logic{
         this.BaseMenu.Exit();
       }.bind(this));
 
+      //Creating custom button for toggling background blur
+      const ButtonElement = document.createElement("div");
+      ButtonElement.classList.add("Button");
+      ButtonElement.style.margin = "auto";
+      ButtonElement.dataset.exp = "ToggleBackground";
+      ButtonElement.style.width = "fit-content";
+      ButtonElement.style.maxWidth = "90vw";
+      ButtonElement.style.textOverflow = "ellipsis";
+      ButtonElement.style.paddingInline = "30px";
+
+      IDocument.querySelector("#Title").after(ButtonElement);
+      IDocument.querySelector("#Container").style.marginTop = "5vh";
+      IDocument.querySelector("#Container").style.maxHeight = "calc(max(72vh - 160px, 150px))";
+      IDocument.querySelector("#Title").style.marginBottom = "2vh";
+
+      {
+        let BackgroundBlur = true;
+        ButtonElement.addEventListener("click", function(){
+          BackgroundBlur = !BackgroundBlur;
+          if(BackgroundBlur){
+            IDocument.documentElement.style.backgroundColor = "#000f0f5f";
+            IDocument.documentElement.style.backdropFilter = "blur(3px)";
+          } else{
+            IDocument.documentElement.style.backgroundColor = "transparent";
+            IDocument.documentElement.style.backdropFilter = "none";
+          }
+        }.bind(this));
+
+        let PointerLocked = false;
+        IDocument.documentElement.addEventListener("click", function(Event){
+          if(Event.target === IDocument.documentElement || Event.target === IDocument.body){
+            PointerLocked = true;
+            Application.Main.Game.GamePointerLockHandler.PointerLock.Element.requestPointerLock();
+          }
+        }.bind(this));
+        document.addEventListener("keydown", function(Event){
+          if(Event.code === "AltLeft" && PointerLocked){
+            PointerLocked = false;
+            document.exitPointerLock();
+          }
+        });
+      }
+
       ICCD.Range(IDocument.getElementById("FOV"), function(){
         Application.Main.Renderer.Camera.fov = ICVQ.Range(IDocument.getElementById("FOV"));
         Application.Main.Renderer.Camera.updateProjectionMatrix();
@@ -26,7 +69,7 @@ export default class Logic{
       });
 
       ICCD.Range(IDocument.getElementById("UpscalingKernelSize"), function(){
-        Application.Main.Raymarcher.SetKernelSize(ICVQ.Range(IDocument.getElementById("UpscalingKernelSize")));
+        Application.Main.Raymarcher.SetKernelSize(Number.parseFloat(ICVQ.Range(IDocument.getElementById("UpscalingKernelSize"))));
       });
 
       ICCD.Range(IDocument.getElementById("RenderSize"), function(){
@@ -42,20 +85,30 @@ export default class Logic{
         Application.Main.Renderer.UpdateSize();
       });
 
-      ICCD.Switch(IDocument.getElementById("UseShader"), function(){
-        const UseShader = ICVQ.Switch(IDocument.getElementById("UseShader"));
-        if(UseShader) Application.Main.Renderer.EnableShader();
-        else Application.Main.Renderer.DisableShader();
+      ICCD.Switch(IDocument.getElementById("UseShadows"), function(){
+        Application.Main.Renderer.UseShadows = ICVQ.Switch(IDocument.getElementById("UseShadows"));
+        Application.Main.Renderer.Renderer.setRenderTarget(Application.Main.Renderer.ShadowTarget);
+        Application.Main.Renderer.Renderer.clear();
       });
 
-      ICCD.Switch(IDocument.getElementById("DOF"), function(){
-        const UseDOF = ICVQ.Switch(IDocument.getElementById("DOF"));
-        if(UseDOF) Application.Main.Renderer.EnableDOF();
-        else Application.Main.Renderer.DisableDOF();
+      ICCD.Range(IDocument.getElementById("ShadowSteps"), function(){
+        Application.Main.Raymarcher.Material.uniforms.iMaxShadowSteps.value = Number.parseInt(ICVQ.Range(IDocument.getElementById("ShadowSteps")));
+      });
+
+      ICCD.Range(IDocument.getElementById("ShadowExponent"), function(){
+        Application.Main.Raymarcher.Material.uniforms.iShadowExponent.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowExponent")));
+      });
+
+      ICCD.Range(IDocument.getElementById("ShadowMultiplier"), function(){
+        Application.Main.Raymarcher.Material.uniforms.iShadowMultiplier.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowMultiplier")));
+      });
+
+      ICCD.Range(IDocument.getElementById("ShadowDarkness"), function(){
+        Application.Main.Raymarcher.Material.uniforms.iShadowDarkness.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowDarkness")));
       });
 
       ICCD.Range(IDocument.getElementById("FogFactor"), function(){
-        Application.Main.Renderer.Scene.fog.density = ICVQ.Range(IDocument.getElementById("FogFactor"));
+        Application.Main.Raymarcher.Material.uniforms.iFogFactor.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("FogFactor")));
       });
     }.bind(this));
   }

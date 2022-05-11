@@ -10,7 +10,8 @@ export default class GameControls extends KeyboardControlSet{
       "Rightwards": "KeyD",
       "Upwards": "Space",
       "Downwards": "ShiftLeft",
-      "Sprint": "KeyQ"
+      "Sprint": "KeyQ",
+      "ExitPointerLock": "AltLeft"
     });
     this.Events.AddEventListener("KeyDown", function(Event){
       const Control = this.Configuration.ReverseGet(Event.Code);

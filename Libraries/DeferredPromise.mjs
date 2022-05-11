@@ -26,7 +26,7 @@ export default class DeferredPromise extends Promise{
     this.resolve = resolve;
     this.reject = reject;
     if(Options.Timeout){
-      globalThis.setTimeout(this.reject.bind(this), +Options.Timeout);
+      globalThis.setTimeout((Options.Throw ?? true ? this.reject : this.resolve).bind(this), +Options.Timeout);
     }
   }
 };

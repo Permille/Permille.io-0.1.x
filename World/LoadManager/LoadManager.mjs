@@ -4,11 +4,14 @@ import RRSLoader from "./RRSLoader.mjs";
 import REGION_SD from "../RegionSD.mjs";
 import BlockRegistry from "../../Block/BlockRegistry.mjs";
 import GPURegionDataLoader from "./GPURegionDataLoader.mjs";
+import * as SDD from "../../BackgroundTasks/SharedDebugData.mjs";
 export default class LoadManager{
   constructor(Data){
     this.MainBlockRegistry = BlockRegistry.Initialise(Data.BlockIDMapping, Data.BlockIdentifierMapping);
 
     this.RequiredRegionsSelection = new Float64Array(new SharedArrayBuffer(8 * 12 * 33));
+
+    this.SharedDebugData = Data.SharedDebugData;
 
     this.PlayerPosition = Data.SharedPlayerPosition;
     this.Structures = Data.Structures;
@@ -53,8 +56,9 @@ export default class LoadManager{
     this.RRSLoader = new RRSLoader(this);
 
     void function Load() {
-      self.setTimeout(Load.bind(this), 1000);
-      console.log(this.FreeSegments.length);
+      self.setTimeout(Load.bind(this), 100);
+      this.SharedDebugData[SDD.FREE_GPU_SEGMENTS] = this.FreeSegments.length;
+      this.SharedDebugData[SDD.MAX_GPU_SEGMENTS] = 16384;
     }.bind(this)();
   }
 };

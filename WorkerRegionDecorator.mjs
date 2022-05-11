@@ -85,10 +85,11 @@ function AllocateData64(x64, y64, z64){
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
   if(Location64 === 65535) debugger;
   const Index64 = (x64 << 6) | (y64 << 3) | z64;
+
   if(((Data64[Index64] >> 16) & 1) === 1){ //Region was unloaded... well, that's a slight problem...
     Data64[Index64] &= ~(1 << 16); //Unflag unloaded
     Data64[Index64] |= 1 << 17;    //Make unloadable
-    Data64[Index64] &= ~(3 << 12); //Reset loading state
+    Data64[Index64] &= ~(7 << 19); //Reset loading state
   }
   Data64[Index64] &=~0b1000111111111111; //Reset any previous location, and set first bit to 0 to mark existence.
   Data64[Index64] |= Location64; //This is the StartIndex8 used in the other function.
@@ -162,6 +163,7 @@ EventHandler.DecorateRegion = function(Data){
   Requests++;
 
   const Index64 = (rx64 << 6) | (ry64 << 3) | rz64;
+  Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (7 << 19); //Set state to 7 (fully loaded)
   const ModifiedData64 = new Set([Index64]); //Add current region to modification set (so it's uploaded to the gpu)
   Data64[Index64] &= ~(1 << 14); //Suppress updates while region is being modified. This will be set at the end.
   const SetBlock = function(X, Y, Z, BlockType){
@@ -206,14 +208,17 @@ EventHandler.DecorateRegion = function(Data){
 
   const Points6 = DistancedPointMap[6][(RegionX & 7) * 8 + (RegionZ & 7)];
   for(const {X, Z} of Points6){
-    const PasteHeight = (Data.Maps.HeightMap[X * 64 + Z]) | 0;
+    const PasteHeight = Math.floor(Data.Maps.HeightMap[X * 64 + Z]);
     const Temperature = Data.Maps.TemperatureMap[X * 64 + Z];
+    const Slope = Data.Maps.SlopeMap[X * 64 + Z];
 
     const Random = RandomValue(X + RegionX * 64, 0, Z + RegionZ * 64);
+    const Random2 = RandomValue(X + RegionX * 64, 3, Z + RegionZ * 64);
 
     if((RegionY + 1) * 64 > PasteHeight && PasteHeight >= RegionY * 64){
       if(Random > Temperature / 2.) continue;
       if(PasteHeight < 0) continue;
+      if(Random2 < PasteHeight / 1000. || Random2 * 2 < Slope) continue;
       const Y = PasteHeight - RegionY * 64;
       //if(Random < 0.97) continue;
       //                        Important: the Y vvv value is 1 as to generate a different hash than for the temperature.
@@ -222,7 +227,8 @@ EventHandler.DecorateRegion = function(Data){
       //SetBlock(X, PasteHeight - RegionY * 64, Z, 5);
     }
   }
-  for(const Index64 of ModifiedData64) Data64[Index64] |= (1 << 14); //Request update (Finished stage 3)
+  Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (7 << 19); //Set state to 7 (fully loaded)
+  for(const dIndex64 of ModifiedData64) Data64[dIndex64] |= (1 << 14); //Request updates
   if(OwnQueueSize) OwnQueueSize[0]--;
   self.postMessage({
     "Request": "Finished",

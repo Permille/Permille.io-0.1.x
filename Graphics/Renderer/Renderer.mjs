@@ -26,11 +26,7 @@ const CloudFragmentShader = `
   uniform vec2 iMouse;
   uniform vec3 iRotation;
   uniform vec3 iPosition;
-  uniform vec3 iTopRightRay;
-  uniform vec3 iBottomLeftRay;
-  uniform vec3 iTopLeftRay;
-  uniform vec3 iBottomRightRay;
-  uniform float iScalingFactor;
+  uniform float FOV;
   uniform mediump sampler3D iSimplexTexture;
   uniform vec3 iSunPosition;
   uniform float iCloudCoverage;
@@ -251,7 +247,7 @@ const CloudFragmentShader = `
   void MainImage(out vec4 fragColor, in vec2 fragCoord){
     vec2 uv = (fragCoord.xy * 2. - iResolution.xy) / iResolution.y;
     vec3 RayOrigin = iPosition;
-    vec3 RayDirection = normalize(vec3(uv, .8)) * RotateX(-iRotation.x) * RotateY(-iRotation.y);
+    vec3 RayDirection = normalize(vec3(uv, 1. / tan(FOV / 2.))) * RotateX(-iRotation.x) * RotateY(-iRotation.y);
   
     fragColor = vec4(linear_to_srgb(render(RayOrigin, RayDirection)), 1);
     
@@ -309,9 +305,11 @@ export default class Renderer{
     this.Camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.0625, 16384);
     this.Camera.rotation.order = "YXZ";
 
-    this.UpscalingKernelSize = 4.;
+    this.UpscalingKernelSize = 2;
 
-    this.ScaledTarget = new THREE.WebGLRenderTarget(Math.ceil(window.innerWidth / this.UpscalingKernelSize), Math.ceil(window.innerHeight / this.UpscalingKernelSize));
+    this.UseShadows = true;
+
+    this.ScaledTarget = new THREE.WebGLRenderTarget(1000, 1000);
     this.ScaledTarget.texture.format = THREE.RGBAFormat;
     this.ScaledTarget.texture.type = THREE.UnsignedByteType;
     this.ScaledTarget.texture.internalFormat = "RGBA8";
@@ -320,10 +318,34 @@ export default class Renderer{
     this.ScaledTarget.stencilBuffer = false;
 
     this.ScaledTarget.depthBuffer = true;
-    this.ScaledTarget.depthTexture = new THREE.DepthTexture(Math.ceil(window.innerWidth / this.UpscalingKernelSize), Math.ceil(window.innerHeight / this.UpscalingKernelSize));
+    this.ScaledTarget.depthTexture = new THREE.DepthTexture(1000, 1000);
     this.ScaledTarget.depthTexture.format = THREE.DepthFormat;
     this.ScaledTarget.depthTexture.type = THREE.UnsignedShortType;
     this.ScaledTarget.depthTexture.needsUpdate = true;
+
+
+    this.FullSizedTarget = new THREE.WebGLRenderTarget(1000, 1000);
+    this.FullSizedTarget.texture.format = THREE.RGBAFormat;
+    this.FullSizedTarget.texture.type = THREE.UnsignedByteType;
+    this.FullSizedTarget.texture.internalFormat = "RGBA8";
+    this.FullSizedTarget.texture.minFilter = this.FullSizedTarget.texture.magFilter = THREE.NearestFilter;
+    this.FullSizedTarget.generateMipmaps = false;
+    this.FullSizedTarget.stencilBuffer = false;
+
+    this.FullSizedTarget.depthBuffer = true;
+    this.FullSizedTarget.depthTexture = new THREE.DepthTexture(1000, 1000);
+    this.FullSizedTarget.depthTexture.format = THREE.DepthFormat;
+    this.FullSizedTarget.depthTexture.type = THREE.UnsignedShortType;
+    this.FullSizedTarget.depthTexture.needsUpdate = true;
+
+
+    this.ShadowTarget = new THREE.WebGLRenderTarget(1000, 1000);
+    this.ShadowTarget.texture.format = THREE.RGBAFormat;
+    this.ShadowTarget.texture.type = THREE.UnsignedByteType;
+    this.ShadowTarget.texture.internalFormat = "RGBA8";
+    this.ShadowTarget.texture.minFilter = this.ShadowTarget.texture.magFilter = THREE.LinearFilter;
+    this.ShadowTarget.generateMipmaps = false;
+    this.ShadowTarget.stencilBuffer = false;
 
     this.UseScaledTarget = false;
 
@@ -353,18 +375,20 @@ export default class Renderer{
         iMouse: {value: new THREE.Vector2(0, 0)},
         iRotation: {value: new THREE.Vector3(0., 0., 0.)},
         iPosition: {value: new THREE.Vector3(0., 0., 0.)},
-        iTopRightRay: {value: new THREE.Vector3(0., 0., 0.)},
-        iBottomLeftRay: {value: new THREE.Vector3(0., 0., 0.)},
-        iTopLeftRay: {value: new THREE.Vector3(0., 0., 0.)},
-        iBottomRightRay: {value: new THREE.Vector3(0., 0., 0.)},
-        iScalingFactor: {value: 0.},
+        FOV: {value: .9},
         iSimplexTexture: {value: this.SimplexTexture},
-        iSunPosition: {value: new THREE.Vector3(0., 0., 1.)},
+        iSunPosition: {value: new THREE.Vector3(0., -0.707, .707)},
         iCloudCoverage: {value: .75}
       },
       vertexShader: CloudVertexShader,
       fragmentShader: CloudFragmentShader
     });
+
+    void function UpdateSunPosition(){ //TODO: this and the entire the cloud shader should be in a different place!
+      window.requestAnimationFrame(UpdateSunPosition.bind(this));
+      const Time = window.performance.now() + 195000.;
+      this.BackgroundMaterial.uniforms.iSunPosition.value = new THREE.Vector3(Math.cos(Time / 100000.), -0.4 + Math.sin(Time / 100000.) * .2, Math.sin(Time / 100000.)).normalize();
+    }.bind(this)();
 
     //this.BackgroundMaterial.uniforms["iSimplexTexture"].value = this.SimplexTexture;
 
@@ -374,33 +398,7 @@ export default class Renderer{
       this.BackgroundMaterial.uniforms.iRotation.value = new THREE.Vector3(-this.Camera.rotation.x, -this.Camera.rotation.y, this.Camera.rotation.z);
       this.BackgroundMaterial.uniforms.iPosition.value = new THREE.Vector3(this.Camera.position.x, this.Camera.position.y, -this.Camera.position.z);
       this.BackgroundMaterial.uniforms.iGlobalTime.value = window.performance.now() / 1000.;
-
-      //https://gamedev.stackexchange.com/a/55248
-      const Copy = function(Vector){
-        return new THREE.Vector3().copy(Vector);
-      };
-      //const Position = Copy(this.Camera.position);
-      const Position = new THREE.Vector3(0., 0., 0.);
-      const SinX = Math.sin(0.);//this.Camera.rotation.x);
-      const SinY = Math.sin(0.);//this.Camera.rotation.y);
-      const CosX = Math.cos(0.);//this.Camera.rotation.x);
-      const CosY = Math.cos(0.);//this.Camera.rotation.y);
-      const View = new THREE.Vector3(-SinY * CosX, SinX, -CosY * CosX);
-      const Up = new THREE.Vector3(0., 1., 0.);
-      const Right = new THREE.Vector3(1., 0., 0.);
-      const Distance1 = 1.;
-      const FOV = (this.Camera.fov | 0) * Math.PI / 180. / this.Camera.zoom;
-      const Aspect = window.innerWidth / window.innerHeight;
-
-      const Height1 = 2. * Math.tan(FOV / 2.) * Distance1;
-      const Width1 = Height1 * Aspect;
-
-      const Center1 = Copy(Position).add(Copy(View).multiplyScalar(Distance1));
-
-      const TopRight1 = Copy(Center1).add(Copy(Up).multiplyScalar(Height1 / 2.)).add(Copy(Right).multiplyScalar(Width1 / 2.));
-
-      this.BackgroundMaterial.uniforms.iScalingFactor.value = TopRight1.y;
-
+      this.BackgroundMaterial.uniforms.FOV.value = Number.parseFloat(this.Camera.fov) * Math.PI / 180. / this.Camera.zoom;
     }.bind(this)();
 
     const Mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2, 1, 1), this.BackgroundMaterial);
@@ -437,7 +435,9 @@ export default class Renderer{
   UpdateSize(){
     this.Renderer.setSize(window.innerWidth * this.ImageScale, window.innerHeight * this.ImageScale);
     this.BackgroundRenderer.setSize(window.innerWidth * this.CloudsScale, window.innerHeight * this.CloudsScale);
-    this.ScaledTarget.setSize(window.innerWidth * this.ImageScale / this.UpscalingKernelSize, window.innerHeight * this.ImageScale / this.UpscalingKernelSize);
+    this.ScaledTarget.setSize(Math.ceil(window.innerWidth * this.ImageScale / this.UpscalingKernelSize), Math.ceil(window.innerHeight * this.ImageScale / this.UpscalingKernelSize));
+    this.FullSizedTarget.setSize(window.innerWidth * this.ImageScale, window.innerHeight * this.ImageScale);
+    this.ShadowTarget.setSize(Math.ceil(window.innerWidth * this.ImageScale / this.UpscalingKernelSize), Math.ceil(window.innerHeight * this.ImageScale / this.UpscalingKernelSize));
 
     this.Renderer.domElement.style.width = window.innerWidth + "px";
     this.Renderer.domElement.style.height = window.innerHeight + "px";
@@ -459,13 +459,24 @@ export default class Renderer{
     this.BackgroundRenderer.render(this.BackgroundScene, this.BackgroundCamera);
 
     this.Renderer.setRenderTarget(this.ScaledTarget); //For whatever reason, I need to do this no matter whether I'm upscaling so I don't get weird errors...
-    if(this.UseScaledTarget){
+    if((this.UseScaledTarget || this.UseShadows) && Application.Main.Raymarcher.Material.uniforms.iUpscalingKernelSize.value !== 1){
       this.Renderer.clear();
       this.Events.FireEventListeners("RenderingScaledTarget");
       this.Renderer.render(this.Scene, this.Camera);
     }
 
-    //return;
+    this.Renderer.setRenderTarget(this.FullSizedTarget);
+    this.Renderer.clear();
+    this.Events.FireEventListeners("RenderingFullSizedTarget");
+    this.Renderer.render(this.Scene, this.Camera);
+
+    this.Renderer.setRenderTarget(this.ShadowTarget);
+    if(this.UseShadows) {
+      this.Renderer.clear();
+      this.Events.FireEventListeners("RenderingShadowTarget");
+      this.Renderer.render(this.Scene, this.Camera);
+    }
+
     this.Renderer.setRenderTarget(null);
     this.Renderer.clear();
     this.Events.FireEventListeners("RenderingCanvas");

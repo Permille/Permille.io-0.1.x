@@ -33,7 +33,8 @@ export default class WorkerLoadingPipelineHandler{
       "GPUData8": Application.Main.World.GPUData8,
       "GPUData64": Application.Main.World.GPUData64,
       "GPUTypes": Application.Main.World.GPUTypes,
-      "SegmentAllocation": Application.Main.World.SegmentAllocation
+      "SharedDebugData": Application.Main.SharedDebugData,
+
     });
 
     Application.Main.WorkerLoadingPipeline.addEventListener("message", function(Event){

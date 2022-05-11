@@ -32,7 +32,7 @@
         "Weighting": "Linear",
         "Min": 1,
         "Max": 8,
-        "Default": 4,
+        "Default": 2,
         "Step": 1
       },
       "RenderSize":{
@@ -63,51 +63,59 @@
         "Step": 0.01
       }
     },
-    "Shader":{
-      "UseShader":{
+    "Shadows":{
+      "UseShadows":{
         "Type": "Switch",
-        "ID": "UseShader",
+        "ID": "UseShadows",
         "Default": true
       },
-      "ShadowLevels":{
+      "ShadowSteps":{
         "Type": "Range",
-        "ID": "ShadowLevels",
+        "ID": "ShadowSteps",
         "Weighting": "Linear",
-        "Min": 1,
-        "Max": 8,
-        "Default": 5,
+        "Min": 10,
+        "Max": 200,
+        "Default": 150,
         "Step": 1
       },
-      "ConfigureDistances":{
-        "Type": "Button",
-        "ID": "ConfigureDistances",
-        "TextExp": "Configure"
+      "ShadowExponent":{
+        "Type": "Range",
+        "ID": "ShadowExponent",
+        "Weighting": "Linear",
+        "Min": 0.25,
+        "Max": 3.0,
+        "Default": 0.85,
+        "Step": 0.01
       },
-      "ConfigureBiases":{
-        "Type": "Button",
-        "ID": "ConfigureBiases",
-        "TextExp": "Configure"
+      "ShadowMultiplier":{
+        "Type": "Range",
+        "ID": "ShadowMultiplier",
+        "Weighting": "Linear",
+        "Min": 0.5,
+        "Max": 5.0,
+        "Default": 2.5,
+        "Step": 0.1
+      },
+      "ShadowDarkness":{
+        "Type": "Range",
+        "ID": "ShadowDarkness",
+        "Weighting": "Linear",
+        "Min": 0.1,
+        "Max": 0.9,
+        "Default": 0.5,
+        "Step": 0.01
       }
     },
     "PostProcessing":{
-      "DOF":{
-        "Type": "Switch",
-        "ID": "DOF",
-        "Default": false
-      },
       "FogFactor":{
         "Type": "Range",
         "ID": "FogFactor",
         "Weighting": "Exponential",
         "Min": 0,
-        "Max": 0.01,
-        "Default": 0.00013,
-        "Step": 0.00001
+        "Max": 0.0001,
+        "Default": 0.00002,
+        "Step": 0.000001
       }
     }
-  },
-  "OtherDefaults":{
-    "Distances": [0.008, 0.02, 0.06, 0.18, 0.6],
-    "Biases": [-0.0000099, -0.000017, -0.000049, -0.000145, -0.00048]
   }
 }

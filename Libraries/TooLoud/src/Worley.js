@@ -15,8 +15,18 @@ class Worley {
         return x * 2;
     }
 
+    static xorshift31(value) {
+        let x = value ^ (value >> 12);
+        x = x ^ (x << 25);
+        x = x ^ (x >> 27);
+        return x;
+    }
+
     static hash(i, j, k) {
         return (((((2166136261 ^ i) * 16777619) ^ j) * 16777619) ^ k) * 16777619 & 0xffffffff;
+    }
+    static hash2(i, j) {
+        return ((((2166136261 ^ i) * 16777619) ^ j)) * 16777619 & 0xffffffff;
     }
 
     static d(p1, p2) {
@@ -33,6 +43,7 @@ class Worley {
 
     static probLookup(value) {
         value = value & 0xffffffff;
+        //debugger;
         if (value < 393325350) return 1;
         if (value < 1022645910) return 2;
         if (value < 1861739990) return 3;
@@ -95,7 +106,36 @@ class Worley {
                     }
                 }
 
-        return distanceArray.map(x => x < 0 ? 0 : x > 1 ? 1 : x );
+        return distanceArray;//.map(x => x < 0 ? 0 : x > 1 ? 1 : x );
+    }
+
+    FasterNoise(X, Y) {
+        const Seed = this._seedValue;
+        let Distance = Infinity;
+
+        for (let i = -1; i < 2; ++i) for (let j = -1; j < 2; ++j){
+            const TileX = Math.floor(X) + i;
+            const TileY = Math.floor(Y) + j;
+            let LastRandom = Worley.xorshift31(Worley.hash2((TileX + Seed) & 0xffffffff, (TileY) & 0xffffffff));
+
+            const Points = [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4][LastRandom & 15];
+            for (let l = 0; l < Points; ++l){
+                LastRandom = Worley.xorshift31(LastRandom);
+                const PointX = LastRandom / 0x80000000 + TileX;
+                LastRandom = Worley.xorshift31(LastRandom);
+                const PointY = LastRandom / 0x80000000 + TileY;
+                LastRandom = Worley.xorshift31(LastRandom);
+                const PointZ = LastRandom / 0x80000000;
+
+                let New = (X - PointX) ** 2 + (Y - PointY) ** 2 + PointZ ** 2;
+                if(Distance > New) Distance = New;
+            }
+        }
+
+        return Distance;
+    }
+    static EuclideanDistance2D(p1, p2) {
+        return (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
     }
 
     setSeed(seed = 3000) {

@@ -40,6 +40,11 @@ export default class GameControlHandler{
       this.LastAnimationFrame = window.performance.now();
       this.AnimationFrame();
     }.bind(this)();
+
+    this.GameControls.Events.AddEventListener("ControlDown", function(Info){
+      if(Info.Control !== "ExitPointerLock") return;
+      document.exitPointerLock();
+    });
   }
   AnimationFrame(){
     if(window.performance.now() < 1000) return; // Should prevent accidental freezes?

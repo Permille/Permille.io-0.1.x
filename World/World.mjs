@@ -9,7 +9,7 @@ export default class World{
   constructor(){
     this.Events = new Listenable;
 
-    this.Data8Size = 524288;
+    this.Data8Size = 1048576;
 
     this.VoxelTypes = new Uint16Array(new SharedArrayBuffer(2 * 512*this.Data8Size));
     this.Data1 = new Uint8Array(new SharedArrayBuffer(2 * 64*this.Data8Size)); //64 MB
@@ -60,77 +60,110 @@ export default class World{
   }
 
   GetBlock(X, Y, Z){
-    return 0;
-    const RegionX = Math.floor(X / Region.X_LENGTH);
-    const RegionY = Math.floor(Y / Region.Y_LENGTH);
-    const RegionZ = Math.floor(Z / Region.Z_LENGTH);
-    const Identifier = RegionX + "," + RegionY + "," + RegionZ;
-    if(this.Regions[Identifier]){
-      const Index = (X & Region.X_LENGTH_MINUS_ONE) * Region.Z_LENGTH * Region.Y_LENGTH + (Y & Region.Y_LENGTH_MINUS_ONE) * Region.Z_LENGTH + (Z & Region.Z_LENGTH_MINUS_ONE);
-      const CommonBlock = this.Regions[Identifier].SharedData[REGION_SD.COMMON_BLOCK];
+    const RegionX = Math.floor(X / 64);
+    const RegionY = Math.floor(Y / 64);
+    const RegionZ = Math.floor(Z / 64);
 
-      if(this.Regions[Identifier].RegionData) return this.Regions[Identifier].RegionData[Index];
-      else if(CommonBlock !== -1) return CommonBlock;
-      else return 0;
-    }
+    const Offset64 = Application.Main.World.Data64Offset;
+    const x64 = RegionX - Offset64[0];
+    const y64 = RegionY - Offset64[1];
+    const z64 = RegionZ - Offset64[2];
 
-    return 0;//this.NotLoadedID;
+    if(x64 < 0 || y64 < 0 || z64 < 0 || x64 > 7 || y64 > 7 || z64 > 7) return 0;
+
+    const Info64 = Application.Main.World.Data64[(x64 << 6) | (y64 << 3) | z64];
+    if(((Info64 >> 15) & 1) === 1) return 0; //Region is empty.
+
+    const x8 = Math.floor(X / 8) & 7;
+    const y8 = Math.floor(Y / 8) & 7;
+    const z8 = Math.floor(Z / 8) & 7;
+    const Info8 = Application.Main.World.Data8[((Info64 & 0x0fff) << 9) | (x8 << 6) | (y8 << 3) | z8];
+    if(((Info8 >> 28) & 1) === 1) return Info8 & 0x0000ffff; //Common block
+    if(((Info8 >> 31) & 1) === 1) return 0; //Data8 is empty.
+
+    const x1 = Math.floor(X) & 7;
+    const y1 = Math.floor(Y) & 7;
+    const z1 = Math.floor(Z) & 7;
+    return Application.Main.World.VoxelTypes[((Info8 & 0x00ffffff) << 9) | (x1 << 6) | (y1 << 3) | z1];
   }
 
   SetBlock(X, Y, Z, BlockType){
-    return false;
-    const RegionX = X >> 5;
-    const RegionY = Y >> 6;
-    const RegionZ = Z >> 5;
-    const Identifier = RegionX + "," + RegionY + "," + RegionZ;
-    if(this.Regions[Identifier] !== undefined){
-      let ModX = X & Region.X_LENGTH_MINUS_ONE;
-      let ModY = Y & Region.Y_LENGTH_MINUS_ONE;
-      let ModZ = Z & Region.Z_LENGTH_MINUS_ONE;
-      if(!this.Regions[Identifier].RegionData){
-        this.Regions[Identifier].RegionData = new Uint16Array(new SharedArrayBuffer(Region.X_LENGTH * Region.Y_LENGTH * Region.Z_LENGTH * 2)).fill(this.Regions[Identifier].SharedData[REGION_SD.COMMON_BLOCK]);
-        //Once the background thread receives this region, it will update the shared data's DATA_ATTACHED.
-        Application.Main.WorkerLoadingPipeline.postMessage({
-          "Request": "ShareRegionData",
-          "Identifier": Identifier,
-          "RegionData": this.Regions[Identifier].RegionData
-        });
-      }
-      this.Regions[Identifier].RegionData[ModX * Region.Z_LENGTH * Region.Y_LENGTH + ModY * Region.Z_LENGTH + ModZ] = BlockType;
+    const RegionX = Math.floor(X / 64);
+    const RegionY = Math.floor(Y / 64);
+    const RegionZ = Math.floor(Z / 64);
 
-      this.Regions[Identifier].SharedData[REGION_SD.IS_ENTIRELY_SOLID] = 0;
-      this.Regions[Identifier].SharedData[REGION_SD.COMMON_BLOCK] = -1;
+    const Offset64 = Application.Main.World.Data64Offset;
+    const x64 = RegionX - Offset64[0];
+    const y64 = RegionY - Offset64[1];
+    const z64 = RegionZ - Offset64[2];
 
-      //Update surrounding regions
-      [
-        {"Identifier": RegionX + "," + RegionY + "," + RegionZ, "Condition": true},
-        {"Identifier": (RegionX - 1) + "," + RegionY + "," + RegionZ, "Condition": ModX === 0},
-        {"Identifier": (RegionX + 1) + "," + RegionY + "," + RegionZ, "Condition": ModX === Region.X_LENGTH_MINUS_ONE},
-        {"Identifier": RegionX + "," + (RegionY - 1) + "," + RegionZ, "Condition": ModY === 0},
-        {"Identifier": RegionX + "," + (RegionY + 1) + "," + RegionZ, "Condition": ModY === Region.Y_LENGTH_MINUS_ONE},
-        {"Identifier": RegionX + "," + RegionY + "," + (RegionZ - 1), "Condition": ModZ === 0},
-        {"Identifier": RegionX + "," + RegionY + "," + (RegionZ + 1), "Condition": ModZ === Region.Z_LENGTH_MINUS_ONE}
-      ].forEach(function(Item){
-        if(Item.Condition && (this.Regions[Item.Identifier])){
-          this.Regions[Item.Identifier].SharedData[REGION_SD.GD_REQUIRED] = 1;
-          this.Regions[Item.Identifier].SharedData[REGION_SD.GD_UPDATE_REQUIRED] = 1;
-        }
-      }.bind(this));
+    if(x64 < 0 || y64 < 0 || z64 < 0 || x64 > 7 || y64 > 7 || z64 > 7) return 0;
+
+    const Index64 = (x64 << 6) | (y64 << 3) | z64;
+    let Info64 = Application.Main.World.Data64[Index64];
+    if(((Info64 >> 15) & 1) === 1){ //Region is empty, allocate Data64
+      const Index = Atomics.add(this.AllocationIndex64, 0, 1) & 4095;
+      const Location64 = Atomics.exchange(this.AllocationArray64, Index, 65535);
+      this.Data64[Index64] &=~0x8fff;
+      this.Data64[Index64] |= Location64; //Set location
+      this.Data64[Index64] |= 7 << 19; //Set load state
     }
+
+    const x8 = Math.floor(X / 8) & 7;
+    const y8 = Math.floor(Y / 8) & 7;
+    const z8 = Math.floor(Z / 8) & 7;
+    const Index8 = ((Info64 & 0x0fff) << 9) | (x8 << 6) | (y8 << 3) | z8;
+    const Info8 = Application.Main.World.Data8[Index8];
+    const IsAir = (BlockType === 0) | 0;
+    if(((Info8 >> 28) & 1) === 1){ //Has common block
+      const Index = Atomics.add(this.AllocationIndex, 0, 1) & (this.AllocationArray.length - 1);
+      const Location = Atomics.exchange(this.AllocationArray, Index, 2147483647);
+      if(Location === 2147483647){
+        Atomics.sub(this.AllocationIndex, 0, 1);
+        throw new Error("Ran out of Data8 while setting block!");
+      }
+      const CommonType = this.Data8[Index8] & 0x0000ffff;
+      this.Data8[Index8] = Location; //Set location and request GPU update
+      for(let i = 0; i < 512; ++i) this.VoxelTypes[(Location << 9) | i] = CommonType; //Fill types
+      for(let i = 0; i < 64; ++i) this.Data1[(Location << 6) | i] = 0; //Set solidity (for raytracing)
+    } else if(((Info8 >> 31) & 1) === 1){ //Is empty
+      if(IsAir) return;
+      const Index = Atomics.add(this.AllocationIndex, 0, 1) & (this.AllocationArray.length - 1);
+      const Location = Atomics.exchange(this.AllocationArray, Index, 2147483647);
+      if(Location === 2147483647){
+        Atomics.sub(this.AllocationIndex, 0, 1);
+        throw new Error("Ran out of Data8 while setting block!");
+      }
+      this.Data8[Index8] = Location;
+      for(let i = 0; i < 512; ++i) this.VoxelTypes[(Location << 9) | i] = 0; //Fill 0 (air)
+      for(let i = 0; i < 64; ++i) this.Data1[(Location << 6) | i] = 0xff; //Set empty (for raytracing)
+    }
+    const x1 = Math.floor(X) & 7;
+    const y1 = Math.floor(Y) & 7;
+    const z1 = Math.floor(Z) & 7;
+    const StartIndex1 = (this.Data8[Index8] & 0x00ffffff);
+
+    this.Data64[Index64] &= ~(!IsAir << 15);
+    this.Data8[Index8] &= ~(!IsAir << 31); //If the block is air, and the region is full of air, it keeps air. Otherwise, it makes/keeps it solid.
+    this.VoxelTypes[(StartIndex1 << 9) | (x1 << 6) | (y1 << 3) | z1] = BlockType;
+    if(!IsAir) this.Data1[(StartIndex1 << 6) | (x1 << 3) | y1] &= ~(1 << z1);
+    else this.Data1[(StartIndex1 << 6) | (x1 << 3) | y1] |= 1 << z1;
+    //Request GPU updates
+    this.Data64[Index64] |= 1 << 14;
+    this.Data8[Index8] |= 1 << 30;
   }
 
   Raycast(MaxDistance = 512, Origin = null, Direction = null, TransparentBlocks = [0, 4]){
-    return 0;
     let Camera = Application.Main.Renderer.Camera;
-    let SinX = Math.sin(Camera.rotation.x);
+    let SinX = Math.sin(-Camera.rotation.x);
     let SinY = Math.sin(Camera.rotation.y);
-    let CosX = Math.cos(Camera.rotation.x);
+    let CosX = Math.cos(-Camera.rotation.x);
     let CosY = Math.cos(Camera.rotation.y);
 
     Direction = Direction || [
-      -SinY * CosX,
+      SinY * CosX,
       SinX,
-      -CosY * CosX
+      CosY * CosX
     ];
     Origin = Origin || [
       Camera.position.x,

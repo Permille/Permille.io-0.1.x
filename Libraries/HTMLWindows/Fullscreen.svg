@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" height="500" width="1000" version="1.1">
+  <defs>
+    <g id="SmallArrow">
+      <path d="
+        M 400 220
+        L 400 150
+        L 470 150
+        M 400 150
+        L 480 230
+      " fill="none" stroke="black" stroke-width="30" />
+    </g>
+  </defs>
+  <use href="#SmallArrow"/>
+  <use href="#SmallArrow" transform="rotate(90 500 250)"/>
+  <use href="#SmallArrow" transform="rotate(180 500 250)"/>
+  <use href="#SmallArrow" transform="rotate(270 500 250)"/>
+</svg>

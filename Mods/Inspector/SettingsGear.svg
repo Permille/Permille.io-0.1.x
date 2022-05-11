@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200" style="width: 200px; height: 200px;">
+    <defs>
+        <path id="GearThing" fill="transparent" stroke="white" stroke-width="15" d="M -15 55 L -15 80 L 15 80 L 15 55 L 42 40" />
+    </defs>
+    <use href="#GearThing" transform="rotate(30)" />
+    <use href="#GearThing" transform="rotate(90)" />
+    <use href="#GearThing" transform="rotate(150)" />
+    <use href="#GearThing" transform="rotate(210)" />
+    <use href="#GearThing" transform="rotate(270)" />
+    <use href="#GearThing" transform="rotate(330)" />
+    <circle r="20" fill="transparent" stroke="#ffffff" stroke-width="15"/>
+</svg>

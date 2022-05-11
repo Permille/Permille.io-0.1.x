@@ -21,7 +21,7 @@ export default function InitMapOverlay(IDocument, MapInterface, MapView){
     }
   };
 
-  Application.Main.Game.World.Events.AddEventListener("SeedUpdate", function(NewSeed){
+  Application.Main.World.Events.AddEventListener("SeedUpdate", function(NewSeed){
     Seed.innerText = "Seed: " + NewSeed;
   });
 

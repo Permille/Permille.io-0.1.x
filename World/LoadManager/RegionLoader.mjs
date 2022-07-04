@@ -103,6 +103,10 @@ export default class RegionLoader{
     this.Data8 = LoadManager.Data8;
     this.Data64 = LoadManager.Data64;
 
+    this.GPUInfo8 = LoadManager.GPUInfo8;
+    this.GPUInfo64 = LoadManager.GPUInfo64;
+    this.GPUBoundingBox1 = LoadManager.GPUBoundingBox1;
+
     this.Data64Offset = LoadManager.Data64Offset;
 
     this.AllocationIndex = LoadManager.AllocationIndex;
@@ -114,6 +118,9 @@ export default class RegionLoader{
     this.WorkerRegionGenerator = new Worker("../MultiWorkerRegionGeneratorManager.mjs", {"type": "module", "name": "Region Generator Manager"});
     this.WorkerRegionDecorator = new Worker("../RegionDecoratorThreadPool.mjs", {"type": "module", "name": "Region Decorator Thread Pool"});
     this.WorkerGeometryDataGenerator = new Worker("../MultiWorkerGeometryDataGeneratorManager.mjs", {"type": "module", "name": "Geometry Data Generator Manager"});
+
+    //Gets reset in RRSLoader
+    this.FinishedStage2Batch = -1;
 
 
     this.Structures = this.LoadManager.Structures;
@@ -206,7 +213,8 @@ export default class RegionLoader{
           break;
         }
         case "FinishedLoadingBatch":{
-          this.Events.FireEventListeners("FinishedLoadingBatch", Event.data.LoadingBatch);
+          this.FinishedStage2Batch = Event.data.LoadingBatch;
+          this.TryFinishingBatch(false);
           break;
         }
         case "SaveVirtualRegionData":{
@@ -256,7 +264,10 @@ export default class RegionLoader{
     this.WorkerRegionDecorator.addEventListener("message", function(Event){
       switch(Event.data.Request){
         case "Finished":{
-
+          Atomics.sub(this.LoadManager.LoadStageQueueLengths, 3, 1);
+          if(this.FinishedStage2Batch !== -1){
+            this.TryFinishingBatch(false);
+          }
           break;
         }
         default:{
@@ -266,14 +277,49 @@ export default class RegionLoader{
       }
     }.bind(this));
 
-    self.setTimeout(function(){
-      void function Load(){
-        self.setTimeout(Load.bind(this), 20);
-        this.CheckStage3Eligibility();
-      }.bind(this)();
-    }.bind(this), 20);
-  }
+    this.WorkerGeometryDataGenerator.postMessage({
+      "Request": "SaveStuff",
+      "MaxWorkers": 3,
+      "VoxelTypes": this.VoxelTypes,
+      "Data8": this.Data8,
+      "GPUBoundingBox1": this.GPUBoundingBox1,
+      "GPUInfo8": this.GPUInfo8,
+      "GPUInfo64": this.GPUInfo64,
+      "Data64": this.Data64,
+      "Data64Offset": this.Data64Offset
+    });
 
+    this.WorkerGeometryDataGenerator.onmessage = function(Event){
+      switch(Event.data.Request){
+        case "GenerateBoundingGeometry":{
+          self.postMessage(Event.data, [Event.data.Info.buffer]);
+          Atomics.sub(this.LoadManager.LoadStageQueueLengths, 4, 1);
+          this.TryFinishingBatch(true);
+          break;
+        }
+      }
+    }.bind(this);
+
+    void function Load(){
+      self.setTimeout(Load.bind(this), 50);
+      this.CheckStage4Eligibility();
+    }.bind(this)();
+  }
+  TryFinishingBatch(SkipChecks){
+    if(!SkipChecks){
+      this.CheckStage3Eligibility();
+      this.LoadManager.GPURegionDataLoader.UpdateGPUData();
+      this.CheckStage4Eligibility();
+    }
+    //console.log(this.LoadManager.LoadStageQueueLengths[3], this.LoadManager.LoadStageQueueLengths[4]);
+    if(this.FinishedStage2Batch !== -1 && Atomics.load(this.LoadManager.LoadStageQueueLengths, 3) === 0 && Atomics.load(this.LoadManager.LoadStageQueueLengths, 4) === 0){
+      this.Events.FireEventListeners("FinishedLoadingBatch", this.FinishedStage2Batch);
+      self.postMessage({
+        "Request": "FinishedLoadingBatch",
+        "Batch": this.FinishedStage2Batch
+      });
+    }
+  }
   //Generate heightmap
   Stage1(RegionX, RegionY, RegionZ, LoadingBatch = -1, BatchSize = 1){
     const Identifier = RegionX + "," + RegionY + "," + RegionZ;
@@ -352,7 +398,7 @@ export default class RegionLoader{
         const RegionZ = this.Data64Offset[2] + rz64;
 
         const Maps = this.HeightMaps[RegionX + "," + RegionZ];
-
+        Atomics.add(this.LoadManager.LoadStageQueueLengths, 3, 1);
         this.WorkerRegionDecorator.postMessage({
           "Request": "DecorateRegion",
           "RegionX": RegionX,
@@ -364,7 +410,34 @@ export default class RegionLoader{
     }
   }
 
+  //This is done for both normal and virtual regions:
+  CheckStage4Eligibility(){
+    for(let Depth = 0; Depth < 8; ++Depth){
+      for(let x64 = 0; x64 < 8; ++x64) for(let y64 = 0; y64 < 8; ++y64) for(let z64 = 0; z64 < 8; ++z64){
+        const Index64 = (Depth << 9) | (x64 << 6) | (y64 << 3) | z64;
 
+        const Region64X = x64 + this.Data64Offset[3 * Depth + 0];
+        const Region64Y = y64 + this.Data64Offset[3 * Depth + 1];
+        const Region64Z = z64 + this.Data64Offset[3 * Depth + 2];
+
+        const GPUInfo64 = this.GPUInfo64[Index64];
+        const Info64 = this.Data64[Index64];
+
+        //GPU region is empty, or has not been fully uploaded, or the load state is too low, or the mesh is already being generated or has been generated.
+        if(((GPUInfo64 >> 31) & 1) === 1 || ((Info64 >> 19) & 7) !== 7 || ((Info64 >> 29) & 1) === 1) continue;
+        this.Data64[Index64] |= 1 << 29;
+        Atomics.add(this.LoadManager.LoadStageQueueLengths, 4, 1);
+        this.WorkerGeometryDataGenerator.postMessage({
+          "Request": "GenerateBoundingGeometry",
+          "RegionX": Region64X,
+          "RegionY": Region64Y,
+          "RegionZ": Region64Z,
+          "Depth": Depth,
+          "Time": self.performance.now()
+        });
+      }
+    }
+  }
 
   //Virtual regions
 

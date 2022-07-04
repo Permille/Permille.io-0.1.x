@@ -8,8 +8,8 @@ export default class GamePointerLockHandler{
     };
     this.Camera = Camera;
     this.PointerLock.AddEventListener("MouseMove", function(Event){
-  		this.Camera.rotation.y += Event.movementX * this.Settings.MouseSensitivity;
-  		this.Camera.rotation.x += Event.movementY * this.Settings.MouseSensitivity * (!this.Settings.InvertY * 2 - 1);
+  		this.Camera.rotation.y -= Event.movementX * this.Settings.MouseSensitivity;
+  		this.Camera.rotation.x += Event.movementY * this.Settings.MouseSensitivity * Math.sign(this.Settings.InvertY - .5);
   		this.Camera.rotation.x = Math.max(Math.PI / -2, Math.min(Math.PI / 2, this.Camera.rotation.x));
     }.bind(this));
   }

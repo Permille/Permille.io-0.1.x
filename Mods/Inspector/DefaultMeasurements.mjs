@@ -12,7 +12,7 @@ export default [
       let Count = 0.;
       let Yielded = false;
       void function Update(){
-        window.requestAnimationFrame(Update);
+        Application.Main.Renderer.RequestAnimationFrame(Update);
         if(Yielded){
           Yielded = false;
           Count = 0.;
@@ -38,7 +38,7 @@ export default [
       let Slowest = -Infinity;
       let Yielded = false;
       void function Update(){
-        window.requestAnimationFrame(Update);
+        Application.Main.Renderer.RequestAnimationFrame(Update);
         if(Yielded){
           Yielded = false;
           Slowest = -Infinity;

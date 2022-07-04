@@ -35,7 +35,15 @@ export default class LoadManager{
     this.GPUData1 = Data.GPUData1;
     this.GPUData8 = Data.GPUData8;
     this.GPUData64 = Data.GPUData64;
-    this.GPUTypes = Data.GPUTypes;
+
+    this.GPUType1 = Data.GPUType1;
+    this.GPUInfo8 = Data.GPUInfo8;
+    this.GPUInfo64 = Data.GPUInfo64;
+    this.GPUBoundingBox1 = Data.GPUBoundingBox1;
+
+    this.LoadStageQueueLengths = Data.LoadStageQueueLengths;
+
+
     this.FreeSegments = [];
     for(let i = 0; i < 16384; ++i) this.FreeSegments.push(i);
     self.EventHandler.GetFreeSegments = function(){
@@ -52,7 +60,7 @@ export default class LoadManager{
 
     this.RegionLoader = new RegionLoader(this);
     this.GPURegionDataLoader = new GPURegionDataLoader(this);
-    this.RegionUnloader = new RegionUnloader(this);
+    //this.RegionUnloader = new RegionUnloader(this);
     this.RRSLoader = new RRSLoader(this);
 
     void function Load() {

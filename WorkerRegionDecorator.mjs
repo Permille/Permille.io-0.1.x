@@ -86,34 +86,11 @@ function AllocateData64(x64, y64, z64){
   if(Location64 === 65535) debugger;
   const Index64 = (x64 << 6) | (y64 << 3) | z64;
 
-  if(((Data64[Index64] >> 16) & 1) === 1){ //Region was unloaded... well, that's a slight problem...
-    Data64[Index64] &= ~(1 << 16); //Unflag unloaded
-    Data64[Index64] |= 1 << 17;    //Make unloadable
-    Data64[Index64] &= ~(7 << 19); //Reset loading state
-  }
-  Data64[Index64] &=~0b1000111111111111; //Reset any previous location, and set first bit to 0 to mark existence.
+  Data64[Index64] &=~(1 << 31); //Mark existence
+  Data64[Index64] &=~0x0007ffff; //Reset location
   Data64[Index64] |= Location64; //This is the StartIndex8 used in the other function.
-  Data64[Index64] |= 1 << 14; //Set GPU update to true
+  Data64[Index64] |= 1 << 30; //Set GPU update to true
   return Location64;
-}
-
-function DeallocateData8(Index8){
-  const Location = Data8[Index8];
-  if((Location & 0x80000000) !== 0) return;
-  const DeallocIndex = Atomics.add(AllocationIndex, 1, 1) & (AllocationArray.length - 1);
-  Atomics.store(AllocationArray, DeallocIndex, Location);
-  Data8[Index8] = 0x80000000;
-}
-
-function UnloadData64(x64, y64, z64){
-  const Index64 = (x64 << 6) | (y64 << 3) | z64;
-  if(((Data64[Index64] >> 15) & 1) === 1 || ((Data64[Index64] >> 17) & 1) === 1) return; //Is all air or is unloadable
-  const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 4095; //Indexing 1 for deallocation.
-  const Location64 = Data64[Index64] & 0x0fff;
-  for(let i = 0; i < 512; ++i) DeallocateData8((Location64 << 9) | i)
-  Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
-  Data64[(x64 << 6) | (y64 << 3) | z64] &=~0b1000111111111111; //Reset previous location and existence marker.
-  Data64[(x64 << 6) | (y64 << 3) | z64] |=0b11000000000000000; //Set unloaded and inexistence markers.
 }
 
 EventHandler.InitialiseBlockRegistry = function(Data){
@@ -163,9 +140,10 @@ EventHandler.DecorateRegion = function(Data){
   Requests++;
 
   const Index64 = (rx64 << 6) | (ry64 << 3) | rz64;
-  Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (7 << 19); //Set state to 7 (fully loaded)
+  //??
+  //Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (7 << 19); //Set state to 7 (fully loaded)
   const ModifiedData64 = new Set([Index64]); //Add current region to modification set (so it's uploaded to the gpu)
-  Data64[Index64] &= ~(1 << 14); //Suppress updates while region is being modified. This will be set at the end.
+  Data64[Index64] &=~(1 << 30); //Suppress updates while region is being modified. This will be set at the end.
   const SetBlock = function(X, Y, Z, BlockType){
     if(BlockType === 0) return;
     const ix64 = rx64 + (X >> 6);
@@ -174,35 +152,35 @@ EventHandler.DecorateRegion = function(Data){
     const Index64 = (ix64 << 6) | (iy64 << 3) | iz64;
     ModifiedData64.add(Index64);
     let Info64 = Data64[Index64];
-    let Location64 = Info64 & 0x0fff;
+    let Location64 = Info64 & 0x0007ffff;
     //I could probably remove this check by allocating it beforehand, and deallocating it if nothing was written to it
-    if((Info64 & 0x8000) !== 0) Location64 = AllocateData64(ix64, iy64, iz64);
-    Data64[Index64] |= 0x4000;
-    Data64[Index64] &= ~(1 << 15);
+    if(((Info64 >> 31) & 1) === 1) Location64 = AllocateData64(ix64, iy64, iz64);
+    Data64[Index64] |= 1 << 30;
+    Data64[Index64] &= ~(1 << 31);
     const Index8 = (Location64 << 9) | (((X >> 3) & 7) << 6) | (((Y >> 3) & 7) << 3) | ((Z >> 3) & 7);
     let Info8 = Data8[Index8];
     try {
-      if ((Info8 & 0x80000000) !== 0) Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
-      else if ((Info8 & 0x10000000) !== 0) { //Uniform type, have to decompress
+      if (((Info8 >> 31) & 1) === 1) Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
+      else if (((Info8 >> 28) & 1) === 1) { //Uniform type, have to decompress
         const UniformType = Info8 & 0x0000ffff;
         Info8 = AllocateData8(Location64, (X >> 3) & 7, (Y >> 3) & 7, (Z >> 3) & 7);
-        const Location8 = Info8 & 0x00ffffff;
+        const Location8 = Info8 & 0x0fffffff;
         for (let i = 0; i < 512; ++i) VoxelTypes[(Location8 << 9) | i] = UniformType;
         for (let i = 0; i < 64; ++i) Data1[(Location8 << 6) | i] = 0;
       }
     } catch(Error){
       if(Error instanceof NoData8Exception){
         console.error("Ran out of Data8 while decorating region.");
-        if(OwnQueueSize) OwnQueueSize[0]--;
+        if(OwnQueueSize) Atomics.sub(OwnQueueSize, 0, 1);
         return self.postMessage({
           "Request": "NoData8"
         });
       } else throw Error;
     }
-    const Location8 = Info8 & 0x00ffffff;
-    Data8[Index8] |= 0x40000000; //Looks like this has to be done every time. (GPU update)
+    const Location8 = Info8 & 0x0fffffff;
+    Data8[Index8] |= 1 << 30; //Looks like this has to be done every time. (GPU update)
     const Index = (Location8 << 6) | ((X & 7) << 3) | (Y & 7);
-    Data1[Index] &= ~(1 << (Z & 7)); //Sets it to 0, which means subdivide (full)
+    Data1[Index] &= ~(1 << (Z & 7)); //Sets it to 0, which means solid
     VoxelTypes[(Index << 3) | (Z & 7)] = BlockType;
   };
 
@@ -227,9 +205,9 @@ EventHandler.DecorateRegion = function(Data){
       //SetBlock(X, PasteHeight - RegionY * 64, Z, 5);
     }
   }
-  Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (7 << 19); //Set state to 7 (fully loaded)
-  for(const dIndex64 of ModifiedData64) Data64[dIndex64] |= (1 << 14); //Request updates
-  if(OwnQueueSize) OwnQueueSize[0]--;
+  Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (7 << 19); //Set state to 7 (finished loading)
+  for(const dIndex64 of ModifiedData64) Data64[dIndex64] |= (1 << 30), Data64[dIndex64] &=~(1 << 29); //Request GPU and mesh updates
+  if(OwnQueueSize) Atomics.sub(OwnQueueSize, 0, 1);
   self.postMessage({
     "Request": "Finished",
     RegionX,

@@ -106,7 +106,7 @@ EventHandler.GenerateHeightMap = function(Data){
       }
     }
   }
-  if(OwnQueueSize) OwnQueueSize[0]--;
+  if(OwnQueueSize) Atomics.sub(OwnQueueSize, 0, 1);
   self.postMessage({
     "Request": "SaveHeightMap",
     "XLength": XLength,

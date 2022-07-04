@@ -71,7 +71,7 @@ function AllocateData8(StartIndex8, x8, y8, z8){
     Atomics.sub(AllocationIndex, 0, 1);
     throw new NoData8Exception;
   }
-  Data8[(StartIndex8 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location | 0x40000000;
+  Data8[(StartIndex8 << 9) | (x8 << 6) | (y8 << 3) | z8] = Location | (1 << 30);
   return Location;
 }
 
@@ -79,8 +79,8 @@ function AllocateData64(x64, y64, z64, Depth){
   const Index = Atomics.add(AllocationIndex64, 0, 1) & 4095;
   const Location64 = Atomics.exchange(AllocationArray64, Index, 65535);
   //IMP/ORTANT: This sets the empty bit to not empty (1). It will have to be re-set manually if the Data64 is not deallocated. This is done because this might cause loading issues later.
-  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~(1 << 15);
-  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0b0000111111111111; //Reset any previous location.
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~(1 << 31);
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0x0007ffff; //Reset any previous location.
   //I can't just set it directly because I need to preserve the load state which should be 1 (started loading).
   Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] |= Location64; //This is the StartIndex8 used in the other function.
   return Location64;
@@ -99,8 +99,8 @@ function DeallocateData8(Index8){
 function DeallocateData64(Location64, x64, y64, z64, Depth){
   const DeallocIndex = Atomics.add(AllocationIndex64, 1, 1) & 4095; //Indexing 1 for deallocation.
   Atomics.store(AllocationArray64, DeallocIndex, Location64); //Add location back to the allocation array to be reused.
-  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0b1000111111111111; //Reset previous location and existence marker.
-  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] |= 0b1000000000000000; //Set existence marker to indicate that it's empty.
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] &=~0x0007ffff; //Reset previous location.
+  Data64[(Depth << 9) | (x64 << 6) | (y64 << 3) | z64] |= 1 << 31; //Set existence marker to indicate that it's empty.
 }
 
 EventHandler.InitialiseBlockRegistry = function(Data){
@@ -264,7 +264,7 @@ EventHandler.GenerateRegionData = function(Data){
           DeallocateData8(Index8);
         }
         DeallocateData64(Location64, rx64, ry64, rz64, 0);
-        if(OwnQueueSize) OwnQueueSize[0]--;
+        if(OwnQueueSize) Atomics.sub(OwnQueueSize, 0, 1);
         return self.postMessage({
           "Request": "NoData8"
         });
@@ -274,18 +274,18 @@ EventHandler.GenerateRegionData = function(Data){
     VoxelTypes.set(TempDataBuffer, Location8 << 9); //Location8 << 9 is the starting index of the voxel data 8x8x8 group.
     Data1.set(TempTypeBuffer, Location8 << 6); //This is Location8 << 6, because the Z axis is compressed into the number.
   }
-  if(Data64[Index64] & 0x8000) console.log(Data64[Index64]);
+  if(((Data64[Index64] >> 31) & 1) === 1) console.log(Data64[Index64]);
 
   if(!WrittenTo64){
     DeallocateData64(Location64, rx64, ry64, rz64, 0);
   } else{
-    Data64[Index64] &=~ (1 << 15); //Mark the Data64 as not empty (this is required because of AllocateData64 not setting the existence marker!)
+    Data64[Index64] &=~(1 << 31); //Mark the Data64 as not empty (this is required because of AllocateData64 not setting the existence marker!)
   }
 
 
   Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (2 << 19); //Set stage to 2 (finished terrain loading)
 
-  if(OwnQueueSize) OwnQueueSize[0]--;
+  if(OwnQueueSize) Atomics.sub(OwnQueueSize, 0, 1);
 
   self.postMessage({
     "Request": "GeneratedRegionData",
@@ -324,7 +324,7 @@ EventHandler.GenerateVirtualRegionData = function(Data){
   const Location64 = AllocateData64(rx64, ry64, rz64, Depth);
   const Index64 = (Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64;
 
-  if(Data64[Index64] & 0x8000) console.log("Allocation: " + Data64[Index64]);
+  if(((Data64[Index64] >> 31) & 1) === 1) console.log("Allocation: " + Data64[Index64]);
 
   try {
     let WrittenTo64 = false;
@@ -432,30 +432,32 @@ EventHandler.GenerateVirtualRegionData = function(Data){
       }
     } else {
       for (let X = 0; X < 64; ++X) for (let Z = 0; Z < 64; ++Z) {
-        const RNG = RandomValue(X, 1, Z);
         const Temperature = TemperatureMap[(X << 6) | Z];
         const Slope = Data.SlopeMap[(X << 6) | Z];
-        if(RNG > Temperature / 2.) continue;
-        if(RNG < HeightMap[(X << 6) | Z] / 1000. || RNG * 2 < Slope) continue;
+        if(RandomValue(X, 1, Z) > Temperature / 1.5) continue;
+        if(RandomValue(X, 2, Z) < HeightMap[(X << 6) | Z] / 1000. || RandomValue(X, 3, Z) * 2 < Slope) continue;
 
         const PasteHeight = Math.floor(HeightMap[(X << 6) | Z] / Factor) - RegionY * 64;
-        if (PasteHeight < 0 || PasteHeight >= 64) continue;
+        if (PasteHeight >= 0 && PasteHeight < 64) {
+          WrittenTo64 = true;
+          SetBlock(X, PasteHeight, Z, LeavesID);
+          if(Depth < 6 && PasteHeight < 63 && RandomValue(X, 4, Z) > Temperature / 0.9) SetBlock(X, PasteHeight + 1, Z, LeavesID);
+        }
 
-        WrittenTo64 = true;
-        SetBlock(X, PasteHeight, Z, LeavesID);
+
       }
     }
 
-    if (Data64[Index64] & 0x8000) console.log(Data64[Index64]);
+    if (((Data64[Index64] >> 31) & 1) === 1) console.log(Data64[Index64]);
 
     if (!WrittenTo64) {
       DeallocateData64(Location64, rx64, ry64, rz64, Depth);
     } else{
-      Data64[Index64] &=~ (1 << 15); //Mark the Data64 as not empty (this is required because of AllocateData64 not setting the existence marker!)
+      Data64[Index64] &=~(1 << 31); //Mark the Data64 as not empty (this is required because of AllocateData64 not setting the existence marker!)
     }
 
     Data64[Index64] = (Data64[Index64] & ~(7 << 19)) | (7 << 19); //Set state to 7 (finished loading)
-    Data64[Index64] |= (1 << 14);
+    Data64[Index64] |= (1 << 30);
   } catch(Error){
     if(Error instanceof NoData8Exception){
       Data64[Index64] &= ~(7 << 19); //Set state to 0
@@ -470,7 +472,7 @@ EventHandler.GenerateVirtualRegionData = function(Data){
     } else throw Error;
   }
 
-  if(OwnQueueSize) OwnQueueSize[0]--;
+  if(OwnQueueSize) Atomics.sub(OwnQueueSize, 0, 1);
 
 
   self.postMessage({

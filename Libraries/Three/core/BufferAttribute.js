@@ -17,6 +17,8 @@ class BufferAttribute {
 
 		}
 
+		this.isBufferAttribute = true;
+
 		this.name = '';
 
 		this.array = array;
@@ -222,9 +224,7 @@ class BufferAttribute {
 
 		for ( let i = 0, l = this.count; i < l; i ++ ) {
 
-			_vector.x = this.getX( i );
-			_vector.y = this.getY( i );
-			_vector.z = this.getZ( i );
+			_vector.fromBufferAttribute( this, i );
 
 			_vector.applyMatrix4( m );
 
@@ -240,9 +240,7 @@ class BufferAttribute {
 
 		for ( let i = 0, l = this.count; i < l; i ++ ) {
 
-			_vector.x = this.getX( i );
-			_vector.y = this.getY( i );
-			_vector.z = this.getZ( i );
+			_vector.fromBufferAttribute( this, i );
 
 			_vector.applyNormalMatrix( m );
 
@@ -258,9 +256,7 @@ class BufferAttribute {
 
 		for ( let i = 0, l = this.count; i < l; i ++ ) {
 
-			_vector.x = this.getX( i );
-			_vector.y = this.getY( i );
-			_vector.z = this.getZ( i );
+			_vector.fromBufferAttribute( this, i );
 
 			_vector.transformDirection( m );
 
@@ -405,8 +401,6 @@ class BufferAttribute {
 
 }
 
-BufferAttribute.prototype.isBufferAttribute = true;
-
 //
 
 class Int8BufferAttribute extends BufferAttribute {
@@ -485,11 +479,12 @@ class Float16BufferAttribute extends BufferAttribute {
 
 		super( new Uint16Array( array ), itemSize, normalized );
 
+		this.isFloat16BufferAttribute = true;
+
 	}
 
 }
 
-Float16BufferAttribute.prototype.isFloat16BufferAttribute = true;
 
 class Float32BufferAttribute extends BufferAttribute {
 

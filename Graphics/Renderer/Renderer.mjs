@@ -3,6 +3,7 @@ import Raycast from "../../Libraries/Raycast/Raycast.mjs";
 import TextureMerger from "../../Libraries/TextureMerger/TextureMerger.mjs";
 import Simplex from "../../Simplex.js";
 import Listenable from "../../Libraries/Listenable/Listenable.mjs";
+import { WebGLProperties } from '../../Libraries/Three/renderers/webgl/WebGLProperties.js';
 
 const CloudVertexShader = `
   varying vec2 vUv;
@@ -30,9 +31,33 @@ const CloudFragmentShader = `
   uniform mediump sampler3D iSimplexTexture;
   uniform vec3 iSunPosition;
   uniform float iCloudCoverage;
+  uniform highp usampler2D iRequiredPixels;
   
   // Shader adapted from https://www.shadertoy.com/view/Xttcz2
   // MANY thanks to valentingalea!!! https://github.com/valentingalea/shaderbox
+  /*
+  MIT License
+
+  Copyright (c) 2017 Valentin Galea
+  
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+  
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+  
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  */
   //
   // Volumetric Clouds Experiment
   //
@@ -49,56 +74,14 @@ const CloudFragmentShader = `
   //   https://github.com/valentingalea/shaderbox
   //  
   
-  struct hit_t {
-    float t;
-    int material_id;
-    vec3 normal;
-    vec3 origin;
-  };
-  #define max_dist 1e8
-  const hit_t no_hit = hit_t(float(max_dist + 1e1), -1, vec3(0., 0., 0.), vec3(0., 0., 0.));
-  
   // ----------------------------------------------------------------------------
   // Various 3D utilities functions
   // ----------------------------------------------------------------------------
-  const mat3 mat3_ident = mat3(1, 0, 0, 0, 1, 0, 0, 0, 1);
   
-  
-  mat2 rotate_2d(const in float angle_degrees){
-    float angle = radians(angle_degrees);
-    float _sin = sin(angle);
-    float _cos = cos(angle);
-    return mat2(_cos, -_sin, _sin, _cos);
-  }
-  
-  mat3 rotate_around_z(const in float angle_degrees){
-    float angle = radians(angle_degrees);
-    float _sin = sin(angle);
-    float _cos = cos(angle);
-    return mat3(_cos, -_sin, 0, _sin, _cos, 0, 0, 0, 1);
-  }
-  
-  mat3 rotate_around_y(const in float angle_degrees){
-    float angle = radians(angle_degrees);
-    float _sin = sin(angle);
-    float _cos = cos(angle);
-    return mat3(_cos, 0, _sin, 0, 1, 0, -_sin, 0, _cos);
-  }
-  
-  mat3 rotate_around_x(const in float angle_degrees){
-    float angle = radians(angle_degrees);
-    float _sin = sin(angle);
-    float _cos = cos(angle);
-    return mat3(1, 0, 0, 0, _cos, -_sin, 0, _sin, _cos);
-  }
   
   // http://http.developer.nvidia.com/GPUGems3/gpugems3_ch24.html
   vec3 linear_to_srgb(const in vec3 color){
     const float p = 1. / 2.2;
-    return vec3(pow(color.r, p), pow(color.g, p), pow(color.b, p));
-  }
-  vec3 srgb_to_linear(const in vec3 color){
-    const float p = 2.2;
     return vec3(pow(color.r, p), pow(color.g, p), pow(color.b, p));
   }
   
@@ -145,7 +128,8 @@ const CloudFragmentShader = `
   }
   
   float noise(vec3 v){
-    return texture(iSimplexTexture, vec3(v.x / 16., v.y / 4., v.z / 16.)).r;
+    return texture(iSimplexTexture, vec3(v.x / 8., v.y / 2., v.z / 8.)).r;
+    //return mod(hash(fract(length(floor(v) / 8.))), .25) + .1;//texture(iSimplexTexture, vec3(v.x / 8., v.y / 2., v.z / 8.)).r + texture(iSimplexTexture, vec3(v.x / 32., v.y / 8., v.z / 32.)).r;
   }
   
   // ----------------------------------------------------------------------------
@@ -153,10 +137,60 @@ const CloudFragmentShader = `
   // depends on custom basis function
   // ----------------------------------------------------------------------------
   
-  #define DECL_FBM_FUNC(_name, _octaves, _basis) float _name(const in vec3 pos, const in float lacunarity, const in float init_gain, const in float gain) { vec3 p = pos; float H = init_gain; float t = 0.; for (int i = 0; i < _octaves; i++) { t += _basis * H; p *= lacunarity; H *= gain; } return t; }
+  //#define DECL_FBM_FUNC(_name, _octaves, _basis) float _name(const in vec3 pos, const in float lacunarity, const in float init_gain, const in float gain) { vec3 p = pos; float H = init_gain; float t = 0.; for (int i = 0; i < _octaves; i++) { t += _basis * H; p *= lacunarity; H *= gain; } return t; }
+  //DECL_FBM_FUNC(fbm_clouds, 5, abs(noise(p)))
   
-  DECL_FBM_FUNC(fbm, 4, noise(p))
-  DECL_FBM_FUNC(fbm_clouds, 5, abs(noise(p)))
+  float fbm_clouds_2(const in vec3 pos, const in float lacunarity, const in float init_gain, const in float gain) {
+    vec3 p = pos;
+    float H = init_gain;
+    float t = 0.;
+    for (int i = 0; i < 5; i++) {
+      t += abs(noise(p)) * H;
+      p *= lacunarity;
+      H *= gain;
+    }
+    return t;
+  }
+  float Falloffs[6] = float[6](1., .5, .25, .125, .0625, .03125);
+  float Lacunarities[5] = float[5](1., 3.2323999404907227, 10.448409080505371, 33.7734375, 109.16925811767578);
+  /*
+    const a = new Float32Array([1., 3.2324, 0., 0., 0.]);
+    for(let i = 2; i < 5; ++i){
+        a[i] = a[i - 1] * a[1];
+    }
+  */
+  float Components[5] = float[5](0., 0., 0., 0., 0.);
+  int Indices[16] = int[16](4, 3, 4, 2, 4, 3, 4, 1, 4, 3, 4, 2, 4, 3, 4, 0);
+  float CurrentDensity = 0.;
+  
+  float fbm_clouds(const in vec3 pos) {
+    vec3 p = pos;
+    float t = 0.;
+    for (int i = 0; i < 5; i++) {
+      t += abs(noise(p * Lacunarities[i])) * Falloffs[i + 1];
+    }
+    return t;
+  }
+  
+  float density_func(const in vec3 pos, const in float h, int Iteration){
+    vec3 p = pos * .001 + cld_wind_dir;
+    //float dens = fbm_clouds(p * 2.032, 2.6434, .5, .5);
+    //float dens = fbm_clouds(p);
+    
+    /*{
+      int Index = Indices[Iteration & 15];//Iteration % 5;
+      float NewContribution = abs(noise(p * Lacunarities[Index])) * Falloffs[Index + 1];
+      CurrentDensity = CurrentDensity - Components[Index] + NewContribution;
+      Components[Index] = NewContribution;
+    }*/
+    float CurrentDensity = 0.;
+    for(int i = 0; i < 5; ++i){
+      CurrentDensity += abs(noise(p * Lacunarities[i])) * Falloffs[i + 1];
+    }
+  
+    return CurrentDensity * smoothstep (cld_coverage, cld_coverage + .035, CurrentDensity);
+  }
+  
   
   vec3 render_sky_color(const in vec3 eye_dir){
     const vec3 sun_color = vec3(1., .7, .55);
@@ -169,14 +203,7 @@ const CloudFragmentShader = `
     return sky;
   }
   
-  float density_func(const in vec3 pos, const in float h){
-    vec3 p = pos * .001 + cld_wind_dir;
-    float dens = fbm_clouds(p * 2.032, 2.6434, .5, .5);
-    
-    dens *= smoothstep (cld_coverage, cld_coverage + .035, dens);
   
-    return dens;
-  }
   
   float illuminate_volume(inout volume_sampler_t cloud, const in vec3 V, const in vec3 L){
     return exp(cloud.height) / 2.;
@@ -187,18 +214,24 @@ const CloudFragmentShader = `
     const float march_step = 1. * cld_thick / float(steps);
   
     vec3 projection = direction / direction.y;
-    vec3 iter = projection * march_step;
+    vec3 iter = /*march_step * direction;*/projection * march_step;
   
     float cutoff = dot(direction, vec3(0, 1, 0));
   
     volume_sampler_t cloud = begin_volume(
-      origin + projection * 300.,
+      origin + projection * 250.,
       cld_absorb_coeff);
-  
+    
+    /*for(int i = 0; i < 5; ++i){
+      float Contribution = abs(noise(cloud.pos * Lacunarities[i])) * Falloffs[i + 1];
+      Components[i] = Contribution;
+      CurrentDensity += Contribution;
+    }*/
+    
     for (int i = 0; i < steps; i++) {
       cloud.height = (cloud.pos.y - cloud.origin.y) / cld_thick;
-      float dens = density_func(cloud.pos, cloud.height);
-  
+      float dens = density_func(cloud.pos, cloud.height, i);
+      
       integrate_volume(
         cloud,
         direction, cld_sun_dir,
@@ -215,6 +248,7 @@ const CloudFragmentShader = `
   vec3 render(vec3 origin, vec3 direction){
     vec3 sky = render_sky_color(direction);
     if (dot(direction, vec3(0, 1, 0)) < 0.05) return sky;
+    if(texture(iRequiredPixels, gl_FragCoord.xy / iResolution.xy).x != 0u) return sky;
   
     vec4 cld = render_clouds(origin, direction);
     vec3 col = mix(sky, cld.rgb, cld.a);
@@ -250,8 +284,6 @@ const CloudFragmentShader = `
     vec3 RayDirection = normalize(vec3(uv, 1. / tan(FOV / 2.))) * RotateX(-iRotation.x) * RotateY(-iRotation.y);
   
     fragColor = vec4(linear_to_srgb(render(RayOrigin, RayDirection)), 1);
-    
-    return;
   }
   
   void main(){
@@ -280,72 +312,177 @@ export default class Renderer{
     this.ImageScale = 1;
     this.CloudsScale = .5;
 
-    this.BackgroundRenderer = new THREE.WebGLRenderer({
+    this.Renderer = new THREE.WebGLRenderer({
       "logarithmicDepthBuffer": false,
       "alpha": true,
       "powerPreference": "high-performance"
     });
-    this.BackgroundRenderer.autoClear = false;
-    this.BackgroundRenderer.domElement.style.position = "absolute";
-    document.getElementsByTagName("body")[0].appendChild(this.BackgroundRenderer.domElement);
 
-
-    this.Renderer = new THREE.WebGLRenderer({"logarithmicDepthBuffer": false, alpha: true });
+    this.Renderer.sortObjects = false;
     this.Renderer.autoClear = false;
+    this.Renderer.info.autoReset = false;
+
     //this.Renderer.autoClearDepth = false;
     this.Renderer.domElement.style.position = "absolute";
     document.getElementsByTagName("body")[0].appendChild(this.Renderer.domElement);
 
 
     this.Scene = new THREE.Scene;
-    this.Scene.background = null;//new THREE.Color("#7fffff");
-    //this.Scene.fog = new THREE.FogExp2(0x7fffff, 0.00013);
+    this.Scene.background = null;
     this.Scene.matrixAutoUpdate = false;
 
-    this.Camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.0625, 16384);
+    this.NearScene = new THREE.Scene;
+    this.NearScene.background = null;
+    this.NearScene.matrixAutoUpdate = false;
+
+    this.FarScene = new THREE.Scene;
+    this.FarScene.background = null;
+    this.FarScene.matrixAutoUpdate = false;
+
+    this.RaytracedPassScene = new THREE.Scene;
+    this.RaytracedPassScene.background = null;
+    this.RaytracedPassScene.matrixAutoUpdate = false;
+
+    this.FinalPassScene = new THREE.Scene;
+    this.FinalPassScene.background = null;
+    this.FinalPassScene.matrixAutoUpdate = false;
+
+    this.OutputPassScene = new THREE.Scene;
+    this.OutputPassScene.background = null;
+    this.OutputPassScene.matrixAutoUpdate = false;
+
+    this.TestPassScene = new THREE.Scene;
+    this.TestPassScene.background = null;
+    this.TestPassScene.matrixAutoUpdate = false;
+
+    this.SmallTargetScene = new THREE.Scene;
+    this.SmallTargetScene.background = null;
+    this.SmallTargetScene.matrixAutoUpdate = false;
+
+    this.DefaultFOV = 110.;
+
+    this.Camera = new THREE.PerspectiveCamera(this.DefaultFOV, window.innerWidth / window.innerHeight, 2., 49152.);
     this.Camera.rotation.order = "YXZ";
 
     this.UpscalingKernelSize = 2;
 
     this.UseShadows = true;
 
-    this.ScaledTarget = new THREE.WebGLRenderTarget(1000, 1000);
-    this.ScaledTarget.texture.format = THREE.RGBAFormat;
-    this.ScaledTarget.texture.type = THREE.UnsignedByteType;
-    this.ScaledTarget.texture.internalFormat = "RGBA8";
-    this.ScaledTarget.texture.minFilter = this.ScaledTarget.texture.magFilter = THREE.NearestFilter;
-    this.ScaledTarget.generateMipmaps = false;
-    this.ScaledTarget.stencilBuffer = false;
 
-    this.ScaledTarget.depthBuffer = true;
-    this.ScaledTarget.depthTexture = new THREE.DepthTexture(1000, 1000);
-    this.ScaledTarget.depthTexture.format = THREE.DepthFormat;
-    this.ScaledTarget.depthTexture.type = THREE.UnsignedShortType;
-    this.ScaledTarget.depthTexture.needsUpdate = true;
+    /*this.FirstPassTarget = new THREE.WebGLRenderTarget(1000, 1000);
+    this.FirstPassTarget.texture.format = THREE.RGBAFormat;
+    this.FirstPassTarget.texture.type = THREE.UnsignedByteType;
+    this.FirstPassTarget.texture.internalFormat = "RGBA8";
+    this.FirstPassTarget.texture.minFilter = this.FirstPassTarget.texture.magFilter = THREE.NearestFilter;
+    this.FirstPassTarget.generateMipmaps = false;
+    this.FirstPassTarget.stencilBuffer = false;
 
-
-    this.FullSizedTarget = new THREE.WebGLRenderTarget(1000, 1000);
-    this.FullSizedTarget.texture.format = THREE.RGBAFormat;
-    this.FullSizedTarget.texture.type = THREE.UnsignedByteType;
-    this.FullSizedTarget.texture.internalFormat = "RGBA8";
-    this.FullSizedTarget.texture.minFilter = this.FullSizedTarget.texture.magFilter = THREE.NearestFilter;
-    this.FullSizedTarget.generateMipmaps = false;
-    this.FullSizedTarget.stencilBuffer = false;
-
-    this.FullSizedTarget.depthBuffer = true;
-    this.FullSizedTarget.depthTexture = new THREE.DepthTexture(1000, 1000);
-    this.FullSizedTarget.depthTexture.format = THREE.DepthFormat;
-    this.FullSizedTarget.depthTexture.type = THREE.UnsignedShortType;
-    this.FullSizedTarget.depthTexture.needsUpdate = true;
+    this.FirstPassTarget.depthBuffer = true;
+    this.FirstPassTarget.depthTexture = new THREE.DepthTexture(1000, 1000);
+    this.FirstPassTarget.depthTexture.format = THREE.DepthFormat;
+    this.FirstPassTarget.depthTexture.type = THREE.UnsignedShortType;
+    this.FirstPassTarget.depthTexture.needsUpdate = true;*/
 
 
-    this.ShadowTarget = new THREE.WebGLRenderTarget(1000, 1000);
-    this.ShadowTarget.texture.format = THREE.RGBAFormat;
-    this.ShadowTarget.texture.type = THREE.UnsignedByteType;
-    this.ShadowTarget.texture.internalFormat = "RGBA8";
-    this.ShadowTarget.texture.minFilter = this.ShadowTarget.texture.magFilter = THREE.LinearFilter;
-    this.ShadowTarget.generateMipmaps = false;
-    this.ShadowTarget.stencilBuffer = false;
+    /*this.RaytracedPassTarget = new THREE.WebGLMultipleRenderTargets(1000, 1000, 2);
+    this.NearMeshPassTarget = new THREE.WebGLMultipleRenderTargets(1000, 1000, 2);
+    this.FarMeshPassTarget = new THREE.WebGLMultipleRenderTargets(1000, 1000, 2);
+    for(const Target of [this.RaytracedPassTarget, this.NearMeshPassTarget, this.FarMeshPassTarget]){
+      Target.texture[0].format = THREE.RGBAFormat;
+      Target.texture[0].type = THREE.UnsignedByteType;
+      Target.texture[0].internalFormat = "RGBA8";
+      Target.texture[0].minFilter = Target.texture[0].magFilter = THREE.NearestFilter;
+      debugger;
+      Target.texture[1].format = THREE.RedFormat;
+      Target.texture[1].type = THREE.FloatType;
+      Target.texture[1].internalFormat = "R32F";
+      Target.texture[1].minFilter = Target.texture[1].magFilter = THREE.NearestFilter;
+
+      Target.generateMipmaps = false;
+      Target.stencilBuffer = true;
+
+      Target.depthBuffer = true;
+      Target.depthTexture = new THREE.DepthTexture(1000, 1000);
+      Target.depthTexture.format = THREE.DepthFormat;
+      Target.depthTexture.type = THREE.UnsignedShortType;
+      Target.depthTexture.needsUpdate = true;
+    }*/
+
+
+    this.IntermediateTarget = new THREE.WebGLRenderTarget(1000, 1000);
+
+    this.IntermediateTarget.texture.format = THREE.RGIntegerFormat;
+    this.IntermediateTarget.texture.type = THREE.UnsignedIntType;
+    this.IntermediateTarget.texture.internalFormat = "RG32UI";
+    this.IntermediateTarget.texture.minFilter = this.IntermediateTarget.texture.magFilter = THREE.NearestFilter;
+
+    //this.IntermediateTarget.texture[2].format = THREE.RedFormat;
+    //this.IntermediateTarget.texture[2].type = THREE.FloatType;
+    //this.IntermediateTarget.texture[2].internalFormat = "R32F";
+    //this.IntermediateTarget.texture[2].minFilter = this.IntermediateTarget.texture[2].magFilter = THREE.NearestFilter;
+//
+    //this.IntermediateTarget.texture[3].format = THREE.RedFormat;
+    //this.IntermediateTarget.texture[3].type = THREE.FloatType;
+    //this.IntermediateTarget.texture[3].internalFormat = "R32F";
+    //this.IntermediateTarget.texture[3].minFilter = this.IntermediateTarget.texture[3].magFilter = THREE.NearestFilter;
+
+    this.IntermediateTarget.generateMipmaps = false;
+    this.IntermediateTarget.stencilBuffer = false;
+
+    this.IntermediateTarget.depthBuffer = true;
+    this.IntermediateTarget.depthTexture = new THREE.DepthTexture(1000, 1000);
+    this.IntermediateTarget.depthTexture.format = THREE.DepthFormat;
+    this.IntermediateTarget.depthTexture.type = THREE.UnsignedShortType;
+    this.IntermediateTarget.depthTexture.needsUpdate = true;
+
+
+    //To use a stencil buffer:
+    //1. do not use a custom depth texture in the render target (since it won't have the stencil bits)
+    //2. the render target has to enable it and the materials need to define the stencil behaviour
+
+
+    this.ClampDepthRenderTarget = new THREE.WebGLRenderTarget(1000, 1000);
+    this.ClampDepthRenderTarget.generateMipmaps = false;
+    this.ClampDepthRenderTarget.stencilBuffer = false;
+
+    this.ClampDepthRenderTarget.depthBuffer = true;
+    this.ClampDepthRenderTarget.depthTexture = this.IntermediateTarget.depthTexture;
+
+
+
+    this.SmallRaytracingTarget = new THREE.WebGLRenderTarget(100, 100);
+
+    this.SmallRaytracingTarget.texture.format = THREE.RedIntegerFormat;
+    this.SmallRaytracingTarget.texture.type = THREE.UnsignedByteType;
+    this.SmallRaytracingTarget.texture.internalFormat = "R8UI";
+    this.SmallRaytracingTarget.texture.minFilter = this.SmallRaytracingTarget.texture.magFilter = THREE.NearestFilter;
+
+    this.SmallRaytracingTarget.generateMipmaps = false;
+    this.SmallRaytracingTarget.stencilBuffer = false;
+    this.SmallRaytracingTarget.depthBuffer = false;
+
+
+    this.ProcessedWorldTarget = new THREE.WebGLRenderTarget(1000, 1000);
+    this.ProcessedWorldTarget.texture.format = THREE.RGBAFormat;
+    this.ProcessedWorldTarget.texture.type = THREE.UnsignedByteType;
+    this.ProcessedWorldTarget.texture.internalFormat = "RGBA8";
+    this.ProcessedWorldTarget.texture.minFilter = this.ProcessedWorldTarget.texture.magFilter = THREE.NearestFilter;
+
+    this.ProcessedWorldTarget.generateMipmaps = false;
+    this.ProcessedWorldTarget.stencilBuffer = false;
+    this.ProcessedWorldTarget.depthBuffer = false;
+
+    this.BackgroundTarget = new THREE.WebGLRenderTarget(500, 500);
+
+    this.BackgroundTarget.texture.format = THREE.RGBAFormat;
+    this.BackgroundTarget.texture.type = THREE.UnsignedByteType;
+    this.BackgroundTarget.texture.internalFormat = "RGBA8";
+    this.BackgroundTarget.texture.minFilter = this.BackgroundTarget.texture.magFilter = THREE.LinearFilter;
+
+    this.BackgroundTarget.generateMipmaps = false;
+    this.BackgroundTarget.stencilBuffer = false;
+    this.BackgroundTarget.depthBuffer = false;
+
 
     this.UseScaledTarget = false;
 
@@ -378,28 +515,30 @@ export default class Renderer{
         FOV: {value: .9},
         iSimplexTexture: {value: this.SimplexTexture},
         iSunPosition: {value: new THREE.Vector3(0., -0.707, .707)},
-        iCloudCoverage: {value: .75}
+        iCloudCoverage: {value: .75},
+        iRequiredPixels: {value: this.IntermediateTarget.texture}
       },
       vertexShader: CloudVertexShader,
       fragmentShader: CloudFragmentShader
     });
+    window.requestAnimationFrame(function(){
+      void function UpdateSunPosition(){ //TODO: this and the entire the cloud shader should be in a different place!
+        Application.Main.Renderer.RequestPreAnimationFrame(UpdateSunPosition.bind(this));
+        const Time = window.performance.now() + 195000.;
+        this.BackgroundMaterial.uniforms.iSunPosition.value = new THREE.Vector3(Math.cos(Time / 100000.), -0.4 + Math.sin(Time / 100000.) * .2, Math.sin(Time / 100000.)).normalize();
+      }.bind(this)();
 
-    void function UpdateSunPosition(){ //TODO: this and the entire the cloud shader should be in a different place!
-      window.requestAnimationFrame(UpdateSunPosition.bind(this));
-      const Time = window.performance.now() + 195000.;
-      this.BackgroundMaterial.uniforms.iSunPosition.value = new THREE.Vector3(Math.cos(Time / 100000.), -0.4 + Math.sin(Time / 100000.) * .2, Math.sin(Time / 100000.)).normalize();
-    }.bind(this)();
+      //this.BackgroundMaterial.uniforms["iSimplexTexture"].value = this.SimplexTexture;
 
-    //this.BackgroundMaterial.uniforms["iSimplexTexture"].value = this.SimplexTexture;
-
-    void function UpdateMouse(){
-      window.requestAnimationFrame(UpdateMouse.bind(this));
-      this.BackgroundMaterial.uniforms.iMouse.value = new THREE.Vector2(this.Camera.rotation.y * Math.PI * 50,this.Camera.rotation.x * Math.PI * 50);
-      this.BackgroundMaterial.uniforms.iRotation.value = new THREE.Vector3(-this.Camera.rotation.x, -this.Camera.rotation.y, this.Camera.rotation.z);
-      this.BackgroundMaterial.uniforms.iPosition.value = new THREE.Vector3(this.Camera.position.x, this.Camera.position.y, -this.Camera.position.z);
-      this.BackgroundMaterial.uniforms.iGlobalTime.value = window.performance.now() / 1000.;
-      this.BackgroundMaterial.uniforms.FOV.value = Number.parseFloat(this.Camera.fov) * Math.PI / 180. / this.Camera.zoom;
-    }.bind(this)();
+      void function UpdateMouse(){
+        Application.Main.Renderer.RequestPreAnimationFrame(UpdateMouse.bind(this));
+        this.BackgroundMaterial.uniforms.iMouse.value.set(this.Camera.rotation.y * Math.PI * 50,this.Camera.rotation.x * Math.PI * 50);
+        this.BackgroundMaterial.uniforms.iRotation.value.copy(this.Camera.rotation);
+        this.BackgroundMaterial.uniforms.iPosition.value.copy(this.Camera.position);
+        this.BackgroundMaterial.uniforms.iGlobalTime.value = window.performance.now() / 1000.;
+        this.BackgroundMaterial.uniforms.FOV.value = Number.parseFloat(this.Camera.fov) * Math.PI / 180.;
+      }.bind(this)();
+    }.bind(this));
 
     const Mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2, 1, 1), this.BackgroundMaterial);
 
@@ -416,94 +555,110 @@ export default class Renderer{
       if(Loaded) this.Render();
     }.bind(this)();
 
-    /*this.Scene.onBeforeRender = function(){
-      this.RenderTime = window.performance.now() - this.LastRender;
-      this.LastRender = window.performance.now();
-    }.bind(this);*/
-    this.Scene.onAfterRender = function(){
-      this.Events.FireEventListeners("AfterRender");
-    }.bind(this);
-
     window.addEventListener("resize", function(){
-      this.Events.FireEventListeners("Resize");
       this.UpdateSize();
     }.bind(this));
     this.UpdateSize();
 
     this.Events.FireEventListeners("InitEnd");
   }
+  GetBlockWidthFrom19m(FOV, Height){
+    return Math.floor((2818./FOV - FOV/11.5) * Height / 950.);
+  }
   UpdateSize(){
+    this.Events.FireEventListeners("Resize");
     this.Renderer.setSize(window.innerWidth * this.ImageScale, window.innerHeight * this.ImageScale);
-    this.BackgroundRenderer.setSize(window.innerWidth * this.CloudsScale, window.innerHeight * this.CloudsScale);
-    this.ScaledTarget.setSize(Math.ceil(window.innerWidth * this.ImageScale / this.UpscalingKernelSize), Math.ceil(window.innerHeight * this.ImageScale / this.UpscalingKernelSize));
-    this.FullSizedTarget.setSize(window.innerWidth * this.ImageScale, window.innerHeight * this.ImageScale);
-    this.ShadowTarget.setSize(Math.ceil(window.innerWidth * this.ImageScale / this.UpscalingKernelSize), Math.ceil(window.innerHeight * this.ImageScale / this.UpscalingKernelSize));
+    this.IntermediateTarget.setSize(window.innerWidth * this.ImageScale, window.innerHeight * this.ImageScale);
+    this.ClampDepthRenderTarget.setSize(window.innerWidth * this.ImageScale, window.innerHeight * this.ImageScale);
+    this.ProcessedWorldTarget.setSize(window.innerWidth * this.ImageScale, window.innerHeight * this.ImageScale);
+    this.BackgroundTarget.setSize(Math.ceil(window.innerWidth * this.CloudsScale), Math.ceil(window.innerHeight * this.CloudsScale));
 
     this.Renderer.domElement.style.width = window.innerWidth + "px";
     this.Renderer.domElement.style.height = window.innerHeight + "px";
-    this.BackgroundRenderer.domElement.style.width = window.innerWidth + "px";
-    this.BackgroundRenderer.domElement.style.height = window.innerHeight + "px";
 
-    this.BackgroundMaterial.uniforms.iResolution.value = new THREE.Vector2(window.innerWidth, window.innerHeight);
+    this.BackgroundMaterial.uniforms.iResolution.value = new THREE.Vector2(window.innerWidth * this.CloudsScale, window.innerHeight * this.CloudsScale);
 
     this.Camera.aspect = window.innerWidth / window.innerHeight;
     this.Camera.updateProjectionMatrix();
     this.Camera.rotation.order = "YXZ"; //?
   }
   Render(){
-    this.Events.FireEventListeners("BeforeRender");
-    this.RenderTime = window.performance.now() - this.LastRender;
+    let RenderTime = window.performance.now() - this.LastRender;
+    this.RenderTime = RenderTime;
     this.LastRender = window.performance.now();
 
-    this.BackgroundRenderer.clear();
-    this.BackgroundRenderer.render(this.BackgroundScene, this.BackgroundCamera);
+    this.Events.FireEventListeners("BeforeRender");
 
-    this.Renderer.setRenderTarget(this.ScaledTarget); //For whatever reason, I need to do this no matter whether I'm upscaling so I don't get weird errors...
-    if((this.UseScaledTarget || this.UseShadows) && Application.Main.Raymarcher.Material.uniforms.iUpscalingKernelSize.value !== 1){
-      this.Renderer.clear();
-      this.Events.FireEventListeners("RenderingScaledTarget");
-      this.Renderer.render(this.Scene, this.Camera);
-    }
+    this.Renderer.info.reset();
 
-    this.Renderer.setRenderTarget(this.FullSizedTarget);
+
+    const gl = this.Renderer.getContext();
+
+    this.Renderer.setRenderTarget(this.IntermediateTarget);
+    this.Renderer.clear(false, true, true);
+    gl.clearBufferuiv(gl.COLOR, 0, new Uint32Array([0, 0, 0, 0])); //I have to clear the colour buffer manually
+
+    //this.Events.FireEventListeners("RenderingRaytracedPass");
+    //this.Renderer.render(this.RaytracedPassScene, this.Camera);
+
+    //this.Renderer.clear(false, true, false);
+
+    this.Events.FireEventListeners("RenderingNearMeshPass");
+    this.Camera.near = 1.5;
+    this.Camera.far = 384.;
+    this.Camera.updateProjectionMatrix();
+    //Application.Main.Raymarcher.Material.stencilRef = 253;
+
+    this.Renderer.render(this.NearScene, this.Camera);
+
+    //this.Renderer.clear(false, true, false);
+
+    this.Renderer.setRenderTarget(this.ClampDepthRenderTarget);
+    this.Renderer.render(this.TestPassScene, this.Camera);
+    this.Renderer.setRenderTarget(this.IntermediateTarget);
+
+    this.Events.FireEventListeners("RenderingFarMeshPass");
+    this.Camera.near = 48.;
+    this.Camera.far = 49152.;
+    this.Camera.updateProjectionMatrix();
+    //Application.Main.Raymarcher.Material.stencilRef = 252;
+
+    this.Renderer.render(this.FarScene, this.Camera);
+    //gl.disable(gl.STENCIL_TEST);
+
+    //this.Renderer.setRenderTarget(null);
+    //this.Renderer.render(this.BackgroundScene, this.BackgroundCamera);
+
+    this.Renderer.setRenderTarget(this.SmallRaytracingTarget);
+    this.Renderer.render(this.SmallTargetScene, this.Camera);
+
+    this.Renderer.setRenderTarget(this.ProcessedWorldTarget);
     this.Renderer.clear();
-    this.Events.FireEventListeners("RenderingFullSizedTarget");
-    this.Renderer.render(this.Scene, this.Camera);
+    this.Events.FireEventListeners("RenderingFinalPass");
+    this.Renderer.render(this.FinalPassScene, this.Camera);
 
-    this.Renderer.setRenderTarget(this.ShadowTarget);
-    if(this.UseShadows) {
-      this.Renderer.clear();
-      this.Events.FireEventListeners("RenderingShadowTarget");
-      this.Renderer.render(this.Scene, this.Camera);
-    }
+    this.Renderer.setRenderTarget(this.BackgroundTarget);
+    this.Renderer.clear();
+    this.Events.FireEventListeners("RenderingBackgroundTarget");
+    this.Renderer.render(this.BackgroundScene, this.BackgroundCamera);
 
     this.Renderer.setRenderTarget(null);
     this.Renderer.clear();
-    this.Events.FireEventListeners("RenderingCanvas");
-    this.Renderer.render(this.Scene, this.Camera);
+    this.Renderer.render(this.OutputPassScene, this.Camera);
+
+
+    /*
+    this.Renderer.setRenderTarget(null);
+    this.Renderer.clear();
+    this.Events.FireEventListeners("RenderingCorrectionPass");
+    */
+    this.Events.FireEventListeners("AfterRender");
   }
-
-  Raycast(World = Application.Main.World){
-    let SinX = Math.sin(this.Camera.rotation.x);
-    let SinY = Math.sin(this.Camera.rotation.y);
-    let CosX = Math.cos(this.Camera.rotation.x);
-    let CosY = Math.cos(this.Camera.rotation.y);
-
-    let Direction = [
-      -SinY * CosX,
-      SinX,
-      -CosY * CosX
-    ];
-    let Origin = [
-      this.Camera.position.x,
-      this.Camera.position.y,
-      this.Camera.position.z
-    ];
-    let Result = Raycast(Origin, Direction, 512, function(X, Y, Z, Face){
-      if(World.GetBlock(X, Y, Z) !== 0) return true;
-      return false;
-    }.bind(this));
-    return Result?.Distance || 512;
+  RequestAnimationFrame(Listener){
+    this.Events.AddEventListener("AfterRender", Listener, {"Once": true});
+  }
+  RequestPreAnimationFrame(Listener){
+    this.Events.AddEventListener("BeforeRender", Listener, {"Once": true});
   }
 
   InitialiseTextures(MainBlockRegistry){

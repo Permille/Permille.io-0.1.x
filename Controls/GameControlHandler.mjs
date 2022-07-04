@@ -48,8 +48,8 @@ export default class GameControlHandler{
   }
   AnimationFrame(){
     if(window.performance.now() < 1000) return; // Should prevent accidental freezes?
-    this.ControlledMovement[0] = +this.GameControls.IsControlPressed("Backwards") - this.GameControls.IsControlPressed("Forwards");
-    this.ControlledMovement[1] = +this.GameControls.IsControlPressed("Upwards"); //Dowmwards flying is handled in the switch case.
+    this.ControlledMovement[0] = +this.GameControls.IsControlPressed("Forwards") - this.GameControls.IsControlPressed("Backwards");
+    this.ControlledMovement[1] = +this.GameControls.IsControlPressed("Upwards"); //Downwards flying is handled in the switch case.
     this.ControlledMovement[2] = +this.GameControls.IsControlPressed("Leftwards") - this.GameControls.IsControlPressed("Rightwards");
 
     if(this.ControlledMovement[0] && this.ControlledMovement[2]){

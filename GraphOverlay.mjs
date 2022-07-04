@@ -1,7 +1,7 @@
 import Utilities from "./Libraries/Utilities/0.7.14.0/Utilities.mjs";
 export default class GraphOverlay{
-  static Version = "Alpha 0.1.5";
-  static Build = 28;
+  static Version = "Alpha 0.1.5.1";
+  static Build = 29;
   static DefaultProperties = { //The default properties.
     "Position":{
       "X": 0,
@@ -31,19 +31,31 @@ export default class GraphOverlay{
     this.CanvasElement.width = this.Properties.MaxWidth;
     this.CanvasElement.height = this.Properties.MaxHeight;
 
+    this.Show();
+
     document.body.appendChild(this.CanvasElement);
 
+    this.NeedsUpdate = false;
     void function Load(){
-      window.requestAnimationFrame(Load.bind(this));
-      this.Update();
+      Application.Main.Renderer.RequestAnimationFrame(Load.bind(this));
+      if(this.NeedsUpdate) this.Update();
     }.bind(this)();
   }
-
+  Hide(){
+    this.CanvasElement.style.display = "none";
+    this.Hidden = true;
+  }
+  Show(){
+    this.CanvasElement.style.display = "block";
+    this.Hidden = false;
+  }
   AddItem(Item){
     this.Data.push(Item);
     if(this.Data.length > this.Properties.MaxWidth) this.Data.shift();
+    if(!this.Hidden) this.NeedsUpdate = true;
   }
   Update(){
+    this.NeedsUpdate = false;
     const Height = window.innerHeight;
     const Ctx = this.CanvasElement.getContext("2d");
     Ctx.clearRect(0, 0, this.Properties.MaxWidth, this.Properties.MaxHeight);

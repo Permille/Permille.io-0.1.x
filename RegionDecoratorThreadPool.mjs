@@ -49,7 +49,7 @@ void function Load(){
     let SmallestWorkerID = -1;
     let SmallestQueueSize = MaxWorkerQueue;
     for(let i = 0; i < MaxWorkers; i++){
-      const WorkerQueueSize = Workers[i].OwnQueueSize[0];
+      const WorkerQueueSize = Atomics.load(Workers[i].OwnQueueSize, 0);
       if(WorkerQueueSize < SmallestQueueSize){
         SmallestQueueSize = WorkerQueueSize;
         SmallestWorkerID = i;
@@ -57,7 +57,7 @@ void function Load(){
     }
     if(SmallestWorkerID === -1) break;
     Workers[SmallestWorkerID].Worker.postMessage(Queue.shift());
-    Workers[SmallestWorkerID].OwnQueueSize[0]++;
+    Atomics.add(Workers[SmallestWorkerID].OwnQueueSize, 0, 1);
   }
 }();
 
@@ -65,7 +65,7 @@ function QueueWorkerTask(Data){
   let SmallestWorkerID = -1;
   let SmallestQueueSize = MaxWorkerQueue;
   for(let i = 0; i < MaxWorkers; i++){
-    const WorkerQueueSize = Workers[i].OwnQueueSize[0];
+    const WorkerQueueSize = Atomics.store(Workers[i].OwnQueueSize, 0);
     if(WorkerQueueSize < SmallestQueueSize){
       SmallestQueueSize = WorkerQueueSize;
       SmallestWorkerID = i;
@@ -74,7 +74,7 @@ function QueueWorkerTask(Data){
 
   if(LoadedStructures && SmallestWorkerID !== -1){//If the queue has space, immediately send the request to the workers.
     Workers[SmallestWorkerID].Worker.postMessage(Data);
-    Workers[SmallestWorkerID].OwnQueueSize[0]++;
+    Atomics.add(Workers[SmallestWorkerID].OwnQueueSize, 0, 1);
   }
   else Queue.push(Data); //Otherwise, add it to the queue.
 }
@@ -83,7 +83,7 @@ function QueueStep(ID){
   if(Queue.length === 0) return;
   //console.log(ID);
   Workers[ID].Worker.postMessage(Queue.shift());
-  Workers[ID].OwnQueueSize[0]++;
+  Atomics.add(Workers[ID].OwnQueueSize, 0, 1);
   //Atomics.add(Workers[i].OwnQueueSize, 0, 1);
 }
 
@@ -126,7 +126,7 @@ EventHandler.SaveDistancedPointMap = function(Data){
 };
 
 EventHandler.ShareDataBuffers = function(Data){
-  for(const Worker of Workers) Worker.Worker.postMessage(Data); //Share data buffers (VoxelTypes, Data1, Data8, Data64)
+  for(const Worker of Workers) Worker.Worker.postMessage(Data); //Share data buffers (Type1, Data1, Info8, Info64)
 };
 
 function GetFile(Path, Callback){

@@ -83,7 +83,7 @@ export default class MapMouseControls{
     //Waypoints
 
     void function Update(){
-      window.requestAnimationFrame(Update.bind(this));
+      Application.Main.Renderer.RequestPreAnimationFrame(Update.bind(this));
 
       /*Waypoints*/
 

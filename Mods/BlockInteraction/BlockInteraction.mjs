@@ -78,18 +78,10 @@ export class Main{
       }
     }.bind(this));
 
-    (function Load(Scope){
-      Scope.AnimationFrame();
-      window.requestAnimationFrame(function(){Load(Scope);}.bind(this));
-    }.bind(this))(this);
-
     Main.MLE.Init.Done(Main.Identifier);
   }
   static PostInit(){
     Main.MLE.PostInit.Done(Main.Identifier);
-  }
-  static AnimationFrame(){
-
   }
   static BreakBlock(){
     let RaycastResult = Application.Main.World.Raycast(6);

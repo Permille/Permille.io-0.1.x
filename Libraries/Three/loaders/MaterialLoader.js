@@ -6,7 +6,7 @@ import { Matrix3 } from '../math/Matrix3.js';
 import { Matrix4 } from '../math/Matrix4.js';
 import { FileLoader } from './FileLoader.js';
 import { Loader } from './Loader.js';
-import * as Materials from '../materials/Materials.js';
+import { Material } from '../materials/Material.js';
 
 class MaterialLoader extends Loader {
 
@@ -67,7 +67,7 @@ class MaterialLoader extends Loader {
 
 		}
 
-		const material = new Materials[ json.type ]();
+		const material = Material.fromType( json.type );
 
 		if ( json.uuid !== undefined ) material.uuid = json.uuid;
 		if ( json.name !== undefined ) material.name = json.name;
@@ -84,6 +84,9 @@ class MaterialLoader extends Loader {
 		if ( json.shininess !== undefined ) material.shininess = json.shininess;
 		if ( json.clearcoat !== undefined ) material.clearcoat = json.clearcoat;
 		if ( json.clearcoatRoughness !== undefined ) material.clearcoatRoughness = json.clearcoatRoughness;
+		if ( json.iridescence !== undefined ) material.iridescence = json.iridescence;
+		if ( json.iridescenceIOR !== undefined ) material.iridescenceIOR = json.iridescenceIOR;
+		if ( json.iridescenceThicknessRange !== undefined ) material.iridescenceThicknessRange = json.iridescenceThicknessRange;
 		if ( json.transmission !== undefined ) material.transmission = json.transmission;
 		if ( json.thickness !== undefined ) material.thickness = json.thickness;
 		if ( json.attenuationDistance !== undefined ) material.attenuationDistance = json.attenuationDistance;
@@ -95,7 +98,6 @@ class MaterialLoader extends Loader {
 		if ( json.side !== undefined ) material.side = json.side;
 		if ( json.shadowSide !== undefined ) material.shadowSide = json.shadowSide;
 		if ( json.opacity !== undefined ) material.opacity = json.opacity;
-		if ( json.format !== undefined ) material.format = json.format;
 		if ( json.transparent !== undefined ) material.transparent = json.transparent;
 		if ( json.alphaTest !== undefined ) material.alphaTest = json.alphaTest;
 		if ( json.depthTest !== undefined ) material.depthTest = json.depthTest;
@@ -284,6 +286,9 @@ class MaterialLoader extends Loader {
 		if ( json.clearcoatRoughnessMap !== undefined ) material.clearcoatRoughnessMap = getTexture( json.clearcoatRoughnessMap );
 		if ( json.clearcoatNormalMap !== undefined ) material.clearcoatNormalMap = getTexture( json.clearcoatNormalMap );
 		if ( json.clearcoatNormalScale !== undefined ) material.clearcoatNormalScale = new Vector2().fromArray( json.clearcoatNormalScale );
+
+		if ( json.iridescenceMap !== undefined ) material.iridescenceMap = getTexture( json.iridescenceMap );
+		if ( json.iridescenceThicknessMap !== undefined ) material.iridescenceThicknessMap = getTexture( json.iridescenceThicknessMap );
 
 		if ( json.transmissionMap !== undefined ) material.transmissionMap = getTexture( json.transmissionMap );
 		if ( json.thicknessMap !== undefined ) material.thicknessMap = getTexture( json.thicknessMap );

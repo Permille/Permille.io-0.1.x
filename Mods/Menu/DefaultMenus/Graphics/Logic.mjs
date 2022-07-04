@@ -58,10 +58,13 @@ export default class Logic{
       }
 
       ICCD.Range(IDocument.getElementById("FOV"), function(){
-        Application.Main.Renderer.Camera.fov = ICVQ.Range(IDocument.getElementById("FOV"));
+        Application.Main.Renderer.DefaultFOV = ICVQ.Range(IDocument.getElementById("FOV"));
+        Application.Main.Renderer.Camera.fov = Application.Main.Renderer.DefaultFOV;
         Application.Main.Renderer.Camera.updateProjectionMatrix();
       });
-      //AO
+      ICCD.Switch(IDocument.getElementById("AO"), function(){
+        Application.Main.Raymarcher.FinalPassMaterial.uniforms["iRenderAmbientOcclusion"].value = ICVQ.Switch(IDocument.getElementById("AO"));
+      });
 
       ICCD.Switch(IDocument.getElementById("UseUpscaling"), function(){
         const UseUpscaling = ICVQ.Switch(IDocument.getElementById("UseUpscaling"));
@@ -86,29 +89,27 @@ export default class Logic{
       });
 
       ICCD.Switch(IDocument.getElementById("UseShadows"), function(){
-        Application.Main.Renderer.UseShadows = ICVQ.Switch(IDocument.getElementById("UseShadows"));
-        Application.Main.Renderer.Renderer.setRenderTarget(Application.Main.Renderer.ShadowTarget);
-        Application.Main.Renderer.Renderer.clear();
+        Application.Main.Raymarcher.FinalPassMaterial.uniforms["iRenderShadows"].value = ICVQ.Switch(IDocument.getElementById("UseShadows"));
       });
 
       ICCD.Range(IDocument.getElementById("ShadowSteps"), function(){
-        Application.Main.Raymarcher.Material.uniforms.iMaxShadowSteps.value = Number.parseInt(ICVQ.Range(IDocument.getElementById("ShadowSteps")));
+        Application.Main.Raymarcher.Uniforms.iMaxShadowSteps.value = Number.parseInt(ICVQ.Range(IDocument.getElementById("ShadowSteps")));
       });
 
       ICCD.Range(IDocument.getElementById("ShadowExponent"), function(){
-        Application.Main.Raymarcher.Material.uniforms.iShadowExponent.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowExponent")));
+        Application.Main.Raymarcher.Uniforms.iShadowExponent.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowExponent")));
       });
 
       ICCD.Range(IDocument.getElementById("ShadowMultiplier"), function(){
-        Application.Main.Raymarcher.Material.uniforms.iShadowMultiplier.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowMultiplier")));
+        Application.Main.Raymarcher.Uniforms.iShadowMultiplier.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowMultiplier")));
       });
 
       ICCD.Range(IDocument.getElementById("ShadowDarkness"), function(){
-        Application.Main.Raymarcher.Material.uniforms.iShadowDarkness.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowDarkness")));
+        Application.Main.Raymarcher.Uniforms.iShadowDarkness.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowDarkness")));
       });
 
       ICCD.Range(IDocument.getElementById("FogFactor"), function(){
-        Application.Main.Raymarcher.Material.uniforms.iFogFactor.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("FogFactor")));
+        Application.Main.Raymarcher.Uniforms.iFogFactor.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("FogFactor")));
       });
     }.bind(this));
   }

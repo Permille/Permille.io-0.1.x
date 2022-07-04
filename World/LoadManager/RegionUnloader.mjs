@@ -1,7 +1,8 @@
 import REGION_SD from "../RegionSD.mjs";
 import RRS_SD from "./RequiredRegionsSelectionSD.mjs";
 export default class RegionUnloader{
-  constructor(LoadManager){
+  //WARNING: Outdated code
+  /*constructor(LoadManager){
     this.LoadManager = LoadManager;
     this.Data64 = LoadManager.Data64;
     this.Data8 = LoadManager.Data8;
@@ -18,7 +19,7 @@ export default class RegionUnloader{
   }
   UnloadData64(x64, y64, z64){
     const Index64 = (x64 << 6) | (y64 << 3) | z64;
-    if(((this.Data64[Index64] >> 15) & 1) === 1 || ((this.Data64[Index64] >> 17) & 1) === 1) return; //Is all air or is unloadable
+    if(((this.Data64[Index64] >> 1) & 1) === 1 || ((this.Data64[Index64] >> 17) & 1) === 1) return; //Is all air or is unloadable
     const DeallocIndex = Atomics.add(this.AllocationIndex64, 1, 1) & 4095; //Indexing 1 for deallocation.
     const Location64 = this.Data64[Index64] & 0x0fff;
     for(let i = 0; i < 512; ++i) this.DeallocateData8((Location64 << 9) | i)
@@ -78,5 +79,5 @@ export default class RegionUnloader{
       }
       this.UnloadData64(x64, y64, z64);
     }
-  }
+  }*/
 };

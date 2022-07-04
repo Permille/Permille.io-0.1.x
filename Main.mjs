@@ -14,8 +14,8 @@ import DeferredPromise from "./Libraries/DeferredPromise.mjs";
 setTimeout(function(){Application.Initialise();});
 
 class Application{
-  static Version = "0.1.10.1";
-  static Build = 57;
+  static Version = "0.1.11";
+  static Build = 58;
   static Variation = 0;
   static Revision = 0;
 
@@ -27,17 +27,6 @@ class Application{
         return window.performance.later() - Start;
       };
     })();
-
-    let PriorityAnimationFrames = [];
-    window.requestPriorityAnimationFrame = function(Function){
-      PriorityAnimationFrames.push(Function);
-    };
-    void function Load(){
-      window.requestAnimationFrame(Load);
-      const Pending = PriorityAnimationFrames;
-      PriorityAnimationFrames = []; //This is so that new animation frames that are added aren't iterated forever.
-      while(Pending.length > 0) Pending.pop()();
-    }();
 
     this.Main = new Main;
     this.Main.RegisterDependencies();

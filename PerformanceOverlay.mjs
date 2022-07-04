@@ -18,7 +18,8 @@ export default class PerformanceOverlay{
         this.ToggleVisibility();
       }
     }.bind(this));
-    window.requestAnimationFrame(function(){
+
+    Application.Main.Renderer.RequestAnimationFrame(function(){
       this.Update();
     }.bind(this));
   }
@@ -45,7 +46,7 @@ export default class PerformanceOverlay{
     return this;
   }
   Update(){
-    window.requestAnimationFrame(function(){
+    Application.Main.Renderer.RequestAnimationFrame(function(){
       this.Update();
     }.bind(this));
     this.Graph.AddItem(this.GraphSource());

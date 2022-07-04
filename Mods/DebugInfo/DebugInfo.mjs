@@ -68,18 +68,27 @@ export class Main{
         return "";
       },
       function(){
-        const PreviousMeasures = [];
+        let Count = 0;
+        void function UpdateCount(){
+          Application.Main.Renderer.RequestAnimationFrame(UpdateCount);
+          Count++;
+        }();
+
+        let LastCount = 0;
+        let Frames = 0;
+        void function UpdateFrames(){
+          window.setTimeout(UpdateFrames, 1000);
+          Frames = Count - LastCount;
+          LastCount = Count;
+        }();
+
         return function(){
-          PreviousMeasures.push(Main.Renderer.RenderTime);
-          if(PreviousMeasures.length > 50) PreviousMeasures.shift();
-          let Sum = 0;
-          const Length = PreviousMeasures.length;
-          for(let i = 0; i < Length; ++i){
-            Sum += PreviousMeasures[i] * (((i + .5) / Length) * 2);
-          }
-          return `${Math.round(1000 / (Sum / Length))} fps (${Math.round(100 * Main.Renderer.RenderTime) / 100.} ms)`;
+          return `${Frames} fps (${Math.round(100 * Main.Renderer.RenderTime) / 100.} ms)`;
         };
       }(),
+      function(){
+        return `Resolution: ${window.innerWidth} * ${window.innerHeight}`;
+      },
       function(){
         const PerformanceInfo = Main.Renderer.Renderer.info;
         return "Geometries: " + PerformanceInfo.memory.geometries + ", Draw calls: " + PerformanceInfo.render.calls;
@@ -104,7 +113,11 @@ export class Main{
           if(LastUtilisation !== (LastUtilisation = AllocationIndex[0] - AllocationIndex[1])) Time = window.performance.now();
           return `Last update: ${Math.round(Time)}`;
         }
-      }()
+      }(), function(){
+        const Index = Application.Main.World.AllocationIndex;
+        const Index64 = Application.Main.World.AllocationIndex64;
+        return `Allocation Indices: 8: ${Index[0]} - ${Index[1]}; 64: ${Index64[0]} - ${Index64[1]}`;
+      }
     ]);
     Main.MLE.Init.Done(Main.Identifier);
   }
@@ -129,7 +142,7 @@ class PerformanceOverlay{
     this.UpdateInterval = 1;
     this.Updates = 0;
     this.LastTextUpdate = 0;
-    this.TextUpdateInterval = 10;
+    this.TextUpdateInterval = 40;
     this.GraphSource = function(){
       if(this.GraphInfo === 1) return Application.Main.Renderer.RenderTime;
     }.bind(this);
@@ -137,10 +150,10 @@ class PerformanceOverlay{
     document.addEventListener("keydown", function(Event){
       if(Event.key === "F3" && !Event.repeat){
         Event.preventDefault();
-        if(this.GraphInfo === 0) this.ToggleVisibility();
-        if(Event.shiftKey) this.GraphInfo = (this.GraphInfo + 2) % 3;
-        else this.GraphInfo = ++this.GraphInfo % 3;
-        if(this.GraphInfo === 0) this.ToggleVisibility();
+        this.GraphInfo = (this.GraphInfo + 1) % 3;
+        if(this.GraphInfo === 0) this.Hide();
+        if(this.GraphInfo === 1) this.Show();
+        if(this.GraphInfo === 2) this.Graph.Hide();
       }
     }.bind(this));
     document.addEventListener("wheel", function(Event){
@@ -157,7 +170,7 @@ class PerformanceOverlay{
         this.UpdateInterval = Math.max(this.UpdateInterval + Math.sign(dY), 1);
       }
     }.bind(this));
-    window.requestAnimationFrame(function(){
+    Application.Main.Renderer.RequestAnimationFrame(function(){
       this.Update();
     }.bind(this));
   }
@@ -172,19 +185,18 @@ class PerformanceOverlay{
     }
     return this;
   }
-  ToggleVisibility(){
-    if(this.Wrapper.style.display === "none"){
-      this.Wrapper.style.display = "block";
-      this.Graph.CanvasElement.style.display = "block";
-    }
-    else{
-      this.Wrapper.style.display = "none";
-      this.Graph.CanvasElement.style.display = "none";
-    }
+  Hide(){
+    this.Wrapper.style.display = "none";
+    this.Graph.Hide();
+    return this;
+  }
+  Show(){
+    this.Wrapper.style.display = "block";
+    this.Graph.Show();
     return this;
   }
   Update(){
-    window.requestAnimationFrame(function(){
+    Application.Main.Renderer.RequestAnimationFrame(function(){
       this.Update();
     }.bind(this));
     if(this.Updates++ % this.UpdateInterval === 0) this.Graph.AddItem(this.GraphSource());
@@ -216,7 +228,7 @@ class PerformanceOverlay{
       catch(Error){
         Output = Error.toString();
       }
-      this.Info[i].TextElement.innerText = Output;
+      this.Info[i].TextElement.textContent = Output;
     }
   }
 }

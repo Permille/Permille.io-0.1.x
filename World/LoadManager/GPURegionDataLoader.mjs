@@ -23,7 +23,7 @@ export default class GPURegionDataLoader{
   AllocateGPUData64(Index64){
     const Location64 = this.LoadManager.FreeGPUData64.pop();
     if(Location64 === undefined) throw new Error("Ran out of GPU Data64!!");
-    this.LoadManager.GPUData64[Index64] = Location64;
+    this.LoadManager.GPUInfo64[Index64] = Location64;
     return Location64;
   }
   UpdateGPUData(){
@@ -34,7 +34,10 @@ export default class GPURegionDataLoader{
     const GPUData64 = this.LoadManager.GPUData64;
     const GPUData8 = this.LoadManager.GPUData8;
     const GPUData1 = this.LoadManager.GPUData1;
-    const GPUTypes = this.LoadManager.GPUTypes;
+    const GPUInfo64 = this.LoadManager.GPUInfo64;
+    const GPUInfo8 = this.LoadManager.GPUInfo8;
+    const GPUType1 = this.LoadManager.GPUType1;
+    const GPUBoundingBox1 = this.LoadManager.GPUBoundingBox1;
     const Data64SegmentAllocations = this.LoadManager.Data64SegmentAllocations;
     const Data64SegmentIndices = this.LoadManager.Data64SegmentIndices;
     for(let Depth = 0; Depth < 8; ++Depth) for(let x64 = 0; x64 < 8; x64++) for(let y64 = 0; y64 < 8; y64++) for(let z64 = 0; z64 < 8; z64++){
@@ -44,31 +47,29 @@ export default class GPURegionDataLoader{
       if(((Info64 >> 19) & 7) !== 7) continue; //Not fully loaded
 
 
-      if(((Info64 >> 15) & 1) === 1){ //Empty Data64
+      if(((Info64 >> 31) & 1) === 1){ //Empty Data64
         if(Depth !== 0) ++a;
         if(Depth !== 0) b.add(Index64);
-        Data64[Index64] &= ~(1 << 14);
-        GPUData64[Index64] |= 1 << 14;
+        Data64[Index64] &= ~(1 << 30); //Toggle CPU update to false
+        GPUInfo64[Index64] |= 1 << 30; //Toggle GPU update to true
         continue;
       }
 
-      if(((Info64 >> 14) & 1) === 0) continue; //Doesn't need GPU update
+      if(((Info64 >> 30) & 1) === 0) continue; //Doesn't need GPU update
 
+      //Data64[Index64] &= ~(1 << 30); //Toggle GPU update to false
 
-
-      //Data64[Index64] &= ~(1 << 14); //Toggle GPU update to false
-
-      const Location64 = Info64 & 0x0fff;
+      const Location64 = Info64 & 0x0007ffff;
       const RequiredIndex8 = new Set;
       for(let x8 = 0; x8 < 8; x8++) for(let y8 = 0; y8 < 8; y8++) for(let z8 = 0; z8 < 8; z8++){
         const Index8 = (Location64 << 9) | (x8 << 6) | (y8 << 3) | z8;
         const Info8 = Data8[Index8];
-        if((Info8 & 0x80000000) !== 0 || (Info8 & 0x60000000) === 0) continue; //Is all air or has no update
-        Data8[Index8] &= ~0x60000000; //Toggle update to false
-        if((Info8 & 0x40000000) !== 0){
+        if(((Info8 >> 31) & 1) === 1 || ((Info8 >> 29) & 3) === 0) continue; //Is all air or has no updates
+        Data8[Index8] &= ~(3 << 29); //Toggle updates to false
+        if(((Info8 >> 30) & 1) === 1){
           let Required = false;
-          if((Info8 & 0x10000000) === 0){ //Does not have uniform type
-            const StartLocation1 = (Info8 & 0x00ffffff) << 6;
+          if(((Info8 >> 28) & 1) === 0){ //Does not have uniform type
+            const StartLocation1 = (Info8 & 0x0fffffff) << 6;
             for (let i = StartLocation1; i < StartLocation1 + 64; ++i) { //TODO: Also check surroundings.
               if (Data1[i] !== 0) { //This means that at least one of the blocks isn't solid, meaning that it has to be added.
                 Required = true;
@@ -96,21 +97,15 @@ export default class GPURegionDataLoader{
             const dz64 = z64 + Math.floor(dz8 / 8.);
             if(dz64 < 0 || dz64 > 7) continue;
             const dIndex64 = (Depth << 9) | ((dx64 & 7) << 6) | ((dy64 & 7) << 3) | (dz64 & 7);
-            if((Data64[dIndex64] & 0x8000) !== 0){
-              if(((Data64[dIndex64] >> 16) & 1) === 1){ //Unloaded
-                if(!Required) continue;
-                Data64[dIndex64] = 0b000110_1000000000000000; //0-15, 19-21: reset load state for it to be loaded again
-                //                      ||'-- 16: Set unloaded to false
-                //                      |'--- 17: Make unloadable
-                //                      '---- 18: Propagate updates when loaded (so that the correct parts get sent to the gpu)
-              } else if(!Required && ((Data64[dIndex64] >> 19) & 7) >= 2) RequiredIndex8.add(Index8); //TODO: What does this mean??????????
+            if(((Data64[dIndex64] >> 31) & 1) === 1){
+              if(!Required && ((Data64[dIndex64] >> 19) & 7) >= 2) RequiredIndex8.add(Index8); //TODO: What does this mean??????????
               continue;
             }
             //if(!Required) continue;
-            const dLocation64 = Data64[dIndex64] & 0x0fff;
+            const dLocation64 = Data64[dIndex64] & 0x0007ffff;
             const dIndex8 = (dLocation64 << 9) | ((dx8 & 7) << 6) | ((dy8 & 7) << 3) | (dz8 & 7);
             const dInfo8 = Data8[dIndex8];
-            if((dInfo8 & 0x80000000) !== 0){
+            if(((dInfo8 >> 31) & 1) === 1){
               if(!Required) RequiredIndex8.add(Index8);
               continue;
             }
@@ -119,16 +114,15 @@ export default class GPURegionDataLoader{
               RequiredIndex8.add(dIndex8);
             } else{
               Data8[dIndex8] |= 1 << 29;
-              //debugger;
-              Data64[dIndex64] |= 1 << 14;
+              Data64[dIndex64] |= 1 << 30;
             }
           }
-        } else if((Info8 & 0x20000000) !== 0) RequiredIndex8.add(Index8);
+        } else if(((Info8 >> 29) & 1) === 1) RequiredIndex8.add(Index8);
       }
       if(RequiredIndex8.size === 0) continue;
-      let GPULocation64 = GPUData64[Index64];
-      if(((GPULocation64 >> 15) & 1) === 1) GPULocation64 = this.AllocateGPUData64(Index64);
-      GPULocation64 &= 0x0fff;
+      let GPULocation64 = GPUInfo64[Index64];
+      if(((GPULocation64 >> 31) & 1) === 1) GPULocation64 = this.AllocateGPUData64(Index64);
+      GPULocation64 &= 0x0fffffff;
       const Segments = Data64SegmentAllocations[Index64];
       if(Segments.length === 0) this.AllocateSegment(Index64);
       for(let i = 0; i < 512; ++i){
@@ -136,43 +130,79 @@ export default class GPURegionDataLoader{
         const GPUIndex8 = (GPULocation64 << 9) | i;
         if(!RequiredIndex8.has(Index8)) continue;
         //These are now going to get their data saved
-        let GPUDataLocation1 = null;
+        let GPULocation1 = null;
         const Index = Data64SegmentIndices[Index64]; //TODO: Don't have to do this for uniform data!!!###########
         if(Index === 16){
           const SegmentLocationStart = this.AllocateSegment(Index64);
-          GPUDataLocation1 = SegmentLocationStart << 4;
+          GPULocation1 = SegmentLocationStart << 4;
           Data64SegmentIndices[Index64] = 1;
         } else{
           const SegmentLocationStart = Segments[Segments.length - 1];
-          GPUDataLocation1 = (SegmentLocationStart << 4) | Index;
+          GPULocation1 = (SegmentLocationStart << 4) | Index;
           Data64SegmentIndices[Index64]++;
         }
         //GPUDataLocation1 allocation done
-        GPUData8[GPUIndex8] = GPUDataLocation1 | (1 << 30); //Set update flag
+        GPUInfo8[GPUIndex8] = GPULocation1 | (1 << 30); //Set update flag
         const Info8 = Data8[Index8];
-        const GPUData1Start = GPUDataLocation1 << 6;
-        const GPUTypesStart = GPUDataLocation1 << 9;
-        if((Info8 & 0x10000000) !== 0){ //Has uniform type
+        const GPUData1Start = GPULocation1 << 6;
+        const GPUTypesStart = GPULocation1 << 9;
+        if(((Info8 >> 28) & 1) === 1){ //Has uniform type
           const Type = Info8 & 0x0000ffff;
           for(let i = 0; i < 64; ++i){
             GPUData1[GPUData1Start | i] = 0; //TODO: Might have to revise this? It's probably fine for now
           }
           for(let i = 0; i < 512; ++i){
-            GPUTypes[GPUTypesStart | i] = Type;
+            GPUType1[GPUTypesStart | i] = Type;
           }
+          GPUBoundingBox1[GPUIndex8] = (0 << 15) | (0 << 12) | (0 << 9) | (7 << 6) | (7 << 3) | 7;
         } else{ //Not uniform type, has saved data, copy it over
-          const Location8 = Data8[Index8] & 0x00ffffff;
+          const Location8 = Data8[Index8] & 0x0fffffff;
           const Data1Start = Location8 << 6;
           const VoxelTypesStart = Location8 << 9;
           for(let i = 0; i < 64; ++i){ //TODO: change this to .set if possible, https://stackoverflow.com/a/35563895
             GPUData1[GPUData1Start | i] = Data1[Data1Start | i];
           }
-          for(let i = 0; i < 512; ++i){ //TODO: change this to .set if possible
-            GPUTypes[GPUTypesStart | i] = VoxelTypes[VoxelTypesStart | i];
+          let MinX = 7;
+          let MinY = 7;
+          let MinZ = 7;
+          let MaxX = 0;
+          let MaxY = 0;
+          let MaxZ = 0;
+          for(let x = 0; x < 8; ++x) for(let y = 0; y < 8; ++y) for(let z = 0; z < 8; ++z){ //TODO: change this to .set if possible
+            const Type = VoxelTypes[VoxelTypesStart | (x << 6) | (y << 3) | z];
+            GPUType1[GPUTypesStart | (x << 6) | (y << 3) | z] = Type;
+
+            if(Type === 0) continue; //TODO: Make this work for all transparent blocks
+            if(MinX > x) MinX = x;
+            if(MinY > y) MinY = y;
+            if(MinZ > z) MinZ = z;
+            if(MaxX < x) MaxX = x;
+            if(MaxY < y) MaxY = y;
+            if(MaxZ < z) MaxZ = z;
           }
+          MinX = Math.min(0, MinX);
+          MinY = Math.min(0, MinY);
+          MinZ = Math.min(1, MinZ);
+          for(let i = 0; i < 64; ++i){
+            GPUData1[GPUData1Start | i] = Data1[Data1Start | i];
+          }
+          GPUBoundingBox1[GPUIndex8] = (MinX << 15) | (MinY << 12) | (MinZ << 9) | (MaxX << 6) | (MaxY << 3) | MaxZ;
+          //GPUData8[GPUIndex8] |= (MaxX - MinX)
         }
       }
-      GPUData64[Index64] |= 1 << 14; //Set update flag
+      //Update GPUData8
+
+      for(let i = 0; i < 64; ++i){
+        const Info8Start = (GPULocation64 << 9) | (i << 3);
+        GPUData8[Info8Start >> 3] = 0; //This resets the bits so that the line below works correctly
+        for(let j = 0; j < 8; ++j){
+          GPUData8[Info8Start >> 3] |= ((GPUInfo8[Info8Start | j] >> 31) & 1) << j;
+        }
+      }
+
+
+      GPUInfo64[Index64] |= 1 << 30; //Set update flag for GPU (so that the new data is uploaded)
+      Data64[Index64] &= ~(1 << 29); //Request mesh update
     }
   }
 };

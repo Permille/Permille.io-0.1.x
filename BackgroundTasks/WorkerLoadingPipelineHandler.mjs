@@ -2,10 +2,11 @@ import Listenable from "../Libraries/Listenable/Listenable.mjs";
 export default class WorkerLoadingPipelineHandler{
   constructor(){
     this.Events = new Listenable;
+    //return;
     this.SharedPlayerPosition = new Float64Array(new SharedArrayBuffer(3 * 8));
 
     void function UpdatePlayerPosition(){
-      window.requestAnimationFrame(UpdatePlayerPosition.bind(this));
+      Application.Main.Renderer.RequestAnimationFrame(UpdatePlayerPosition.bind(this));
       this.SharedPlayerPosition[0] = Application.Main.Renderer.Camera.position.x;
       this.SharedPlayerPosition[1] = Application.Main.Renderer.Camera.position.y;
       this.SharedPlayerPosition[2] = Application.Main.Renderer.Camera.position.z;
@@ -32,9 +33,12 @@ export default class WorkerLoadingPipelineHandler{
       "GPUData1": Application.Main.World.GPUData1,
       "GPUData8": Application.Main.World.GPUData8,
       "GPUData64": Application.Main.World.GPUData64,
-      "GPUTypes": Application.Main.World.GPUTypes,
+      "GPUType1": Application.Main.World.GPUType1,
+      "GPUInfo8": Application.Main.World.GPUInfo8,
+      "GPUInfo64": Application.Main.World.GPUInfo64,
+      "GPUBoundingBox1": Application.Main.World.GPUBoundingBox1,
       "SharedDebugData": Application.Main.SharedDebugData,
-
+      "LoadStageQueueLengths": Application.Main.World.LoadStageQueueLengths
     });
 
     Application.Main.WorkerLoadingPipeline.addEventListener("message", function(Event){

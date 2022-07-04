@@ -5,7 +5,6 @@ let Workers = [];
 let Queue = [];
 let MaxWorkers = 0;
 let SaveStuff;
-let RequiredRegions;
 const MaxWorkerQueue = 3;
 
 class WorkerGeometryDataGenerator{
@@ -14,26 +13,15 @@ class WorkerGeometryDataGenerator{
     this.Worker = new Worker("./WorkerGeometryDataGenerator.mjs", {"type": "module"});
     this.OwnQueueSize = new Uint8Array(new SharedArrayBuffer(1));
 
-    this.Worker.postMessage(Object.assign(SaveStuff, {
+    this.Worker.postMessage({
+      ...SaveStuff,
       "OwnQueueSize": this.OwnQueueSize
-    }));
+    });
 
     this.Worker.addEventListener("message", function(Event){
       switch(Event.data.Request){
-        case "SaveGeometryData":
-        case "SaveVirtualGeometryData":{
-          const Opaque = Event.data.Opaque;
-          const Transparent = Event.data.Transparent;
-          self.postMessage(Event.data, [
-            Opaque.Positions.buffer,
-            Transparent.Positions.buffer,
-            Opaque.Normals.buffer,
-            Transparent.Normals.buffer,
-            Opaque.UVs.buffer,
-            Transparent.UVs.buffer,
-            Opaque.VertexAOs.buffer,
-            Transparent.VertexAOs.buffer
-          ]); //Need to transfer all of the contained buffers!
+        case "GenerateBoundingGeometry":{
+          self.postMessage(Event.data, [Event.data.Info.buffer]);
           this.Events.FireEventListeners("Finished");
           break;
         }
@@ -53,7 +41,7 @@ void function Load(){
     let SmallestWorkerID = -1;
     let SmallestQueueSize = MaxWorkerQueue;
     for(let i = 0; i < MaxWorkers; i++){
-      const WorkerQueueSize = Workers[i].OwnQueueSize[0];
+      const WorkerQueueSize = Atomics.load(Workers[i].OwnQueueSize, 0);
       if(WorkerQueueSize < SmallestQueueSize){
         SmallestQueueSize = WorkerQueueSize;
         SmallestWorkerID = i;
@@ -61,7 +49,7 @@ void function Load(){
     }
     if(SmallestWorkerID === -1) break;
     Workers[SmallestWorkerID].Worker.postMessage(Queue.shift());
-    Workers[SmallestWorkerID].OwnQueueSize[0]++;
+    Atomics.add(Workers[SmallestWorkerID].OwnQueueSize, 0, 1);
   }
 }();
 
@@ -69,7 +57,7 @@ function QueueWorkerTask(Data){
   let SmallestWorkerID = -1;
   let SmallestQueueSize = MaxWorkerQueue;
   for(let i = 0; i < MaxWorkers; i++){
-    const WorkerQueueSize = Workers[i].OwnQueueSize[0];
+    const WorkerQueueSize = Atomics.load(Workers[i].OwnQueueSize, 0);
     if(WorkerQueueSize < SmallestQueueSize){
       SmallestQueueSize = WorkerQueueSize;
       SmallestWorkerID = i;
@@ -78,7 +66,7 @@ function QueueWorkerTask(Data){
 
   if(SmallestWorkerID !== -1){//If the queue has space, immediately send the request to the workers.
     Workers[SmallestWorkerID].Worker.postMessage(Data);
-    Workers[SmallestWorkerID].OwnQueueSize[0]++;
+    Atomics.add(Workers[SmallestWorkerID].OwnQueueSize, 0, 1);
   }
   else Queue.push(Data); //Otherwise, add it to the queue.
 }
@@ -87,23 +75,17 @@ function QueueStep(ID){
   if(Queue.length === 0) return;
   //console.log(ID);
   Workers[ID].Worker.postMessage(Queue.shift());
-  Workers[ID].OwnQueueSize[0]++;
-  //Atomics.add(Workers[i].OwnQueueSize, 0, 1);
+  Atomics.add(Workers[ID].OwnQueueSize, 0, 1);
 }
 
-EventHandler.GenerateGeometryData = function(Data){
-  QueueWorkerTask(Data);
-};
-
-EventHandler.GenerateVirtualGeometryData = function(Data){
+EventHandler.GenerateBoundingGeometry = function(Data){
   QueueWorkerTask(Data);
 };
 
 EventHandler.SaveStuff = function(Data){
-  MaxWorkers = Data.Workers;
-  delete Data.Workers;
+  MaxWorkers = Data.MaxWorkers;
   SaveStuff = Data;
-  RequiredRegions = Data.RequiredRegions;
+
   Initialise();
 };
 

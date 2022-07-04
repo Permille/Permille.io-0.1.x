@@ -15,10 +15,13 @@ export default class RRSLoader{
     this.Data64 = LoadManager.Data64;
     this.GPUData8 = LoadManager.GPUData8;
     this.GPUData64 = LoadManager.GPUData64;
+    this.GPUInfo8 = LoadManager.GPUInfo8;
+    this.GPUInfo64 = LoadManager.GPUInfo64;
     this.AllocationIndex = LoadManager.AllocationIndex;
     this.AllocationArray = LoadManager.AllocationArray;
     this.AllocationIndex64 = LoadManager.AllocationIndex64;
     this.AllocationArray64 = LoadManager.AllocationArray64;
+    this.LoadStageQueueLengths = LoadManager.LoadStageQueueLengths;
 
     this.LoadingBatch = 0;
 
@@ -32,7 +35,7 @@ export default class RRSLoader{
       const CurrentBatch = this.LoadRegions();
 
       if(CurrentBatch !== -1){ //-1 means that no regions were requested because everything was already loaded.
-        const FinishedBatchPromise = new DeferredPromise({"Timeout": 5000});
+        const FinishedBatchPromise = new DeferredPromise({"Timeout": 15000});
         this.LoadManager.RegionLoader.Events.AddEventListener("FinishedLoadingBatch", function (FinishedBatch){
           if(CurrentBatch === FinishedBatch) FinishedBatchPromise.resolve();
         });
@@ -40,10 +43,11 @@ export default class RRSLoader{
         try{
           await FinishedBatchPromise;
         } catch(e){
-          console.warn("Batch generation took longer than 5000ms: while this might be due to a stalled thread, everything is probably still okay.");
+          console.warn("Batch generation is taking longer than 15000ms.");
         }
         console.timeEnd();
       }
+
 
       //return;//############################
       self.setTimeout(Load.bind(this), 25);
@@ -54,7 +58,7 @@ export default class RRSLoader{
     const Index8 = (GPULocation64 << 9) | (x8 << 6) | (y8 << 3) | z8;
     const Location8 = this.GPUData8[Index8];
     //if(Location8 & (1 << 31)) return;
-    this.GPUData8[Index8] = 0x80000000;
+    this.GPUInfo8[Index8] = 1 << 31;
   }
 
   DeallocateGPUData64(GPULocation64, Depth, x64, y64, z64){
@@ -63,8 +67,7 @@ export default class RRSLoader{
       this.LoadManager.FreeSegments.push(this.LoadManager.Data64SegmentAllocations[Index64].pop());
     }
     this.LoadManager.FreeGPUData64.push(GPULocation64);
-    //if(this.GPUData64[Index64] & 0x8000) return;
-    this.GPUData64[Index64] = 0x8000;
+    this.GPUInfo64[Index64] = 1 << 31;
   }
 
   UpdateData64Offset(){ //This is kinda messy but it works
@@ -94,8 +97,8 @@ export default class RRSLoader{
     //if(!Changed) return; //#######################
 
     //Shift references of Data64:
-    const NewData64 = new Uint32Array(8*8*8*8).fill(0x8000); //Sets it to be empty (and unloaded)
-    const NewGPUData64 = new Uint16Array(8*8*8*8).fill(0x8000);
+    const NewData64 = new Uint32Array(8*8*8*8).fill(0x80000000); //Sets it to be empty (and unloaded)
+    const NewGPUInfo64 = new Uint32Array(8*8*8*8).fill(0x80000000);
     const NewData64SegmentAllocations = new Array(8*8*8*8).fill(null); //nulls will later be replaced with empty arrays
     const NewData64SegmentIndices = new Uint8Array(8*8*8*8);
 
@@ -117,9 +120,9 @@ export default class RRSLoader{
               //if(Depth !== 0) continue;
               const Index64 = (Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64;
               const Info64 = this.Data64[Index64];
-              const GPUInfo64 = this.GPUData64[Index64];
-              if((Info64 & 0x8000) === 0){ //Data64 actually exists so it can be unloaded
-                const Location64 = Info64 & 0x0fff;
+              const GPUInfo64 = this.GPUInfo64[Index64];
+              if(((Info64 >> 31) & 1) === 0){ //Data64 actually exists so it can be unloaded
+                const Location64 = Info64 & 0x0007ffff;
                 //Free Data8 references
                 for(let i = 0; i < 512; ++i){
                   DeallocateData8(Location64, i >> 6, (i >> 3) & 7, i & 7);
@@ -127,10 +130,13 @@ export default class RRSLoader{
                 DeallocateData64(Location64, rx64, ry64, rz64, Depth); //Free Data64 reference
                 //The Data1 and VoxelData references shouldn't matter, as they will probably get overwritten upon reallocation.
               }
-              if((GPUInfo64 & 0x8000) === 0){ //GPUData64 actually exists so it can be unloaded
-                const GPULocation64 = this.GPUData64[Index64] & 0x0fff;
+              if((GPUInfo64 >> 31) === 0){ //GPUData64 actually exists so it can be unloaded
+                const GPULocation64 = this.GPUInfo64[Index64] & 0x0fffffff;
                 for(let i = 0; i < 512; ++i){
                   this.DeallocateGPUData8(GPULocation64, i >> 6, (i >> 3) & 7, i & 7);
+                }
+                for(let i = 0; i < 64; ++i){
+                  this.GPUData8[(GPULocation64 << 6) | i] = 0xff;
                 }
                 this.DeallocateGPUData64(GPULocation64, Depth, rx64, ry64, rz64); //Also handles segment deallocation
               }
@@ -138,7 +144,7 @@ export default class RRSLoader{
               const TIndex64 = (Depth << 9) | (tx64 << 6) | (ty64 << 3) | tz64;
               const RIndex64 = (Depth << 9) | (rx64 << 6) | (ry64 << 3) | rz64;
               NewData64[TIndex64] = this.Data64[RIndex64];
-              NewGPUData64[TIndex64] = this.GPUData64[RIndex64];
+              NewGPUInfo64[TIndex64] = this.GPUInfo64[RIndex64];
               NewData64SegmentAllocations[TIndex64] = this.LoadManager.Data64SegmentAllocations[RIndex64];
               NewData64SegmentIndices[TIndex64] = this.LoadManager.Data64SegmentIndices[RIndex64];
             }
@@ -147,11 +153,18 @@ export default class RRSLoader{
       }
     }
 
+
+    this.GPUData64.fill(0);
+    for(let i = 0; i < 512; ++i) for(let j = 0; j < 8; ++j){
+      //This makes the region "non-empty" if it's actually non-empty, or if it's empty but the data has not been loaded yet.
+      this.GPUData64[i] |= (((this.GPUInfo64[(i << 3) | j] >> 31) & 1)) << j;// & (~(this.GPUInfo64[(i << 3) | j] >> 29) & 1)) << j;
+    }
+
     //Set changes
     //TODO: I'll probably need to make a mutex lock for this to make it thread-safe, although .set is quite fast
     this.Data64Offset.set(NewData64Offset, 0);
     this.Data64.set(NewData64, 0);
-    this.GPUData64.set(NewGPUData64, 0);
+    this.GPUInfo64.set(NewGPUInfo64, 0);
 
     for(let i = 0, Length = NewData64SegmentAllocations.length; i < Length; ++i) if(NewData64SegmentAllocations[i] === null) NewData64SegmentAllocations[i] = [];
     this.LoadManager.Data64SegmentAllocations = NewData64SegmentAllocations;
@@ -174,6 +187,9 @@ export default class RRSLoader{
         const RegionZ = rz64 + this.Data64Offset[Depth * 3 + 2];
         RequestedRegions.push([Depth, RegionX, RegionY, RegionZ]);
       }
+    }
+    if(RequestedRegions.length > 0){
+      this.LoadManager.FinishedStage2Batch = -1;
     }
     for(const [Depth, RegionX, RegionY, RegionZ] of RequestedRegions){
       if(Depth === 0) this.LoadManager.RegionLoader.Stage1(RegionX, RegionY, RegionZ, this.LoadingBatch, RequestedRegions.length);

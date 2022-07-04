@@ -172,6 +172,8 @@ export function _GetHeight(X, Z){
 };
 
 export function GetHeight(X, Z){
+  X -= 500;
+  //return 0;//(((X & 7) === 3 || (X & 7) === 4) && ((Z & 7) === 3 || (Z & 7) === 4)) ? 192. : 0.;
   //return 10;
   /* //Basic volcano
   const Worley = WorleyNoise.Euclidean(X / 1000., Z / 1000., 0.);

@@ -26,7 +26,7 @@ export default class MapInterface{
       const MapWrapperElement = IDocument.getElementById("MapWrapper");
 
       void function UpdateMapScroll(){
-        window.requestAnimationFrame(UpdateMapScroll.bind(this));
+        Application.Main.Renderer.RequestPreAnimationFrame(UpdateMapScroll.bind(this));
         if(this.Maximised) return;
 
         const Width = MapWrapperElement.clientWidth;

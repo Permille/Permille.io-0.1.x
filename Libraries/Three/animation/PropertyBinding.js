@@ -149,7 +149,7 @@ class PropertyBinding {
 
 		const matches = _trackRe.exec( trackName );
 
-		if ( ! matches ) {
+		if ( matches === null ) {
 
 			throw new Error( 'PropertyBinding: Cannot parse trackName: ' + trackName );
 
@@ -195,7 +195,7 @@ class PropertyBinding {
 
 	static findNode( root, nodeName ) {
 
-		if ( ! nodeName || nodeName === '' || nodeName === '.' || nodeName === - 1 || nodeName === root.name || nodeName === root.uuid ) {
+		if ( nodeName === undefined || nodeName === '' || nodeName === '.' || nodeName === - 1 || nodeName === root.name || nodeName === root.uuid ) {
 
 			return root;
 
@@ -572,26 +572,16 @@ class PropertyBinding {
 
 				}
 
-				if ( targetObject.geometry.isBufferGeometry ) {
+				if ( ! targetObject.geometry.morphAttributes ) {
 
-					if ( ! targetObject.geometry.morphAttributes ) {
-
-						console.error( 'THREE.PropertyBinding: Can not bind to morphTargetInfluences because node does not have a geometry.morphAttributes.', this );
-						return;
-
-					}
-
-					if ( targetObject.morphTargetDictionary[ propertyIndex ] !== undefined ) {
-
-						propertyIndex = targetObject.morphTargetDictionary[ propertyIndex ];
-
-					}
-
-
-				} else {
-
-					console.error( 'THREE.PropertyBinding: Can not bind to morphTargetInfluences on THREE.Geometry. Use THREE.BufferGeometry instead.', this );
+					console.error( 'THREE.PropertyBinding: Can not bind to morphTargetInfluences because node does not have a geometry.morphAttributes.', this );
 					return;
+
+				}
+
+				if ( targetObject.morphTargetDictionary[ propertyIndex ] !== undefined ) {
+
+					propertyIndex = targetObject.morphTargetDictionary[ propertyIndex ];
 
 				}
 

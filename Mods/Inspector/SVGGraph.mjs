@@ -101,7 +101,7 @@ export default class SVGGraph{
     void async function(){
       while(true){
         let Timeout = new DeferredPromise;
-        window.requestAnimationFrame(Timeout.resolve.bind(Timeout));
+        Application.Main.Renderer.RequestAnimationFrame(Timeout.resolve.bind(Timeout));
         const NewValue = (await this.Generator.next()).value;
         this.AddValue(NewValue);
         await Timeout;
@@ -122,7 +122,7 @@ export default class SVGGraph{
     this.IntersectionObserver.observe(this.Graph);
 
     void function Load(){
-      window.requestAnimationFrame(Load.bind(this), 100.);
+      Application.Main.Renderer.RequestAnimationFrame(Load.bind(this));
       //if(!this.NeedsUpdate) return;
       this.UpdateGraph();
     }.bind(this)();
@@ -131,9 +131,10 @@ export default class SVGGraph{
     if(Number.isNaN(Value)) return;
     this.NeedsUpdate = true;
 
-    if(Value >= 100) this.UpdatedValueElement.textContent = Math.round(Value);
-    else this.UpdatedValueElement.textContent = Math.round(Value / (10. ** Math.floor(Math.log10(Value))) * 100.) * (10. ** Math.floor(Math.log10(Value))) / 100.;
-
+    if(this.IsVisible) {
+      if (Value >= 100) this.UpdatedValueElement.textContent = Math.round(Value);
+      else this.UpdatedValueElement.textContent = Math.round(Value / (10. ** Math.floor(Math.log10(Value))) * 100.) * (10. ** Math.floor(Math.log10(Value))) / 100.;
+    }
 
     const Now = window.performance.now();
     this.History.push({

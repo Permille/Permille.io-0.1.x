@@ -35,12 +35,13 @@ export const ModConfig = {
 
 export class Main{
   static Identifier = "SmoothZoom";
-  static Version = "0.0.1";
-  static Build = 1;
+  static Version = "0.0.2";
+  static Build = 2;
   static MLE = undefined;
 
   static Renderer = undefined;
   static World = undefined;
+  static CurrentZoom = 1.;
 
   static States = {
     "Zooming": false,
@@ -55,7 +56,7 @@ export class Main{
   }
   static Init(){
     Main.Renderer = Application.Main.Renderer;
-    Main.World = Application.Main.Game.World;
+    Main.World = Application.Main.World;
     const GamePointerLockHandler = Application.Main.Game.GamePointerLockHandler;
 
     GamePointerLockHandler.PointerLock.AddEventListener("MouseDown", function(Event){
@@ -79,7 +80,7 @@ export class Main{
 
     (function Load(Scope){
       Scope.AnimationFrame();
-      window.requestAnimationFrame(function(){Load(Scope);}.bind(this));
+      Application.Main.Renderer.RequestAnimationFrame(function(){Load(Scope);}.bind(this));
     }.bind(this))(this);
 
     Main.MLE.Init.Done(Main.Identifier);
@@ -89,7 +90,8 @@ export class Main{
   }
   static AnimationFrame(){
     let PreferredZoomLevel = Main.States.PreferredZoomLevel;
-    Main.Renderer.Camera.zoom = (Main.Renderer.Camera.zoom + 0.1 * PreferredZoomLevel) / 1.1;
+    Main.CurrentZoom = (Main.CurrentZoom + 0.1 * PreferredZoomLevel) / 1.1;
+    Main.Renderer.Camera.fov = Main.Renderer.DefaultFOV / Main.CurrentZoom;
 
     Main.Renderer.Camera.updateProjectionMatrix();
   }

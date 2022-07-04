@@ -131,7 +131,7 @@ export default class MapView{
     }.bind(this));
 
     void function Animate(){
-      window.requestAnimationFrame(Animate.bind(this));
+      Application.Main.Renderer.RequestAnimationFrame(Animate.bind(this));
       const Elements = this.IDocument.querySelectorAll(".Moving");
       for(const Element of Elements){
         const LineElement = Element.parentElement.querySelector("line");
@@ -256,7 +256,7 @@ export default class MapView{
 
 
       void function Load(){
-        if(this.IDocument.contains(Canvas)) window.requestAnimationFrame(Load.bind(this));
+        if(this.IDocument.contains(Canvas)) Application.Main.Renderer.RequestAnimationFrame(Load.bind(this));
         else return; //Stop function from calling itself when the canvas element is removed from the DOM.
 
         Canvas.style.top = Tile.Z * TileSize - this.ZOffset + "px";

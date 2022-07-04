@@ -29,14 +29,14 @@ export default function InitMapOverlay(IDocument, MapInterface, MapView){
   IDocument.addEventListener("keydown", Update);
 
   void function UpdatePlayerCoords(){
-    window.requestAnimationFrame(UpdatePlayerCoords);
+    Application.Main.Renderer.RequestAnimationFrame(UpdatePlayerCoords);
     if(!MapInterface.Maximised) Update();
   }();
 
   let Arrow = IDocument.getElementById("Player").querySelector("img");
   let Player = IDocument.getElementById("Player");
   void function MoveArrow(){
-    window.requestAnimationFrame(MoveArrow);
+    Application.Main.Renderer.RequestAnimationFrame(MoveArrow);
     Arrow.style.transform = "rotate(" + (-Math.PI / 2 - Application.Main.Renderer.Camera.rotation.y) + "rad)";
 
     const XOffset = Application.Main.Renderer.Camera.position.x / 8 - MapView.XOffset - 25;

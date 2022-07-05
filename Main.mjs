@@ -14,8 +14,8 @@ import DeferredPromise from "./Libraries/DeferredPromise.mjs";
 setTimeout(function(){Application.Initialise();});
 
 class Application{
-  static Version = "0.1.11";
-  static Build = 58;
+  static Version = "0.1.11.1";
+  static Build = 59;
   static Variation = 0;
   static Revision = 0;
 

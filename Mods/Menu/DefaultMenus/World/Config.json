@@ -18,6 +18,17 @@
         "ID": "Reset",
         "TextExp": "Reset"
       }
+    },
+    "Performance": {
+      "MaxUpdatingSegments": {
+        "Type": "Range",
+        "ID": "MaxUpdatingSegments",
+        "Weighting": "Linear",
+        "Min": 1,
+        "Max": 10,
+        "Default": 3,
+        "Step": 1
+      }
     }
   }
 }

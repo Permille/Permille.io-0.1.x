@@ -63,6 +63,8 @@
     "World": "World",
     "Seed": "Seed",
     "Reset": "Re-generate world",
+    "Performance": "Performance",
+    "MaxUpdatingSegments": "Maximum segment uploads per frame",
     "Exit": "Exit"
   },
   "Player":{

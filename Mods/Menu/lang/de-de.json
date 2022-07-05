@@ -63,6 +63,8 @@
     "World": "Welt",
     "Seed": "Seed",
     "Reset": "Welt neu-generieren",
+    "Performance": "Leistung",
+    "MaxUpdatingSegments": "Maximale Segment-uploads pro Frame",
     "Exit": "Zurück"
   },
   "Player":{

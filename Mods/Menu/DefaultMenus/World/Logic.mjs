@@ -21,6 +21,10 @@ export default class Logic{
         const Position = Application.Main.Renderer.Camera.position;
         Position.y = Application.Main.Game.World.GetHeight(Position.x, Position.z) + 15; //It takes a little while for the previous world to unload.
       });
+
+      ICCD.Range(IDocument.getElementById("MaxUpdatingSegments"), function(){
+        Application.Main.Raymarcher.MaxUpdatingSegments = Number.parseInt(ICVQ.Range(IDocument.getElementById("MaxUpdatingSegments")));
+      });
     }.bind(this));
   }
 }

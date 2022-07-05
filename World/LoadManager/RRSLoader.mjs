@@ -162,9 +162,10 @@ export default class RRSLoader{
 
     //Set changes
     //TODO: I'll probably need to make a mutex lock for this to make it thread-safe, although .set is quite fast
+
+    this.GPUInfo64.set(NewGPUInfo64, 0);
     this.Data64Offset.set(NewData64Offset, 0);
     this.Data64.set(NewData64, 0);
-    this.GPUInfo64.set(NewGPUInfo64, 0);
 
     for(let i = 0, Length = NewData64SegmentAllocations.length; i < Length; ++i) if(NewData64SegmentAllocations[i] === null) NewData64SegmentAllocations[i] = [];
     this.LoadManager.Data64SegmentAllocations = NewData64SegmentAllocations;

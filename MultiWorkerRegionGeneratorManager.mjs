@@ -19,7 +19,7 @@ const BatchItemsDone = {};
 class WorkerRegionGenerator{
   constructor(){
     this.Events = new Listenable;
-    this.Worker = new Worker("./WorkerRegionGenerator.mjs", {"type": "module"});
+    this.Worker = new Worker(new URL("./WorkerRegionGenerator.mjs", import.meta.url));
     this.OwnQueueSize = new Uint8Array(new SharedArrayBuffer(1));
 
     this.Worker.postMessage({

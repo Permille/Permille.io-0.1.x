@@ -1,7 +1,7 @@
 import DeferredPromise from "../../Libraries/DeferredPromise.mjs";
 import * as SDD from "../../BackgroundTasks/SharedDebugData.mjs";
 
-export default [
+export default () => [
   {
     "Name": "FPS",
     "Colour": "#663399",

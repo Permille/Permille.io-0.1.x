@@ -35,7 +35,7 @@ export default class GameControlHandler{
     };
 
     void function Load(){
-      window.setTimeout(Load.bind(this), 5.);
+      Application.Main.Renderer.RequestAnimationFrame(Load.bind(this));
       this.FrameTime = window.performance.now() - this.LastAnimationFrame;
       this.LastAnimationFrame = window.performance.now();
       this.AnimationFrame();
@@ -64,7 +64,7 @@ export default class GameControlHandler{
     let CosX = Math.cos(Camera.rotation.x);
     let CosY = Math.cos(Camera.rotation.y);
 
-    let QuickBoost = this.GameControls.IsControlPressed("FastMovement") ? 1.4 : 1;
+    let QuickBoost = this.GameControls.IsControlPressed("Sprint") ? 1.4 : 1;
 
     switch(this.MovementPreset){
       case GameControlHandler.MOVEMENT_PRESET_NORMAL:{

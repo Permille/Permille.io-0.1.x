@@ -10,29 +10,24 @@ export default class MainLogic{
 
     this.LastVisibilityToggle = 0;
 
-    const IFrame = this.Interface.IFrame;
 
-    IFrame.addEventListener("load", function(){
-      Application.Main.Game.ControlManager.RegisterIFrame(IFrame);
-
-      const IDocument = IFrame.contentDocument;
-      let Options = ["OptionSlider", "OptionTextInput", "OptionSwitch", "OptionComboBox", "OptionKeyInput"];
-      /*for(let i = 0; i < 1250; i++){
-        IDocument.getElementById("QuickAccessItemsContainer").append(IDocument.getElementById(Options[Math.floor(Math.random() * Options.length)]).content.firstElementChild.cloneNode(true));
-      }*/
+    /*const IDocument = IFrame.contentDocument;
+    let Options = ["OptionSlider", "OptionTextInput", "OptionSwitch", "OptionComboBox", "OptionKeyInput"];
+    /*for(let i = 0; i < 1250; i++){
+      IDocument.getElementById("QuickAccessItemsContainer").append(IDocument.getElementById(Options[Math.floor(Math.random() * Options.length)]).content.firstElementChild.cloneNode(true));
+    }*/
 
 
-      IDocument.getElementById("Back").addEventListener("click", function(){
-        this.Exit();
-      }.bind(this));
-      IDocument.getElementById("Options").addEventListener("click", function(){
-        this.ShowOptions();
-      }.bind(this));
-      IDocument.getElementById("Restart").addEventListener("click", function(){
-        window.location.reload();
-      }.bind(this));
-
+    this.Interface.Element.querySelector(".Back").addEventListener("click", function(){
+      this.Exit();
     }.bind(this));
+    this.Interface.Element.querySelector(".Options").addEventListener("click", function(){
+      this.ShowOptions();
+    }.bind(this));
+    this.Interface.Element.querySelector(".Restart").addEventListener("click", function(){
+      window.location.reload();
+    }.bind(this));
+
   }
   ShowOptions(){
     Application.Main.Game.ControlManager.FocusControl("OptionsControls");
@@ -46,7 +41,7 @@ export default class MainLogic{
 
     Application.Main.Game.ControlManager.FocusControl("MainMenuControls");
     this.Interface.Show();
-    this.Interface.IFrame.contentWindow.focus(); //Important: need to focus iframe window AND the element within it.
+    this.Interface.Element.focus(); //Important: need to focus iframe window AND the element within it.
     document.exitPointerLock();
   }
   Exit(){

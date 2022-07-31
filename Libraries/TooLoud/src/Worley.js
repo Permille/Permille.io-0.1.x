@@ -16,17 +16,20 @@ class Worley {
     }
 
     static xorshift31(value) {
-        let x = value ^ (value >> 12);
-        x = x ^ (x << 25);
-        x = x ^ (x >> 27);
-        return x;
+        //let x = value ^ (value >> 12);
+        //x = x ^ (x << 25);
+        //x = x ^ (x >> 27);
+        value ^= value >>> 12;
+        value ^= value << 25;
+        value ^= value >>> 27;
+        return value >>> 0;//((value + 0x5c1d868c) ^ value) >>> 0;
     }
 
     static hash(i, j, k) {
         return (((((2166136261 ^ i) * 16777619) ^ j) * 16777619) ^ k) * 16777619 & 0xffffffff;
     }
     static hash2(i, j) {
-        return ((((2166136261 ^ i) * 16777619) ^ j)) * 16777619 & 0xffffffff;
+        return ((((2166136261 ^ i) * 16777619) ^ j)) * 16777619;
     }
 
     static d(p1, p2) {
@@ -116,23 +119,26 @@ class Worley {
         for (let i = -1; i < 2; ++i) for (let j = -1; j < 2; ++j){
             const TileX = Math.floor(X) + i;
             const TileY = Math.floor(Y) + j;
-            let LastRandom = Worley.xorshift31(Worley.hash2((TileX + Seed) & 0xffffffff, (TileY) & 0xffffffff));
+            let LastRandom = Worley.xorshift31(Worley.hash2(TileX ^ Seed, TileY));
 
             const Points = [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4][LastRandom & 15];
             for (let l = 0; l < Points; ++l){
                 LastRandom = Worley.xorshift31(LastRandom);
-                const PointX = LastRandom / 0x80000000 + TileX;
+                const PointX = LastRandom / 0xffffffff + TileX;
                 LastRandom = Worley.xorshift31(LastRandom);
-                const PointY = LastRandom / 0x80000000 + TileY;
+                const PointY = LastRandom / 0xffffffff + TileY;
                 LastRandom = Worley.xorshift31(LastRandom);
-                const PointZ = LastRandom / 0x80000000;
+                const PointZ = LastRandom / 0xffffffff;
 
                 let New = (X - PointX) ** 2 + (Y - PointY) ** 2 + PointZ ** 2;
                 if(Distance > New) Distance = New;
             }
         }
-
         return Distance;
+    }
+
+    FasterNoise2(X, Y){
+
     }
     static EuclideanDistance2D(p1, p2) {
         return (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;

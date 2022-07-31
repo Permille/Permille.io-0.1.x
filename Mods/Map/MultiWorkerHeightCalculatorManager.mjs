@@ -15,7 +15,7 @@ class WorkerHeightCalculator{
   constructor(){
     this.Events = new Listenable;
     this.Busy = false;
-    this.Worker = new Worker("./WorkerHeightCalculator.mjs", {"type": "module"});
+    this.Worker = new Worker(new URL("./WorkerHeightCalculator.mjs", import.meta.url));
     this.Worker.addEventListener("message", function(Event){
       switch(Event.data.Request){
         case "SaveHeightMap":{

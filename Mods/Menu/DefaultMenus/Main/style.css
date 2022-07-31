@@ -1,62 +1,50 @@
-@font-face {
-  font-family: Escape1509;
-  src: url("../../../../Escape1509.ttf");
-}
-
-.PleaseDontShowAnyTransitionsOrAnimationsOnPageLoadIBegYou *{
-  transition: none !important;
-  animation-play-state: paused;
-  animation-duration: 0.00s !important;
-  animation-delay: -1s;
-}
-
-*{
-  user-select: none;
-}
-
-html{
+.Menu.Main {
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+  color: white;
   backdrop-filter: blur(3px);
   background-color: #000f0f5f;
 }
 
-html {
-    height: 100%;
-    margin: 0;
+.Menu.Main *{
+  user-select: none;
 }
 
-#Title, #SubTitle{
+.Menu.Main .Title,
+.Menu.Main .SubTitle{
   text-align: center;
   font-weight: normal;
 }
 
-#Title{
+.Menu.Main .Title{
   margin-top: 10vh;
   font-size: 80px;
 }
 
-#SubTitle{
+.Menu.Main .SubTitle{
   font-size: 32px;
   margin-top: -20px;
 }
 
 
-#Container{
+.Menu.Main .Container{
   max-width: calc(min(500px, 50%));
   margin: auto;
   margin-top: 5vh;
 }
 
-#Container {
+.Menu.Main .Container {
   display: flex;
   /*align-items: center;*/ /*Fits width and centers vertically.*/
   flex-wrap: wrap;
 }
 
-#Container > .Button {
+.Menu.Main .Container > .Button {
   flex: 100%;
 }
 
-.Button{
+.Menu.Main .Button{
   font-size: 32px;
   text-align: center;
   background-color: #007faf7f;
@@ -74,32 +62,32 @@ html {
   border-width: 4px;
   border-style: solid;
 }
-.Button:hover{
+.Menu.Main .Button:hover{
   background-color: #0087c77f;
 }
-.Button:active{
+.Menu.Main .Button:active{
   background-color: #00afdf7f;
 }
 
-#QuickAccessContainer{
+.Menu.Main .QuickAccessContainer{
   font-size: 32px;
   position: absolute;
   bottom: 20px;
   left: 10px;
 }
 
-#QuickAccessContainer > span{
+.Menu.Main .QuickAccessContainer > span{
   background-color: #0000007f;
   padding: 10px;
 }
 
-#QuickAccessContainer > span:nth-of-type(1):hover{
+.Menu.Main .QuickAccessContainer > span:nth-of-type(1):hover{
   filter: brightness(80%);
   background-color: #0000009f;
 }
 
 
-@keyframes Appear{
+.Menu.Main @keyframes Appear{
   0%{
     margin-left: 0px;
     opacity: 1;
@@ -110,7 +98,7 @@ html {
   }
 }
 
-@keyframes Disappear{
+.Menu.Main @keyframes Disappear{
   0%{
     margin-left: 0px;
     opacity: 1;
@@ -121,7 +109,7 @@ html {
   }
 }
 
-#QuickAccessItemsContainer{
+.Menu.Main .QuickAccessItemsContainer{
   /*display: none;*/
   margin-left: -9999px;
   font-family: Escape1509;
@@ -136,26 +124,26 @@ html {
 }
 
 
-#QuickAccessItemsContainer:not(:hover){
+.Menu.Main .QuickAccessItemsContainer:not(:hover){
   animation: Disappear 1s normal;
 }
 
 
-#QuickAccessContainer > span:hover + span + #QuickAccessItemsContainer,
-#QuickAccessItemsContainer:hover{
+.Menu.Main .QuickAccessContainer > span:hover + span + .QuickAccessItemsContainer,
+.Menu.Main .QuickAccessItemsContainer:hover{
   display: block;
   margin-left: 0px;
   animation: Appear 0s normal forwards cubic-bezier(0, 0, 1, 0);
 }
 
-#QuickAccessItemsContainer > div{
+.Menu.Main .QuickAccessItemsContainer > div{
   padding: 5px;
 }
 
-#QuickAccessItemsContainer > div:hover{
+.Menu.Main .QuickAccessItemsContainer > div:hover{
   background-color: #0000002f;
 }
-#QuickAccessItemsContainer > div > span{
+.Menu.Main .QuickAccessItemsContainer > div > span{
   display: inline-block;
   width: 75%;
   white-space: nowrap;
@@ -163,12 +151,12 @@ html {
   text-overflow: ellipsis;
   vertical-align:top;
 }
-#QuickAccessItemsContainer > div > span + span{
+.Menu.Main .QuickAccessItemsContainer > div > span + span{
   width: 25%;
   float: right;
 }
 
-.ComboBox{
+.Menu.Main .ComboBox{
   padding: 0px;
   margin: 0px;
   background-color: #007faf9f;
@@ -185,21 +173,21 @@ html {
   font-family: Escape;
 }
 
-.ComboBox > span:first-child{
+.Menu.Main .ComboBox > span:first-child{
   display: inline-block;
   width: calc(100% - 17px);
-  margin-left: 0 5 0 -5px;
+  margin: 0 5px 0 -5px;
   overflow-x: hidden;
   text-overflow: ellipsis;
   vertical-align:top;
 }
 
-.ComboBox > span + span{
+.Menu.Main .ComboBox > span + span{
   float: right;
   padding: 0 5px 0 5px;
 }
 
-.ComboBox > div{
+.Menu.Main .ComboBox > div{
   display: none;
 
   font-family: Escape;
@@ -221,30 +209,30 @@ html {
   z-index: 1; /*!!*/
 }
 
-.ComboBox > div > div{
+.Menu.Main .ComboBox > div > div{
   padding: 2px;
   text-align: left;
 }
 
-.ComboBox > span + span:hover + div,
-.ComboBox > span:first-child:focus + span + div,
-.ComboBox > div:hover{
+.Menu.Main .ComboBox > span + span:hover + div,
+.Menu.Main .ComboBox > span:first-child:focus + span + div,
+.Menu.Main .ComboBox > div:hover{
   display: block;
 }
 
-.ComboBox > div > div:hover{
+.Menu.Main .ComboBox > div > div:hover{
   background-color: #0087c73f;
 }
 
-.ComboBox > div > div:active{
+.Menu.Main .ComboBox > div > div:active{
   background-color: #00afdf3f;
 }
 
-input{
+.Menu.Main input{
   border: 0;
 }
 
-.TextInput, .KeyInput{
+.Menu.Main .TextInput, .KeyInput{
   font-size: 16px;
   font-family: Escape;
   background-color: #007faf9f;
@@ -259,25 +247,25 @@ input{
   min-width: calc(25% - 11px);
 }
 
-.KeyInput{
+.Menu.Main .KeyInput{
   text-align: center;
   caret-color: #00000000;
   cursor: pointer;
   user-select: none;
 }
 
-.Slider + .TextInput{
+.Menu.Main .Slider + .TextInput{
   max-width: 7%;
   min-width: 7%;
 }
 
-.TextInput::-webkit-outer-spin-button,
-.TextInput::-webkit-inner-spin-button {
+.Menu.Main .TextInput::-webkit-outer-spin-button,
+.Menu.Main .TextInput::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-.Slider {
+.Menu.Main .Slider {
   -webkit-appearance: none;
   appearance: none;
   width: 59%;/*calc(100% - 2px);*/
@@ -285,7 +273,7 @@ input{
   background: #cfcfcf7f;
   outline: none;
 }
-.Slider::-webkit-slider-thumb {
+.Menu.Main .Slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 6px;
@@ -294,21 +282,21 @@ input{
   cursor: e-resize;
 }
 
-.Slider:hover + .TextInput,
-.TextInput:hover{
+.Menu.Main .Slider:hover + .TextInput,
+.Menu.Main .TextInput:hover{
   background-color: #0087c79f;
 }
 
-.Slider:active + .TextInput,
-.TextInput:active,
-.TextInput:focus{
+.Menu.Main .Slider:active + .TextInput,
+.Menu.Main .TextInput:active,
+.Menu.Main .TextInput:focus{
   background-color: #00afdf9f;
 }
 
 
 
 /* The switch - the box around the slider */
-.Switch {
+.Menu.Main .Switch {
   position: relative;
   display: inline-block;
   width: 40px;
@@ -318,14 +306,14 @@ input{
 }
 
 /* Hide default HTML checkbox */
-.Switch input {
+.Menu.Main .Switch input {
   opacity: 0;
   width: 0;
   height: 0;
 }
 
 /* The slider */
-.SwitchSlider {
+.Menu.Main .SwitchSlider {
   position: absolute;
   cursor: pointer;
   top: 0;
@@ -336,7 +324,7 @@ input{
   transition: .1s;
 }
 
-.SwitchSlider:before {
+.Menu.Main .SwitchSlider:before {
   position: absolute;
   content: "";
   height: 16px;
@@ -347,14 +335,14 @@ input{
   transition: .1s;
 }
 
-input:checked + .SwitchSlider {
+.Menu.Main input:checked + .SwitchSlider {
   background-color: #0087c7af;
 }
 
-input:focus + .SwitchSlider {
+.Menu.Main input:focus + .SwitchSlider {
   box-shadow: 0 0 1px #0087c7af;
 }
 
-input:checked + .SwitchSlider:before {
+.Menu.Main input:checked + .SwitchSlider:before {
   transform: translateX(18px);
 }

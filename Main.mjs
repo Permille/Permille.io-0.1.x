@@ -11,22 +11,29 @@ import Raymarcher from "./Graphics/Renderer/Raymarcher.mjs";
 import Debug from "./Debug.mjs";
 import DeferredPromise from "./Libraries/DeferredPromise.mjs";
 
+
+import "./Default.css";
+import "./DebugInfoOverlayWrapper.css";
+import "./IncludeEscape.css";
+import "./Scrollbars.css";
+
+import Spruce01 from "./Structures/bo3/Spruce01.BO3";
+import Spruce02 from "./Structures/bo3/Spruce02.BO3";
+import Spruce03 from "./Structures/bo3/Spruce03.BO3";
+import Spruce04 from "./Structures/bo3/Spruce04.BO3";
+import Spruce05 from "./Structures/bo3/Spruce05.BO3";
+import Spruce06 from "./Structures/bo3/Spruce06.BO3";
+import Spruce07 from "./Structures/bo3/Spruce07.BO3";
+
 setTimeout(function(){Application.Initialise();});
 
 class Application{
-  static Version = "0.1.11.1";
-  static Build = 59;
+  static Version = "0.1.12";
+  static Build = 60;
   static Variation = 0;
   static Revision = 0;
 
   static Initialise(){
-    window.performance.now = (function(){ //Reset timer so file loading times aren't counted.
-      window.performance.later = window.performance.now;
-      const Start = window.performance.now();
-      return function(){
-        return window.performance.later() - Start;
-      };
-    })();
 
     this.Main = new Main;
     this.Main.RegisterDependencies();
@@ -69,37 +76,37 @@ class Main{
         "Frequency": 6
       },*/
       {
-        "FilePath": "./Structures/bo3/Spruce01.bo3",
+        "FilePath": Spruce01,
         "Offset": {"X": 0, "Y": 0, "Z": 0},
         "Frequency": 9
       },
       {
-        "FilePath": "./Structures/bo3/Spruce02.bo3",
+        "FilePath": Spruce02,
         "Offset": {"X": 0, "Y": 0, "Z": 0},
         "Frequency": 9
       },
       {
-        "FilePath": "./Structures/bo3/Spruce03.bo3",
+        "FilePath": Spruce03,
         "Offset": {"X": 0, "Y": 0, "Z": 0},
         "Frequency": 9
       },
       {
-        "FilePath": "./Structures/bo3/Spruce04.bo3",
+        "FilePath": Spruce04,
         "Offset": {"X": 0, "Y": 0, "Z": 0},
         "Frequency": 9
       },
       {
-        "FilePath": "./Structures/bo3/Spruce05.bo3",
+        "FilePath": Spruce05,
         "Offset": {"X": 0, "Y": 0, "Z": 0},
         "Frequency": 9
       },
       {
-        "FilePath": "./Structures/bo3/Spruce06.bo3",
+        "FilePath": Spruce06,
         "Offset": {"X": 0, "Y": 0, "Z": 0},
         "Frequency": 9
       },
       {
-        "FilePath": "./Structures/bo3/Spruce07.bo3",
+        "FilePath": Spruce07,
         "Offset": {"X": 0, "Y": 0, "Z": 0},
         "Frequency": 9
       }
@@ -126,7 +133,7 @@ class Main{
     this.Renderer.InitialiseTextures(this.BlockRegistry);
     await RendererPromise;
 
-    this.WorkerLoadingPipeline = new Worker(__ScriptPath__ + "/BackgroundTasks/WorkerLoadingPipeline.mjs", {"type": "module"});
+    this.WorkerLoadingPipeline = new Worker(new URL("./BackgroundTasks/WorkerLoadingPipeline.mjs", import.meta.url));
     this.WorkerLoadingPipelineHandler = new WorkerLoadingPipelineHandler;
 
     this.Raymarcher = new Raymarcher(this.World, this.Renderer);

@@ -57,7 +57,7 @@ export class Inspector{
   constructor(){
     this.Interface = new InspectorInterface;
     this.ControlHandler = new InspectorControlHandler(this);
-    const IFrame = this.Interface.IFrame;
+    const IFrame = this.Interface.Window.IFrame;
 
     /*IFrame.addEventListener("load", function(){
       this.MapMouseControls = new MapMouseControls(IFrame.contentDocument, this.MapInterface, this.MapInterface.MapView);
@@ -74,7 +74,7 @@ export class Inspector{
     //Application.Main.Game.ControlManager.FocusControl("InspectorControls");
     this.Interface.Window.Show();
     document.exitPointerLock();
-    this.Interface.IFrame.contentWindow.focus(); //Important: need to focus iframe window AND the element within it.
+    this.Interface.Window.IFrame.contentWindow.focus(); //Important: need to focus iframe window AND the element within it.
     //this.MapInterface.IFrame.contentDocument.getElementById("Input").focus(); //Not needed right now, could use it to automatically switch to panning the map
   }
   Exit(){

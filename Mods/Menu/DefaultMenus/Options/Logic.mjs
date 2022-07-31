@@ -10,82 +10,73 @@ export default class OptionsLogic{
 
     this.LastVisibilityToggle = 0;
 
-    const IFrame = this.Interface.IFrame;
 
-    IFrame.addEventListener("load", function(){
-      const IDocument = IFrame.contentDocument;
+    this.Interface.Element.querySelector(".Exit").addEventListener("click", function(){
+      this.Exit();
+    }.bind(this));
 
-      Application.Main.Game.ControlManager.RegisterIFrame(IFrame);
-      IDocument.getElementById("Exit").addEventListener("click", function(){
-        this.Exit();
-      }.bind(this));
-      IDocument.getElementById("Graphics").addEventListener("click", function(){
-        this.LastVisibilityToggle = window.performance.now();
+    this.Interface.Element.querySelector(".Graphics").addEventListener("click", function(){
+      this.LastVisibilityToggle = window.performance.now();
 
-        Application.Main.Game.ControlManager.FocusControl("GraphicsControls");
-        this.Interface.Hide();
-        this.Main.Logic.GraphicsLogic.Interface.Show();
-      }.bind(this));
+      Application.Main.Game.ControlManager.FocusControl("GraphicsControls");
+      this.Interface.Hide();
+      this.Main.Logic.GraphicsLogic.Interface.Show();
+    }.bind(this));
 
-      IDocument.getElementById("Controls").addEventListener("click", function(){
-        this.LastVisibilityToggle = window.performance.now();
+    this.Interface.Element.querySelector(".Controls").addEventListener("click", function(){
+      this.LastVisibilityToggle = window.performance.now();
 
-        Application.Main.Game.ControlManager.FocusControl("ControlConfigControls");
-        this.Interface.Hide();
-        this.Main.Logic.ControlConfigLogic.Interface.Show();
-      }.bind(this));
+      Application.Main.Game.ControlManager.FocusControl("ControlConfigControls");
+      this.Interface.Hide();
+      this.Main.Logic.ControlLogic.Interface.Show();
+    }.bind(this));
 
-      IDocument.getElementById("World").addEventListener("click", function(){
-        this.LastVisibilityToggle = window.performance.now();
+    this.Interface.Element.querySelector(".World").addEventListener("click", function(){
+      this.LastVisibilityToggle = window.performance.now();
 
-        Application.Main.Game.ControlManager.FocusControl("WorldConfigControls");
-        this.Interface.Hide();
-        this.Main.Logic.WorldConfigLogic.Interface.Show();
-      }.bind(this));
+      Application.Main.Game.ControlManager.FocusControl("WorldConfigControls");
+      this.Interface.Hide();
+      this.Main.Logic.WorldLogic.Interface.Show();
+    }.bind(this));
 
-      IDocument.getElementById("Player").addEventListener("click", function(){
-        this.LastVisibilityToggle = window.performance.now();
+    this.Interface.Element.querySelector(".Player").addEventListener("click", function(){
+      this.LastVisibilityToggle = window.performance.now();
 
-        Application.Main.Game.ControlManager.FocusControl("PlayerConfigControls");
-        this.Interface.Hide();
-        this.Main.Logic.PlayerConfigLogic.Interface.Show();
-      }.bind(this));
+      Application.Main.Game.ControlManager.FocusControl("PlayerConfigControls");
+      this.Interface.Hide();
+      this.Main.Logic.PlayerLogic.Interface.Show();
+    }.bind(this));
 
-      IDocument.getElementById("Language").addEventListener("click", function(){
-        this.LastVisibilityToggle = window.performance.now();
+    this.Interface.Element.querySelector(".Language").addEventListener("click", function(){
+      this.LastVisibilityToggle = window.performance.now();
 
-        Application.Main.Game.ControlManager.FocusControl("LanguageConfigControls");
-        this.Interface.Hide();
-        this.Main.Logic.LanguageConfigLogic.Interface.Show();
-      }.bind(this));
+      Application.Main.Game.ControlManager.FocusControl("LanguageConfigControls");
+      this.Interface.Hide();
+      this.Main.Logic.LanguageLogic.Interface.Show();
+    }.bind(this));
 
-      IDocument.getElementById("Settings").addEventListener("click", function(){
-        this.LastVisibilityToggle = window.performance.now();
+    this.Interface.Element.querySelector(".Settings").addEventListener("click", function(){
+      this.LastVisibilityToggle = window.performance.now();
 
-        Application.Main.Game.ControlManager.FocusControl("SettingsConfigControls");
-        this.Interface.Hide();
-        this.Main.Logic.SettingsConfigLogic.Interface.Show();
-      }.bind(this));
+      Application.Main.Game.ControlManager.FocusControl("SettingsConfigControls");
+      this.Interface.Hide();
+      this.Main.Logic.SettingsLogic.Interface.Show();
+    }.bind(this));
 
-      IDocument.getElementById("Config").addEventListener("click", function(){
-        this.LastVisibilityToggle = window.performance.now();
+    this.Interface.Element.querySelector(".Config").addEventListener("click", function(){
+      this.LastVisibilityToggle = window.performance.now();
 
-        Application.Main.Game.ControlManager.FocusControl("ConfigConfigControls");
-        this.Interface.Hide();
-        this.Main.Logic.ConfigConfigLogic.Interface.Show();
-      }.bind(this));
+      Application.Main.Game.ControlManager.FocusControl("ConfigConfigControls");
+      this.Interface.Hide();
+      this.Main.Logic.ConfigLogic.Interface.Show();
+    }.bind(this));
 
-      IDocument.getElementById("Debug").addEventListener("click", function(){
-        this.LastVisibilityToggle = window.performance.now();
+    this.Interface.Element.querySelector(".Debug").addEventListener("click", function(){
+      this.LastVisibilityToggle = window.performance.now();
 
-        Application.Main.Game.ControlManager.FocusControl("DebugConfigControls");
-        this.Interface.Hide();
-        this.Main.Logic.DebugConfigLogic.Interface.Show();
-      }.bind(this));
-      /*IDocument.getElementById("Restart").addEventListener("click", function(){
-        window.location.reload();
-      }.bind(this));*/
-
+      Application.Main.Game.ControlManager.FocusControl("DebugConfigControls");
+      this.Interface.Hide();
+      this.Main.Logic.DebugLogic.Interface.Show();
     }.bind(this));
   }
   Show(){
@@ -95,7 +86,7 @@ export default class OptionsLogic{
 
     Application.Main.Game.ControlManager.FocusControl("OptionsControls");
     this.Interface.Show();
-    this.Interface.IFrame.contentWindow.focus(); //Important: need to focus iframe window AND the element within it.
+    this.Interface.Element.focus(); //Important: need to focus iframe window AND the element within it.
   }
   Exit(){
     if(window.performance.now() - 5 < this.LastVisibilityToggle) return;
@@ -105,7 +96,7 @@ export default class OptionsLogic{
     Application.Main.Game.ControlManager.FocusControl("MainMenuControls");
     this.Interface.Hide();
 
-    this.Main.Logic.MainLogic.Interface.IFrame.contentWindow.focus();
+    this.Main.Logic.MainLogic.Interface.Element.focus();
     this.Main.Logic.MainLogic.Show();
   }
 }

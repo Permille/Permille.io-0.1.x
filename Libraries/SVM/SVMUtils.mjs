@@ -2,6 +2,7 @@ import SVM from "./SVM.mjs";
 import ScalesContainer from "./ScalesContainer.mjs";
 import Utilities from "../../Libraries/Utilities/0.7.13.8/Utilities.mjs";
 import {SetUint, GetUint} from "../BitSetter/BitSetter.mjs";
+import DefaultForeignMapping from "../../Block/DefaultForeignMapping.json";
 
 const SIZE_HEADER = 3;
 const SIZE_VERSION = 2;
@@ -255,9 +256,13 @@ export default class SVMUtils{
         "biomesoplenty:leaves_4:2": Application.Main.BlockRegistry.GetBlockByIdentifier("default:leaves").ID,
         "biomesoplenty:log_2": Application.Main.BlockRegistry.GetBlockByIdentifier("default:wood").ID,
         "biomesoplenty:log_2:8": Application.Main.BlockRegistry.GetBlockByIdentifier("default:wood").ID,
-        "LOG": Application.Main.BlockRegistry.GetBlockByIdentifier("default:wood").ID,
-        "LEAVES": Application.Main.BlockRegistry.GetBlockByIdentifier("default:leaves").ID,
-        "NotFound": Application.Main.BlockRegistry.GetBlockByIdentifier("primary:error").ID
+        "minecraft:spruce_log": Application.Main.BlockRegistry.GetBlockByIdentifier("default:wood").ID,
+        "minecraft:spruce_leaves": Application.Main.BlockRegistry.GetBlockByIdentifier("default:leaves").ID,
+        "minecraft:oak_log": Application.Main.BlockRegistry.GetBlockByIdentifier("default:oak_wood").ID,
+        "minecraft:oak_leaves": Application.Main.BlockRegistry.GetBlockByIdentifier("default:oak_leaves").ID,
+        "NotFound": Application.Main.BlockRegistry.GetBlockByIdentifier("primary:error").ID,
+        "LOG": Application.Main.BlockRegistry.GetBlockByIdentifier("default:oak_wood").ID,
+        "LEAVES": Application.Main.BlockRegistry.GetBlockByIdentifier("default:oak_leaves").ID
       };
     }
     let Lines = BOPFile.split("\u000a");

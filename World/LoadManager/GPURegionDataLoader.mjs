@@ -1,10 +1,3 @@
-let a = 0;
-let b = new Set;
-void function Load(){
-  self.setTimeout(Load, 1000);
-  console.log("a: " + a);
-  console.log("b: " + b.size);
-}();
 export default class GPURegionDataLoader{
   constructor(LoadManager){
     this.LoadManager = LoadManager;
@@ -48,8 +41,6 @@ export default class GPURegionDataLoader{
 
 
       if(((Info64 >> 31) & 1) === 1){ //Empty Data64
-        if(Depth !== 0) ++a;
-        if(Depth !== 0) b.add(Index64);
         Data64[Index64] &= ~(1 << 30); //Toggle CPU update to false
         GPUInfo64[Index64] |= 1 << 30; //Toggle GPU update to true
         continue;

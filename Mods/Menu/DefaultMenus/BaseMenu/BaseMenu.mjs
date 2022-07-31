@@ -19,12 +19,6 @@ export default class BaseMenu{
 
     this.LastVisibilityToggle = 0;
 
-    const IFrame = this.Interface.IFrame;
-
-    IFrame.addEventListener("load", function(){
-      Application.Main.Game.ControlManager.RegisterIFrame(IFrame);
-    }.bind(this));
-
   }
   Show(){
     if(window.performance.now() - 5 < this.LastVisibilityToggle) return; //Dumb solution, but whatever; this prevents the menu from showing and immediately closing, and vice versa.
@@ -33,7 +27,7 @@ export default class BaseMenu{
 
     Application.Main.Game.ControlManager.FocusControl("LanguageConfigControls");
     this.Interface.Show();
-    this.Interface.IFrame.contentWindow.focus(); //Important: need to focus iframe window AND the element within it.
+    this.Interface.Element.focus(); //Important: need to focus iframe window AND the element within it.
   }
   Exit(){
     if(window.performance.now() - 5 < this.LastVisibilityToggle) return;
@@ -43,7 +37,7 @@ export default class BaseMenu{
     Application.Main.Game.ControlManager.FocusControl("OptionsControls");
     this.Interface.Hide();
 
-    this.Main.Logic.OptionsLogic.Interface.IFrame.contentWindow.focus();
+    this.Main.Logic.OptionsLogic.Interface.Element.focus();
     this.Main.Logic.OptionsLogic.Show();
   }
 }

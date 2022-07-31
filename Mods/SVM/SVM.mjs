@@ -58,14 +58,14 @@ export class Main{
 
 
 
-          const Selection = SVMUtils.DeserialiseBOP(LoadedFile);
+          const Selection = SVMUtils.DeserialiseBOP(LoadedFile, undefined, {"X": 0, "Y": 0, "Z": 0});
 
           void function Load(){
             //window.setTimeout(Load, 1000);
             const PlayerX = Application.Main.Renderer.Camera.position.x;
             const PlayerY = Application.Main.Renderer.Camera.position.y;
             const PlayerZ = Application.Main.Renderer.Camera.position.z;
-            Selection.DirectPaste(PlayerX, PlayerY, PlayerZ, 1, Application.Main.Game.World.SetBlock.bind(Application.Main.Game.World), true);
+            Selection.DirectPaste(PlayerX, PlayerY, PlayerZ, 1, Application.Main.BlockRegistry, Application.Main.World.SetBlock.bind(Application.Main.World), true);
           }();
 
         }.bind(this));

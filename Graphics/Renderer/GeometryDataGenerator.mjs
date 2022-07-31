@@ -20,7 +20,7 @@ export default class GeometryDataGenerator{
       this.GenerateMoreGeometryData();
     }.bind(this)();
 
-    this.WorkerGeometryDataGenerator = new Worker("../MultiWorkerGeometryDataGeneratorManager.mjs", {"type": "module"});
+    this.WorkerGeometryDataGenerator = new Worker(new URL("../MultiWorkerGeometryDataGeneratorManager.mjs", import.meta.url));
 
     this.WorkerGeometryDataGenerator.addEventListener("error", function(Error){
       console.warn("[GeometryDataGenerator/WorkerGeometryDataGenerator] Generic Error:");
@@ -48,7 +48,7 @@ export default class GeometryDataGenerator{
       "Workers": 1
     });
 
-    this.WorkerVirtualGeometryDataGenerator = new Worker("../MultiWorkerGeometryDataGeneratorManager.mjs", {"type": "module"});
+    this.WorkerVirtualGeometryDataGenerator = new Worker(new URL("../MultiWorkerGeometryDataGeneratorManager.mjs", import.meta.url));
 
     this.WorkerVirtualGeometryDataGenerator.addEventListener("error", function(Error){
       console.warn("[GeometryDataGenerator/WorkerVirtualGeometryDataGenerator] Generic Error:");
@@ -76,7 +76,7 @@ export default class GeometryDataGenerator{
       "Workers": 3
     });
 
-    this.WorkerPriorityGeometryDataGenerator = new Worker("../WorkerGeometryDataGenerator.mjs", {"type": "module"});
+    this.WorkerPriorityGeometryDataGenerator = new Worker(new URL("../WorkerGeometryDataGenerator.mjs", import.meta.url));
 
     this.WorkerPriorityGeometryDataGenerator.addEventListener("error", function(Error){
       console.warn("[GeometryDataGenerator/WorkerPriorityGeometryDataGenerator] Generic Error:");

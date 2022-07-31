@@ -11,26 +11,31 @@ export default class PointerLock extends Listenable{
     this.Element.requestPointerLock = this.Element.requestPointerLock || this.Element.mozRequestPointerLock;
     this.Element.exitPointerLock = this.Element.exitPointerLock || this.Element.mozExitRequestPointerLock;
     this.Element.addEventListener("click", function(){
-      this.Element.requestPointerLock();
+      if(!this.PointerLocked) this.Element.requestPointerLock();
     }.bind(this));
+
 
     document.addEventListener("pointerlockchange", function(){this.UpdateLockStatus();}.bind(this), !1);
     document.addEventListener("mozpointerlockchange", function(){this.UpdateLockStatus();}.bind(this), !1);
 
-    document.addEventListener("mousemove", function(Event){
+
+    Application.Main.Renderer.Events.AddEventListener("MouseMove", function(Event){
       if(this.PointerLocked) this.FireEventListeners("MouseMove", Event);
     }.bind(this));
+    /*document.addEventListener("mousemove", function(Event){
+      this.FireEventListeners("MouseMove", Event);
+    }.bind(this));*/
     document.addEventListener("click", function(Event){
-      if(this.PointerLocked) this.FireEventListeners("Click", Event);
+      this.FireEventListeners("Click", Event);
     }.bind(this));
     document.addEventListener("mousedown", function(Event){
-      if(this.PointerLocked) this.FireEventListeners("MouseDown", Event);
+      this.FireEventListeners("MouseDown", Event);
     }.bind(this));
     document.addEventListener("mouseup", function(Event){
-      if(this.PointerLocked) this.FireEventListeners("MouseUp", Event);
+      this.FireEventListeners("MouseUp", Event);
     }.bind(this));
     document.addEventListener("wheel", function(Event){
-      if(this.PointerLocked) this.FireEventListeners("Wheel", Event);
+      this.FireEventListeners("Wheel", Event);
     }.bind(this));
     return this;
   }

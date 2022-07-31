@@ -7,13 +7,8 @@ export default class Logic{
     this.Main = Main;
     this.Interface = BaseMenu.Interface;
 
-    this.Interface.Events.AddEventListener("Loaded", function(){
-      const IDocument = this.Interface.IFrame.contentDocument;
-
-      IDocument.getElementById("Exit").addEventListener("click", function(){
-        this.BaseMenu.Exit();
-      }.bind(this));
-      //Detect config change events
+    this.Interface.Element.querySelector(".Exit").addEventListener("click", function(){
+      this.BaseMenu.Exit();
     }.bind(this));
   }
 }

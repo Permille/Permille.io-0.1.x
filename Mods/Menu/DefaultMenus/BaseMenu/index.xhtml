@@ -2,18 +2,14 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en-us">
   <head>
     <meta charset="UTF-8"/>
-    <link rel="stylesheet" href="../../../../Default.css" />
-    <link rel="stylesheet" href="../../../../IncludeEscape.css" />
-    <link rel="stylesheet" href="../../MenuStyle.css" />
-    <link rel="stylesheet" href="style.css" />
     <title>Menu</title>
   </head>
-  <body class="PleaseDontShowAnyTransitionsOrAnimationsOnPageLoadIBegYou" onload="setTimeout(function(){document.body.classList.remove('PleaseDontShowAnyTransitionsOrAnimationsOnPageLoadIBegYou');}, 1500);">
-    <h1 id="Title" data-exp="">Title</h1>
-    <div id="Container"></div>
-    <div id="Exit" data-exp="Exit" class="Button">Exit</div>
+  <body>
+    <h1 class="Title" data-exp="">Title</h1>
+    <div class="Container"></div>
+    <div class="ButtonInner Exit" data-exp="Exit">Exit</div>
 
-    <template id="Options">
+    <template class="Options">
       <div>
         <span>OptionComboBox</span><span><div class="ComboBox">
           <span tabindex="-1">Default</span><span>v</span><div onclick="this.parentElement.firstElementChild.innerText = event.target.innerText">
@@ -21,7 +17,7 @@
         </div></span>
       </div>
     </template>
-    <template id="Range">
+    <template class="Range">
       <div><span>OptionSlider</span><span>
         <form>
           <input class="Slider" type="range" name="Range" min="0" max="20" value="0" oninput="this.form.Input.value = this.value || 0;" />
@@ -29,30 +25,30 @@
         </form>
       </span></div>
     </template>
-    <template id="Text">
+    <template class="Text">
       <div><span>OptionTextInput</span><span>
         <input class="TextInput" type="text" />
       </span></div>
     </template>
-    <template id="Switch">
+    <template class="Switch">
       <div><span>OptionSwitch</span><span>
-        <label class="Switch">
+        <label class="SwitchInput">
           <input type="checkbox" />
           <span class="SwitchSlider"></span>
         </label>
       </span></div>
     </template>
-    <template id="Key">
+    <template class="Key">
       <div><span>OptionKeyInput</span><span>
         <input class="KeyInput" type="text" spellcheck="false" onkeydown="event.preventDefault();this.value = event.code || event.key;" oncontextmenu="event.preventDefault();" onmousedown="const Active = this.dataset.Active === '1'; if(this === document.activeElement) this.dataset.Active = '1'; if(Active) this.value = 'Mouse' + event.buttons;" onblur="this.dataset.Active = '0'" />
       </span></div>
     </template>
-    <template id="Button">
+    <template class="Button">
       <div>
         <span>OptionButton</span><span><div class="ButtonOption">Click this</div></span>
       </div>
     </template>
-    <template id="CenteredButton">
+    <template class="CenteredButton">
       <div>
         <div class="ButtonOption CenteredButton">Click this too</div>
       </div>

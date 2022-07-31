@@ -7,24 +7,21 @@ export default class Logic{
     this.Main = Main;
     this.Interface = BaseMenu.Interface;
 
-    this.Interface.Events.AddEventListener("Loaded", function(){
-      const IDocument = this.Interface.IFrame.contentDocument;
 
-      IDocument.getElementById("Exit").addEventListener("click", function(){
-        this.BaseMenu.Exit();
-      }.bind(this));
+    this.Interface.Element.querySelector(".Exit").addEventListener("click", function(){
+      this.BaseMenu.Exit();
+    }.bind(this));
 
-      IDocument.getElementById("Reset").querySelector(":scope > div").addEventListener("click", function(){
-        //Application.Main.WorkerLoadingPipeline.postMessage({"Request": "SetSeed", "Seed": Number.parseInt(ICVQ.Text(IDocument.getElementById("Seed")))});
-        Application.Main.Game.World.SetSeed(Number.parseInt(ICVQ.Text(IDocument.getElementById("Seed"))));
-        Application.Main.Game.World.ReloadWorld();
-        const Position = Application.Main.Renderer.Camera.position;
-        Position.y = Application.Main.Game.World.GetHeight(Position.x, Position.z) + 15; //It takes a little while for the previous world to unload.
-      });
+    this.Interface.Element.querySelector(".-ID-Reset").querySelector(":scope > div").addEventListener("click", function(){
+      //Application.Main.WorkerLoadingPipeline.postMessage({"Request": "SetSeed", "Seed": Number.parseInt(ICVQ.Text(this.Interface.Element.querySelector(".-ID-Seed")))});
+      Application.Main.Game.World.SetSeed(Number.parseInt(ICVQ.Text(this.Interface.Element.querySelector(".-ID-Seed"))));
+      Application.Main.Game.World.ReloadWorld();
+      const Position = Application.Main.Renderer.Camera.position;
+      Position.y = Application.Main.Game.World.GetHeight(Position.x, Position.z) + 15; //It takes a little while for the previous world to unload.
+    }.bind(this));
 
-      ICCD.Range(IDocument.getElementById("MaxUpdatingSegments"), function(){
-        Application.Main.Raymarcher.MaxUpdatingSegments = Number.parseInt(ICVQ.Range(IDocument.getElementById("MaxUpdatingSegments")));
-      });
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-MaxUpdatingSegments"), function(){
+      Application.Main.Raymarcher.MaxUpdatingSegments = Number.parseInt(ICVQ.Range(this.Interface.Element.querySelector(".-ID-MaxUpdatingSegments")));
     }.bind(this));
   }
 }

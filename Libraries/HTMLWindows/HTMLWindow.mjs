@@ -1,6 +1,9 @@
 import Utilities from "../Utilities/0.7.13.9/Utilities.mjs";
 import Listenable from "../Listenable/1.2/Listenable.mjs";
 
+import CloseIcon from "./Close.svg";
+import FullscreenIcon from "./Fullscreen.svg";
+
 export default class HTMLWindow{
   static Windows = {};
   static CurrentZIndex = 1;
@@ -91,8 +94,8 @@ export default class HTMLWindow{
     <div class="WindowWrapper">
       <div class="Title">
         <div class="TitleText">Window title</div>
-        <img data-action="Fullscreen" src="./Libraries/HTMLWindows/Fullscreen.svg" />
-        <img data-action="Close" src="./Libraries/HTMLWindows/Close.svg" />
+        <img data-action="Fullscreen" src="${CloseIcon}" />
+        <img data-action="Close" src="${FullscreenIcon}" />
       </div>
       <iframe>
         Not loaded

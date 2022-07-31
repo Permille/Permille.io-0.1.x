@@ -13,7 +13,6 @@
   margin: 2px 0 0 2px;
   padding: 1px 3px 1px 4px;
   display: inline-block;
-  /*backdrop-filter: blur(2px);*/
 }
 .DebugInfoOverlayWrapper p::after{
   content: "‎"; /*This string isn't empty.*/

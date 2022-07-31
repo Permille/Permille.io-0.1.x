@@ -71,6 +71,7 @@ export default class RRSLoader{
   }
 
   UpdateData64Offset(){ //This is kinda messy but it works
+
     const PlayerX = this.PlayerPosition[0];
     const PlayerY = this.PlayerPosition[1];
     const PlayerZ = this.PlayerPosition[2];
@@ -82,17 +83,17 @@ export default class RRSLoader{
     for(let Depth = 0; Depth < 8; ++Depth){
       const Size = 64 << Depth;
 
-      const ScaledX = Math.floor(PlayerX / Size) - 4;
-      const ScaledY = Math.floor(PlayerY / Size) - 4;
-      const ScaledZ = Math.floor(PlayerZ / Size) - 4;
+      const XMin = Math.ceil((Math.floor(PlayerX / Size) - 4) / 2) * 2;
+      const YMin = Math.ceil((Math.floor(PlayerY / Size) - 4) / 2) * 2;
+      const ZMin = Math.ceil((Math.floor(PlayerZ / Size) - 4) / 2) * 2;
 
-      if(ScaledX - this.Data64Offset[Depth * 3 + 0] !== 0) Changed = true;
-      if(ScaledY - this.Data64Offset[Depth * 3 + 1] !== 0) Changed = true;
-      if(ScaledZ - this.Data64Offset[Depth * 3 + 2] !== 0) Changed = true;
+      if(XMin - this.Data64Offset[Depth * 3 + 0] !== 0) Changed = true;
+      if(YMin - this.Data64Offset[Depth * 3 + 1] !== 0) Changed = true;
+      if(ZMin - this.Data64Offset[Depth * 3 + 2] !== 0) Changed = true;
 
-      NewData64Offset[Depth * 3 + 0] = ScaledX;
-      NewData64Offset[Depth * 3 + 1] = ScaledY;
-      NewData64Offset[Depth * 3 + 2] = ScaledZ;
+      NewData64Offset[Depth * 3 + 0] = XMin;
+      NewData64Offset[Depth * 3 + 1] = YMin;
+      NewData64Offset[Depth * 3 + 2] = ZMin;
     }
     //if(!Changed) return; //#######################
 

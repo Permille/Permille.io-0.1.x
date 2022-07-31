@@ -50,9 +50,10 @@ export default class GraphOverlay{
     this.Hidden = false;
   }
   AddItem(Item){
+    if(this.Hidden) return;
     this.Data.push(Item);
     if(this.Data.length > this.Properties.MaxWidth) this.Data.shift();
-    if(!this.Hidden) this.NeedsUpdate = true;
+    this.NeedsUpdate = true;
   }
   Update(){
     this.NeedsUpdate = false;

@@ -16,7 +16,7 @@ export default class WorldGenerationEngine{
     this.FreeArrayBuffers = FreeArrayBuffers;
 
 
-    this.WorkerHeightMapGenerator = new Worker("../MultiWorkerHeightMapGeneratorManager.mjs", {"type": "module"});
+    this.WorkerHeightMapGenerator = new Worker(new URL("../MultiWorkerHeightMapGeneratorManager.mjs", import.meta.url));
 
     this.WorkerHeightMapGenerator.addEventListener("error", function(Error){
       console.warn("[WorldGenerationEngine/WorkerHeightMapGenerator] Generic Error:");
@@ -42,7 +42,7 @@ export default class WorldGenerationEngine{
       "RequiredRegionSelection": RequiredRegionSelection
     });
 
-    this.WorkerRegionGenerator = new Worker("../MultiWorkerRegionGeneratorManager.mjs", {"type": "module"});
+    this.WorkerRegionGenerator = new Worker(new URL("../MultiWorkerRegionGeneratorManager.mjs", import.meta.url));
 
     this.WorkerRegionGenerator.addEventListener("error", function(Error){
       console.warn("[WorldGenerationEngine/WorkerRegionGenerator] Generic Error:");

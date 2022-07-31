@@ -137,12 +137,14 @@ class PerformanceOverlay{
     this.Wrapper.style.zIndex = this.ZIndex;
     this.Wrapper.style.pointerEvents = "none";
     this.Wrapper.classList.add("DebugInfoOverlayWrapper");
+    this.Wrapper.style.contain = "strict";
     this.Info = [];
     this.GraphInfo = 1;
     this.UpdateInterval = 1;
     this.Updates = 0;
     this.LastTextUpdate = 0;
     this.TextUpdateInterval = 40;
+    this.Visible = true;
     this.GraphSource = function(){
       if(this.GraphInfo === 1) return Application.Main.Renderer.RenderTime;
     }.bind(this);
@@ -177,22 +179,26 @@ class PerformanceOverlay{
   AddInfo(Functions){
     for(let i = 0, Length = Functions.length; i < Length; i++){
 
-      let TextElement = document.createElement("p");
+      const TextElement = document.createElement("p");
       this.Wrapper.appendChild(TextElement);
       this.Wrapper.appendChild(document.createElement("br"));
+      const TextNode = document.createTextNode("");
+      TextElement.appendChild(TextNode);
 
-      this.Info.push({"Function": Functions[i], "TextElement": TextElement});
+      this.Info.push({"Function": Functions[i], "TextNode": TextNode});
     }
     return this;
   }
   Hide(){
     this.Wrapper.style.display = "none";
     this.Graph.Hide();
+    this.Visible = false;
     return this;
   }
   Show(){
     this.Wrapper.style.display = "block";
     this.Graph.Show();
+    this.Visible = true;
     return this;
   }
   Update(){
@@ -200,6 +206,7 @@ class PerformanceOverlay{
       this.Update();
     }.bind(this));
     if(this.Updates++ % this.UpdateInterval === 0) this.Graph.AddItem(this.GraphSource());
+    if(!this.Visible) return;
 
     const Now = window.performance.now();
     if(this.LastTextUpdate > Now - this.TextUpdateInterval) return;
@@ -228,7 +235,7 @@ class PerformanceOverlay{
       catch(Error){
         Output = Error.toString();
       }
-      this.Info[i].TextElement.textContent = Output;
+      this.Info[i].TextNode.nodeValue = Output;
     }
   }
 }

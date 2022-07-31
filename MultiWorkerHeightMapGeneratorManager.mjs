@@ -16,7 +16,7 @@ EventHandler.TransferRRS = function(Data){
 class WorkerHeightMapGenerator{
   constructor(){
     this.Events = new Listenable;
-    this.Worker = new Worker("./WorkerHeightMapGenerator.mjs", {"type": "module"});
+    this.Worker = new Worker(new URL("./WorkerHeightMapGenerator.mjs", import.meta.url));
     this.OwnQueueSize = new Uint8Array(new SharedArrayBuffer(1));
 
     this.Worker.postMessage({

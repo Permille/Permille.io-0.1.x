@@ -52,7 +52,7 @@ export default class MapView{
     //this.Element.style.width = "100%";
     //this.Element.style.height = "100%";
 
-    this.WorkerHeightCalculator = new Worker("./Mods/Map/WorkerHeightCalculator.mjs", {"type": "module"});
+    this.WorkerHeightCalculator = new Worker(new URL("./Mods/Map/WorkerHeightCalculator.mjs", import.meta.url));
 
     this.WorkerHeightCalculator.addEventListener("error", function(Error){
       console.warn("[MapView/WorkerHeightCalculator] Generic Error:");

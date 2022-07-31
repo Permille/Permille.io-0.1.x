@@ -1,26 +1,28 @@
-*:focus {
+.Chat{
+    position: absolute;
+    width: 100vw;
+    height: 100vh;
+    color: white;
+}
+
+.Chat *:focus {
     outline: none;
 }
 
-[contenteditable="true"].single-line {
+.Chat [contenteditable="true"].single-line {
     white-space: nowrap;
     overflow: hidden;
 }
-[contenteditable="true"].single-line br {
+.Chat [contenteditable="true"].single-line br {
     display:none;
 
 }
-[contenteditable="true"].single-line * {
+.Chat [contenteditable="true"].single-line * {
     display:inline;
     white-space:nowrap;
 }
 
-[href]:not([target="_blank"]){
-  /*filter: opacity(100%) !important;*/
-  /*transform: translateZ(0);*/
-}
-
-[href]:not([target="_blank"]):hover::before{
+.Chat [href]:not([target="_blank"]):hover::before{
   text-align: left;
   z-index: 2147483647 !important;
   position: fixed !important;
@@ -39,20 +41,8 @@
   backdrop-filter: blur(2px);
 }
 
-body{
-    font-family: ESCAPE, sans-serif;
-    font-size: 16px;
-    color: #ffffff;
-}
 
-
-html{
-    width: 100%;
-    height: 100%;
-}
-
-
-#ChatLogWrapper{
+.Chat .ChatLogWrapper{
     position: absolute;
     /*width: calc(100% - 16px);
     max-width: 800px;*/
@@ -63,7 +53,7 @@ html{
     overflow: auto;
     scroll-padding:16px;
 }
-#ChatLog{
+.Chat .ChatLog{
     box-sizing: border-box;
     background-color: #0000007f;
     min-height: 500px;
@@ -79,7 +69,7 @@ html{
     backdrop-filter: blur(5px);
 }
 
-.Input{
+.Chat .Input{
     box-sizing: border-box;
     position: absolute;
     bottom: 8px;
@@ -94,154 +84,8 @@ html{
 
 
 
-#ChatLog > div{
+.Chat .ChatLog > div{
     display: block;
     padding: 1px;
     width: 100%;
-}
-
-::-webkit-scrollbar-corner {
-    background: #0000007f
-}
-
-/* Track */
-::-webkit-scrollbar
-{
-  width: 16px;
-  height: 16px;
-  background-color: #0000007f; /*!!!!!*/
-}
-
-::-webkit-scrollbar-track
-{
-  background: #afafaf5f;
-  border: solid 2px #afafaf7f;
-}
-
-
-/* Thumb */
-::-webkit-scrollbar-thumb
-{
-  background: #7f7f7faf;
-}
-
-::-webkit-scrollbar-thumb:hover
-{
-  background: #6f6f6faf;
-}
-
-::-webkit-scrollbar-thumb:active
-{
-  background: #4f4f4faf;
-}
-/*
-::-webkit-scrollbar-thumb:vertical
-{
-  border-top: solid 2px rgba(33,33,33,0.5);
-  border-bottom: solid 2px rgba(33,33,33,0.5);
-}
-
-::-webkit-scrollbar-thumb:horizontal
-{
-  border-right: solid 2px rgba(33,33,33,0.5);
-  border-left: solid 2px rgba(33,33,33,0.5);
-}
-*/
-
-/* Buttons */
-::-webkit-scrollbar-button
-{
-  border-style: solid;
-  height: 16px;
-  width: 16px;
-}
-
-
-/* Up */
-::-webkit-scrollbar-button:vertical:decrement
-{
-  background-color: #afafaf5f;
-  border-width: 0;
-  background-position: center 4px;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='10,2 6,6 14,6'/></svg>");
-
-}
-
-::-webkit-scrollbar-button:vertical:decrement:hover
-{
-  background-color: #8f8f8f5f;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='10,2 6,6 14,6'/></svg>");
-}
-
-::-webkit-scrollbar-button:vertical:decrement:active
-{
-  background-color: #2f2f2f9f;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(240, 240, 240, 192)'><polygon points='10,2 6,6 14,6'/></svg>");
-}
-
-
-/* Down */
-::-webkit-scrollbar-button:vertical:increment
-{
-  background-color: #afafaf5f;
-  border-width: 0;
-  background-position: center 4px;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='10,6 6,2 14,2'/></svg>");
-
-}
-
-::-webkit-scrollbar-button:vertical:increment:hover
-{
-  background-color: #8f8f8f5f;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='10,6 6,2 14,2'/></svg>");
-}
-
-::-webkit-scrollbar-button:vertical:increment:active
-{
-  background-color: #2f2f2f9f;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(240, 240, 240, 192)'><polygon points='10,6 6,2 14,2'/></svg>");
-}
-
-
-/* Left */
-::-webkit-scrollbar-button:horizontal:decrement
-{
-  background-color: #afafaf5f;
-  border-width: 0;
-  background-position: center 4px;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='8,4 12,0 12,8'/></svg>");
-}
-
-::-webkit-scrollbar-button:horizontal:decrement:hover
-{
-  background-color: #8f8f8f5f;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='8,4 12,0 12,8'/></svg>");
-}
-
-::-webkit-scrollbar-button:horizontal:decrement:active
-{
-  background-color: #2f2f2f9f;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(240, 240, 240, 192)'><polygon points='8,4 12,0 12,8'/></svg>");
-}
-
-
-/* Right */
-::-webkit-scrollbar-button:horizontal:increment
-{
-  background-color: #afafaf5f;
-  border-width: 0;
-  background-position: center 4px;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='12,4 8,0 8,8'/></svg>");
-}
-
-::-webkit-scrollbar-button:horizontal:increment:hover
-{
-  background-color: #8f8f8f5f;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(32, 32, 32, 192)'><polygon points='12,4 8,0 8,8'/></svg>");
-}
-
-::-webkit-scrollbar-button:horizontal:increment:active
-{
-  background-color: #2f2f2f9f;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='rgba(240, 240, 240, 192)'><polygon points='12,4 8,0 8,8'/></svg>");
 }

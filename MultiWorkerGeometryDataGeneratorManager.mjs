@@ -10,7 +10,7 @@ const MaxWorkerQueue = 3;
 class WorkerGeometryDataGenerator{
   constructor(){
     this.Events = new Listenable;
-    this.Worker = new Worker("./WorkerGeometryDataGenerator.mjs", {"type": "module"});
+    this.Worker = new Worker(new URL("./WorkerGeometryDataGenerator.mjs", import.meta.url));
     this.OwnQueueSize = new Uint8Array(new SharedArrayBuffer(1));
 
     this.Worker.postMessage({

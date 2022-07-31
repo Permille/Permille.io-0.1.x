@@ -10,6 +10,16 @@ function SerpentineWeightingFunction(Value, Exponent){
   return (Math.sign(Intermediate) * Math.abs(Intermediate) ** Exponent + 0.5 ** Exponent) / Exponent ** (-Exponent);
 }
 
+function BiasedSerpentineWeightingFunction(Value){
+  const Intermediate = (2 * Value - 1) / ((2 * Value - 1) ** 2 + 1);
+  return Math.sign(Intermediate) * (1. - (1. - (2. * Math.abs(Intermediate))) ** (1. + Value)) * .5 + .5;
+}
+
+function BetterSerpentineWeightingFunction(Value, Exponent){
+  const Intermediate = (2 * Value - 1) / ((2 * Value - 1) ** 2 + 1);
+  return Math.sign(Intermediate) * (1. - (1. - (2. * Math.abs(Intermediate))) ** Exponent) * .5 + .5;
+}
+
 function ExponentialWeightingFunction(Value, Exponent){
   return Math.expm1(Math.pow(Value, Exponent)) / Math.expm1(1);
 }
@@ -19,6 +29,14 @@ for(let i = 0; i < 150; i++){
   SerpentineWeighting[i] = new Float32Array(501);
   for(let j = 0, Weighting = SerpentineWeighting[i]; j < 501; j++){
     Weighting[j] = SerpentineWeightingFunction(j / 500, i / 150);
+  }
+}
+
+const BetterSerpentineWeighting = [];
+for(let i = 0; i < 150; i++){
+  BetterSerpentineWeighting[i] = new Float32Array(501);
+  for(let j = 0, Weighting = BetterSerpentineWeighting[i]; j < 501; j++){
+    Weighting[j] = BetterSerpentineWeightingFunction(j / 2000, i / 150);
   }
 }
 
@@ -34,12 +52,22 @@ for(let i = 250; i < 450; i++){
 
 function GetSerpentineWeightingAt(Value, Exponent){
   let ValueIndex = Value * 100;
-  let ExponentIndex = Exponent * 500;
+  let ExponentIndex = Exponent * 2000;
   let ValueOffset = ValueIndex - (ValueIndex >>= 0);
   let ExponentOffset = ExponentIndex - (ExponentIndex >>= 0);
   //Precalculate derivatives?
   let CurrentValue = SerpentineWeighting[ValueIndex][ExponentIndex];
   return CurrentValue + (ValueOffset * (SerpentineWeighting[ValueIndex + 1][ExponentIndex] - CurrentValue) + ExponentOffset * (SerpentineWeighting[ValueIndex][ExponentIndex + 1] - CurrentValue));
+}
+
+function GetBetterSerpentineWeightingAt(Value, Exponent){
+  let ValueIndex = Value * 100;
+  let ExponentIndex = Exponent * 500;
+  let ValueOffset = ValueIndex - (ValueIndex >>= 0);
+  let ExponentOffset = ExponentIndex - (ExponentIndex >>= 0);
+  //Precalculate derivatives?
+  let CurrentValue = BetterSerpentineWeighting[ValueIndex][ExponentIndex];
+  return CurrentValue + (ValueOffset * (BetterSerpentineWeighting[ValueIndex + 1][ExponentIndex] - CurrentValue) + ExponentOffset * (BetterSerpentineWeighting[ValueIndex][ExponentIndex + 1] - CurrentValue));
 }
 
 function GetExponentialWeightingAt(Value, Exponent){
@@ -172,7 +200,6 @@ export function _GetHeight(X, Z){
 };
 
 export function GetHeight(X, Z){
-  X -= 500;
   //return 0;//(((X & 7) === 3 || (X & 7) === 4) && ((Z & 7) === 3 || (Z & 7) === 4)) ? 192. : 0.;
   //return 10;
   /* //Basic volcano
@@ -214,13 +241,13 @@ export function GetHeight(X, Z){
 
   //return WorleyNoise.FasterNoise(X / 130., Z / 130.) * 200.;
 
-  const Octaves = new Float32Array(16);
-  for(let i = 0; i < 15; i++){
+  const Octaves = new Float32Array(18);
+  for(let i = 0; i < 18; i++){
     Octaves[i] = Simplex.simplex3(X / 2 ** i, Z / 2 ** i, 1536);
   }
 
-  let OctaveSum6_15 = 0.;
-  for(let i = 0, Min = 6, Max = 15, Count = Max - Min; i < Count; ++i) OctaveSum6_15 += Octaves[i + Min] / (2 ** (Count - i));
+  let OctaveSum10_17 = 0.;
+  for(let i = 0, Min = 10, Max = 17, Count = Max - Min; i < Count; ++i) OctaveSum10_17 += Octaves[i + Min] / (2 ** (Count - i));
 
   let OctaveSum1_5 = 0.;
   for(let i = 0, Min = 1, Max = 5, Count = Max - Min; i < Count; ++i) OctaveSum1_5 += Octaves[i + Min] / (2 ** (Count - i));
@@ -237,23 +264,30 @@ export function GetHeight(X, Z){
   const CliffNoise1 = Simplex.simplex3(X / 512., Z / 512., 1539) * .75 * OctaveSum1_5 * .25;
   const CliffNoise2 = Simplex.simplex3(X / 256., Z / 256., 1539.4);
 
-  const Worley2 = WorleyNoise.FasterNoise(X / 2000., Z / 2000.);// + WorleyNoise.FasterNoise(X / 3000., Z / 3000.);
+  const Worley1 = WorleyNoise.FasterNoise(X / 40000., Z / 40000.);
+  const Worley2 = WorleyNoise.FasterNoise(X / 2000., Z / 2000., 0.);// + WorleyNoise.FasterNoise(X / 3000., Z / 3000.);
 
   const Other1 = Simplex.simplex3(X / 16384., Z / 16384., 1555);
   const Other2 = Simplex.simplex3(X / 4096., Z / 4096., 1555);
   const Other3 = Simplex.simplex3(X / 16384., Z / 16384., 1555.5);
 
-  let MountainMap = WeightTowards(.47 + .10 * Other3, .10 + .06 * (Other1 * .8 + Other2 * .2), .57)(OctaveSum6_15);
 
-  MountainMap *= Worley2;
-  MountainMap += WeightTowardsAsymmetric(.15, .0094)(MountainMap) * .0106 * Math.max(0., Octaves[8] * 2. - 1.);
-  MountainMap += WeightTowardsAsymmetric(.43, .0094)(1. - OctaveSum6_15) * .0106 * Math.min(1., Math.max(0., 2. - MountainMap * 5.));// * Math.max(0., Octaves[9] * 2. - 1.);
-  MountainMap += WeightTowardsAsymmetric(.38, .0094)(1. - OctaveSum6_15) * .0106 * Math.min(1., Math.max(0., 3.3 - MountainMap * 7.)) * (CliffNoise2 + 1.) / 2.;
-  MountainMap += WeightTowardsAsymmetric(.33, .0096)(1. - OctaveSum6_15) * CliffNoise1 * .0106;
-  MountainMap += Cliffs1(MountainMap) * .039 * OctaveSum3_9 * Math.max(0., Math.min(1.6 - 2. * MountainMap));
+  let MountainRegionWeighting = BiasedSerpentineWeightingFunction(WeightTowards(.47 + .10 * Other3, .10 + .06 * (Other1 * .8 + Other2 * .2), .57)(OctaveSum10_17));//BetterSerpentineWeightingFunction(Worley1, 1.);
+  let MountainWeighting = MountainRegionWeighting;//MountainRegionWeighting * WeightTowards(.47 + .10 * Other3, .10 + .06 * (Other1 * .8 + Other2 * .2), .57)(OctaveSum6_15);
+  MountainWeighting *= Worley2;
+  MountainWeighting += MountainRegionWeighting * .5;
+
+  let MountainMap = MountainWeighting;//WeightTowards(.47 + .10 * Other3, .10 + .06 * (Other1 * .8 + Other2 * .2), .57)(OctaveSum6_15);
+
+  //MountainMap += WeightTowardsAsymmetric(.15, .0094)(MountainMap) * .0106 * Math.max(0., Octaves[8] * 2. - 1.);
+  //MountainMap += WeightTowardsAsymmetric(.43, .0094)(1. - OctaveSum6_15) * .0106 * Math.min(1., Math.max(0., 2. - MountainMap * 5.));// * Math.max(0., Octaves[9] * 2. - 1.);
+  //MountainMap += WeightTowardsAsymmetric(.38, .0094)(1. - OctaveSum6_15) * .0106 * Math.min(1., Math.max(0., 3.3 - MountainMap * 7.)) * (CliffNoise2 + 1.) / 2.;
+  //MountainMap += WeightTowardsAsymmetric(.33, .0096)(1. - OctaveSum6_15) * CliffNoise1 * .0106;
+  //MountainMap += Cliffs1(MountainMap) * .039 * OctaveSum3_9 * Math.max(0., Math.min(1.6 - 2. * MountainMap));
+
   //MountainMap += Cliffs2(MountainMap) * .00014 + .00007 * OctaveSum3_9;
   //MountainMap += .001 * OctaveSum1_5 * Worley2;
-
+  // /tp -5212 463 -222000
 
   return MountainMap * 2200.;
 

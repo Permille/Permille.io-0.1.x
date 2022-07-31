@@ -114,10 +114,10 @@ export default class RegionLoader{
     this.AllocationIndex64 = LoadManager.AllocationIndex64;
     this.AllocationArray64 = LoadManager.AllocationArray64;
 
-    this.WorkerHeightMapGenerator = new Worker("../MultiWorkerHeightMapGeneratorManager.mjs", {"type": "module", "name": "Heightmap Generator Manager"});
-    this.WorkerRegionGenerator = new Worker("../MultiWorkerRegionGeneratorManager.mjs", {"type": "module", "name": "Region Generator Manager"});
-    this.WorkerRegionDecorator = new Worker("../RegionDecoratorThreadPool.mjs", {"type": "module", "name": "Region Decorator Thread Pool"});
-    this.WorkerGeometryDataGenerator = new Worker("../MultiWorkerGeometryDataGeneratorManager.mjs", {"type": "module", "name": "Geometry Data Generator Manager"});
+    this.WorkerHeightMapGenerator = new Worker(new URL("../../MultiWorkerHeightMapGeneratorManager.mjs", import.meta.url), {"name": "Heightmap Generator Manager"});
+    this.WorkerRegionGenerator = new Worker(new URL("../../MultiWorkerRegionGeneratorManager.mjs", import.meta.url), {"name": "Region Generator Manager"});
+    this.WorkerRegionDecorator = new Worker(new URL("../../RegionDecoratorThreadPool.mjs", import.meta.url), {"name": "Region Decorator Thread Pool"});
+    this.WorkerGeometryDataGenerator = new Worker(new URL("../../MultiWorkerGeometryDataGeneratorManager.mjs", import.meta.url), {"name": "Geometry Data Generator Manager"});
 
     //Gets reset in RRSLoader
     this.FinishedStage2Batch = -1;
@@ -357,7 +357,6 @@ export default class RegionLoader{
     if(!HeightMap) return; //The heightmap has been unloaded, which means that the region is also not needed anymore.
 
     //Progression to Stage 3 is managed in the constructor.
-
     this.WorkerRegionGenerator.postMessage({
       "Request": "GenerateRegionData",
       "RegionX": RegionX,

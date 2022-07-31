@@ -7,110 +7,107 @@ export default class Logic{
     this.Main = Main;
     this.Interface = BaseMenu.Interface;
 
-    this.Interface.Events.AddEventListener("Loaded", function(){
-      const IDocument = this.Interface.IFrame.contentDocument;
 
-      IDocument.getElementById("Exit").addEventListener("click", function(){
-        this.BaseMenu.Exit();
+    this.Interface.Element.querySelector(".Exit").addEventListener("click", function(){
+      this.BaseMenu.Exit();
+    }.bind(this));
+
+    //Creating custom button for toggling background blur
+    const ButtonElement = document.createElement("div");
+    ButtonElement.classList.add("ButtonInner");
+    ButtonElement.style.margin = "auto";
+    ButtonElement.dataset.exp = "ToggleBackground";
+    ButtonElement.style.width = "fit-content";
+    ButtonElement.style.maxWidth = "90vw";
+    ButtonElement.style.textOverflow = "ellipsis";
+    ButtonElement.style.paddingInline = "30px";
+
+    this.Interface.Element.querySelector(".Title").after(ButtonElement);
+    this.Interface.Element.querySelector(".Container").style.marginTop = "5vh";
+    this.Interface.Element.querySelector(".Container").style.maxHeight = "calc(max(72vh - 160px, 150px))";
+    this.Interface.Element.querySelector(".Title").style.marginBottom = "2vh";
+
+    {
+      let BackgroundBlur = true;
+      ButtonElement.addEventListener("click", function(){
+        BackgroundBlur = !BackgroundBlur;
+        if(BackgroundBlur){
+          this.Interface.Element.style.backgroundColor = "#000f0f5f";
+          this.Interface.Element.style.backdropFilter = "blur(3px)";
+        } else{
+          this.Interface.Element.style.backgroundColor = "transparent";
+          this.Interface.Element.style.backdropFilter = "none";
+        }
       }.bind(this));
 
-      //Creating custom button for toggling background blur
-      const ButtonElement = document.createElement("div");
-      ButtonElement.classList.add("Button");
-      ButtonElement.style.margin = "auto";
-      ButtonElement.dataset.exp = "ToggleBackground";
-      ButtonElement.style.width = "fit-content";
-      ButtonElement.style.maxWidth = "90vw";
-      ButtonElement.style.textOverflow = "ellipsis";
-      ButtonElement.style.paddingInline = "30px";
-
-      IDocument.querySelector("#Title").after(ButtonElement);
-      IDocument.querySelector("#Container").style.marginTop = "5vh";
-      IDocument.querySelector("#Container").style.maxHeight = "calc(max(72vh - 160px, 150px))";
-      IDocument.querySelector("#Title").style.marginBottom = "2vh";
-
-      {
-        let BackgroundBlur = true;
-        ButtonElement.addEventListener("click", function(){
-          BackgroundBlur = !BackgroundBlur;
-          if(BackgroundBlur){
-            IDocument.documentElement.style.backgroundColor = "#000f0f5f";
-            IDocument.documentElement.style.backdropFilter = "blur(3px)";
-          } else{
-            IDocument.documentElement.style.backgroundColor = "transparent";
-            IDocument.documentElement.style.backdropFilter = "none";
-          }
-        }.bind(this));
-
-        let PointerLocked = false;
-        IDocument.documentElement.addEventListener("click", function(Event){
-          if(Event.target === IDocument.documentElement || Event.target === IDocument.body){
-            PointerLocked = true;
-            Application.Main.Game.GamePointerLockHandler.PointerLock.Element.requestPointerLock();
-          }
-        }.bind(this));
-        document.addEventListener("keydown", function(Event){
-          if(Event.code === "AltLeft" && PointerLocked){
-            PointerLocked = false;
-            document.exitPointerLock();
-          }
-        });
-      }
-
-      ICCD.Range(IDocument.getElementById("FOV"), function(){
-        Application.Main.Renderer.DefaultFOV = ICVQ.Range(IDocument.getElementById("FOV"));
-        Application.Main.Renderer.Camera.fov = Application.Main.Renderer.DefaultFOV;
-        Application.Main.Renderer.Camera.updateProjectionMatrix();
+      let PointerLocked = false;
+      this.Interface.Element.addEventListener("click", function(Event){
+        if(Event.target === this.Interface.Element){
+          PointerLocked = true;
+          Application.Main.Game.GamePointerLockHandler.PointerLock.Element.requestPointerLock();
+        }
+      }.bind(this));
+      document.addEventListener("keydown", function(Event){
+        if(Event.code === "AltLeft" && PointerLocked){
+          PointerLocked = false;
+          document.exitPointerLock();
+        }
       });
-      ICCD.Switch(IDocument.getElementById("AO"), function(){
-        Application.Main.Raymarcher.FinalPassMaterial.uniforms["iRenderAmbientOcclusion"].value = ICVQ.Switch(IDocument.getElementById("AO"));
-      });
+    }
 
-      ICCD.Switch(IDocument.getElementById("UseUpscaling"), function(){
-        const UseUpscaling = ICVQ.Switch(IDocument.getElementById("UseUpscaling"));
-        Application.Main.Renderer.UseScaledTarget = UseUpscaling;
-      });
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-FOV"), function(){
+      Application.Main.Renderer.DefaultFOV = ICVQ.Range(this.Interface.Element.querySelector(".-ID-FOV"));
+      Application.Main.Renderer.Camera.fov = Application.Main.Renderer.DefaultFOV;
+      Application.Main.Renderer.Camera.updateProjectionMatrix();
+    }.bind(this));
+    ICCD.Switch(this.Interface.Element.querySelector(".-ID-AO"), function(){
+      Application.Main.Raymarcher.FinalPassMaterial.uniforms["iRenderAmbientOcclusion"].value = ICVQ.Switch(this.Interface.Element.querySelector(".-ID-AO"));
+    }.bind(this));
 
-      ICCD.Range(IDocument.getElementById("UpscalingKernelSize"), function(){
-        Application.Main.Raymarcher.SetKernelSize(Number.parseFloat(ICVQ.Range(IDocument.getElementById("UpscalingKernelSize"))));
-      });
+    ICCD.Switch(this.Interface.Element.querySelector(".-ID-UseUpscaling"), function(){
+      const UseUpscaling = ICVQ.Switch(this.Interface.Element.querySelector(".-ID-UseUpscaling"));
+      Application.Main.Renderer.UseScaledTarget = UseUpscaling;
+    }.bind(this));
 
-      ICCD.Range(IDocument.getElementById("RenderSize"), function(){
-        Application.Main.Renderer.ImageScale = ICVQ.Range(IDocument.getElementById("RenderSize"));
-        Application.Main.Renderer.UpdateSize();
-      });
-      ICCD.Range(IDocument.getElementById("CloudSize"), function(){
-        Application.Main.Renderer.CloudsScale = ICVQ.Range(IDocument.getElementById("CloudSize"));
-        Application.Main.Renderer.UpdateSize();
-      });
-      ICCD.Range(IDocument.getElementById("CloudCoverage"), function(){
-        Application.Main.Renderer.BackgroundMaterial.uniforms["iCloudCoverage"].value = ICVQ.Range(IDocument.getElementById("CloudCoverage"));
-        Application.Main.Renderer.UpdateSize();
-      });
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-UpscalingKernelSize"), function(){
+      Application.Main.Raymarcher.SetKernelSize(Number.parseFloat(ICVQ.Range(this.Interface.Element.querySelector(".-ID-UpscalingKernelSize"))));
+    }.bind(this));
 
-      ICCD.Switch(IDocument.getElementById("UseShadows"), function(){
-        Application.Main.Raymarcher.FinalPassMaterial.uniforms["iRenderShadows"].value = ICVQ.Switch(IDocument.getElementById("UseShadows"));
-      });
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-RenderSize"), function(){
+      Application.Main.Renderer.ImageScale = ICVQ.Range(this.Interface.Element.querySelector(".-ID-RenderSize"));
+      Application.Main.Renderer.UpdateSize();
+    }.bind(this));
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-CloudSize"), function(){
+      Application.Main.Renderer.CloudsScale = ICVQ.Range(this.Interface.Element.querySelector(".-ID-CloudSize"));
+      Application.Main.Renderer.UpdateSize();
+    }.bind(this));
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-CloudCoverage"), function(){
+      Application.Main.Renderer.BackgroundMaterial.uniforms["iCloudCoverage"].value = ICVQ.Range(this.Interface.Element.querySelector(".-ID-CloudCoverage"));
+      Application.Main.Renderer.UpdateSize();
+    }.bind(this));
 
-      ICCD.Range(IDocument.getElementById("ShadowSteps"), function(){
-        Application.Main.Raymarcher.Uniforms.iMaxShadowSteps.value = Number.parseInt(ICVQ.Range(IDocument.getElementById("ShadowSteps")));
-      });
+    ICCD.Switch(this.Interface.Element.querySelector(".-ID-UseShadows"), function(){
+      Application.Main.Raymarcher.FinalPassMaterial.uniforms["iRenderShadows"].value = ICVQ.Switch(this.Interface.Element.querySelector(".-ID-UseShadows"));
+    }.bind(this));
 
-      ICCD.Range(IDocument.getElementById("ShadowExponent"), function(){
-        Application.Main.Raymarcher.Uniforms.iShadowExponent.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowExponent")));
-      });
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-ShadowSteps"), function(){
+      //Application.Main.Raymarcher.Uniforms.iMaxShadowSteps.value = Number.parseInt(ICVQ.Range(this.Interface.Element.querySelector(".-ID-ShadowSteps")));
+    }.bind(this));
 
-      ICCD.Range(IDocument.getElementById("ShadowMultiplier"), function(){
-        Application.Main.Raymarcher.Uniforms.iShadowMultiplier.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowMultiplier")));
-      });
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-ShadowExponent"), function(){
+      Application.Main.Raymarcher.Uniforms.iShadowExponent.value = Number.parseFloat(ICVQ.Range(this.Interface.Element.querySelector(".-ID-ShadowExponent")));
+    }.bind(this));
 
-      ICCD.Range(IDocument.getElementById("ShadowDarkness"), function(){
-        Application.Main.Raymarcher.Uniforms.iShadowDarkness.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("ShadowDarkness")));
-      });
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-ShadowMultiplier"), function(){
+      Application.Main.Raymarcher.Uniforms.iShadowMultiplier.value = Number.parseFloat(ICVQ.Range(this.Interface.Element.querySelector(".-ID-ShadowMultiplier")));
+    }.bind(this));
 
-      ICCD.Range(IDocument.getElementById("FogFactor"), function(){
-        Application.Main.Raymarcher.Uniforms.iFogFactor.value = Number.parseFloat(ICVQ.Range(IDocument.getElementById("FogFactor")));
-      });
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-ShadowDarkness"), function(){
+      Application.Main.Raymarcher.Uniforms.iShadowDarkness.value = Number.parseFloat(ICVQ.Range(this.Interface.Element.querySelector(".-ID-ShadowDarkness")));
+    }.bind(this));
+
+    ICCD.Range(this.Interface.Element.querySelector(".-ID-FogFactor"), function(){
+      Application.Main.Raymarcher.Uniforms.iFogFactor.value = Number.parseFloat(ICVQ.Range(this.Interface.Element.querySelector(".-ID-FogFactor")));
     }.bind(this));
   }
 }

@@ -7,7 +7,7 @@ export default class MapInterface{
     this.IFrame = document.createElement("iframe");
     this.IFrame.style.position = "absolute";
     //this.IFrame.sandbox = "";
-    this.IFrame.setAttribute("src", "./Mods/Map/index.xhtml");
+    this.IFrame.setAttribute("src", "./Mods/Map/index.html");
     document.body.appendChild(this.IFrame);
 
     this.Events = new Listenable;

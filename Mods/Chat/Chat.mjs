@@ -79,21 +79,14 @@ export class Chat{
     this.CurrentSelection = 0;
 
     this.ChatCommands = DefaultChatCommands;
-
-    const IFrame = this.ChatInterface.IFrame;
-
-    let Callback = function(){
-      Application.Main.Game.ControlManager.RegisterIFrame(IFrame);
-    }.bind(this);
-
-    IFrame.addEventListener("load", Callback.bind(this));
   }
   Show(){
     this.CurrentSelection = this.MessageHistory.length;
     Application.Main.Game.ControlManager.FocusControl("ChatControls");
-    this.ChatInterface.Show();
-    this.ChatInterface.IFrame.contentWindow.focus(); //Important: need to focus iframe window AND the element within it.
-    this.ChatInterface.IFrame.contentDocument.getElementById("Input").focus();
+    window.setTimeout(function(){
+      this.ChatInterface.Show();
+      this.ChatInterface.Input.focus();
+    }.bind(this), 5);
   }
   Exit(){
     this.CurrentSelection = this.MessageHistory.length;
@@ -104,33 +97,34 @@ export class Chat{
   }
   SelectPrevious(){
     this.CurrentSelection = Math.max(0, this.CurrentSelection - 1);
-    if(this.MessageHistory[this.CurrentSelection]) this.ChatInterface.IFrame.contentDocument.getElementById("Input").innerHTML = this.MessageHistory[this.CurrentSelection];
+    if(this.MessageHistory[this.CurrentSelection]) this.ChatInterface.Input.innerHTML = this.MessageHistory[this.CurrentSelection];
   }
   SelectNext(){
     this.CurrentSelection = Math.min(this.MessageHistory.length, this.CurrentSelection + 1);
-    if(this.MessageHistory[this.CurrentSelection]) this.ChatInterface.IFrame.contentDocument.getElementById("Input").innerHTML = this.MessageHistory[this.CurrentSelection];
-    else this.ChatInterface.IFrame.contentDocument.getElementById("Input").innerHTML = "";
+    if(this.MessageHistory[this.CurrentSelection]) this.ChatInterface.Input.innerHTML = this.MessageHistory[this.CurrentSelection];
+    else this.ChatInterface.Input.innerHTML = "";
   }
   SendContents(){
-    const IDocument = this.ChatInterface.IFrame.contentDocument;
-    let Text = IDocument.getElementById("Input").innerHTML;
+    let Text = this.ChatInterface.Input.innerHTML;
+    Text = Text.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
     let Response = "";
 
     if(/^\//.test(Text)){
       let Parts = Text.replace(/^\//, "").split(" ");
       let Command = this.ChatCommands[Parts.shift()];
       if(!Command) Response = "<span style=\"color:#ff0000\">Unknown command.</span>";
-      else Response = Command(...Parts);
+      else Response = Command(...Parts) ?? "";
 
     } else Response = Text; //Just send message normally.
 
     if(Text !== "") this.MessageHistory.push(Text);
 
     if(Response !== ""){
-      let Parsed = this.ParseMessage(Response);
       this.CurrentSelection = this.MessageHistory.length;
+      this.ChatInterface.Input.innerHTML = "";
 
-      IDocument.getElementById("Input").innerHTML = "";
+      let Parsed = this.ParseMessage(Response);
       this.Receive(Parsed);
     }
 
@@ -142,15 +136,15 @@ export class Chat{
   Receive(Message){
     let NewElement = document.createElement("div");
     NewElement.innerHTML = Message;
-    const ChatLog = this.ChatInterface.IFrame.contentDocument.getElementById("ChatLog");
+    const ChatLog = this.ChatInterface.ChatLog;
     ChatLog.append(NewElement);
     ChatLog.parentElement.scrollTo(0, ChatLog.parentElement.scrollHeight);
   }
   ParseMessage(Text){
-    let Match = Text.match(/(?<!(?<!\\)\\)\!\{([^\]]*)\}/);
-    while(Match){
-      Text = Text.replace(Match[0], ""); //TODO: Actually do something useful with this...
-      Match = Text.match(/(?<!(?<!\\)\\)\!\{([^\]]*)\}/);
+    let Match;
+    while(Match = Text.match(/(?<!(?<!\\)\\)\!\{([^\]]*)\}/)){
+      Text = Text.replace(Match[0], `<span style="color: ${Match[0].slice(2, -1)}">`);
+      Text += "</span>";
     }
     return Text;
   }

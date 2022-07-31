@@ -16,7 +16,7 @@ let RequiredRegionSelection;
 class WorkerRegionDecorator{
   constructor(){
     this.Events = new Listenable;
-    this.Worker = new Worker("./WorkerRegionDecorator.mjs", {"type": "module"});
+    this.Worker = new Worker(new URL("./WorkerRegionDecorator.mjs", import.meta.url));
     this.OwnQueueSize = new Uint8Array(new SharedArrayBuffer(1));
 
     this.Worker.postMessage({
